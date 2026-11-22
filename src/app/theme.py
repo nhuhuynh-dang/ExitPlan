@@ -14,7 +14,7 @@ def palette(mode, accent=BLUE_ACCENT):
     return {
         'bg': '#0C192C' if dark else '#F0F6FD',
         'surface': '#192B43' if dark else '#FFFFFF',
-        'sidebar': '#091A31' if dark else '#0C2747',
+        'sidebar': '#091A31' if dark else '#EAF3FC',
         'text': '#EAF3FF' if dark else '#16304F',
         'muted': '#ACBFDA' if dark else '#607A9D',
         'border': '#344A67' if dark else '#D6E4F2',
@@ -46,6 +46,7 @@ html{font-size:16px} .stApp{font-size:__SIZE__pt}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{font-weight:750}
 .ep-brand{display:flex;align-items:center;gap:11px;padding:6px 0 12px}
  .ep-brand-mark{display:grid;place-items:center;height:43px;width:43px;border-radius:14px;background:__ACCENT__;color:#FFFFFF;font-size:24px;font-weight:850;flex-shrink:0}
+.ep-brand-mark svg{width:29px;height:29px;display:block;stroke:#FFFFFF;}
 .ep-brand-title{font-size:1.43rem;font-weight:850;color:__TEXT__;line-height:1.2}
 .ep-brand-sub{font-size:.67rem;letter-spacing:.07em;color:__MUTED__;margin-top:4px}
 [data-testid="stSidebar"] [data-testid="stExpander"]{border:1px solid __BORDER__;border-radius:12px;background:__GLASS__}
@@ -127,7 +128,7 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
         'ssi_history','validation','methods','downloads'
     ]
     nav_icons=[]
-    icon_color='#ECF5FF'
+    icon_color='#ECF5FF' if mode=='Tối' else '#23486D'
     for key,paths in zip(nav_keys,svg_paths):
         svg=("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
              "fill='none' stroke='"+icon_color+"' stroke-width='1.8' "
@@ -166,11 +167,11 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-testid="stSidebar"] [role="radiogroup"] input[type="radio"] {position:absolute !important;opacity:0 !important;width:1px !important;height:1px !important;}
 [data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"] {display:none !important;}
 [data-testid="stSidebar"] [role="radiogroup"] label > div:has(> input[type="radio"]) {display:none !important;}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(230,166,155,.12) !important;}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(46,131,230,.12) !important;}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-    background:rgba(230,166,155,.22) !important;
-    border-color:#E6A69B !important;
-    box-shadow:inset 3px 0 0 #E6A69B;
+    background:rgba(46,131,230,.22) !important;
+    border-color:#2E83E6 !important;
+    box-shadow:inset 3px 0 0 #2E83E6;
 }
 [data-testid="stSidebar"] [role="radiogroup"] label p {font-weight:600 !important;font-size:.91rem;}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:__SIDEACTIVE__ !important;font-weight:750 !important;}
@@ -180,7 +181,7 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-testid="stAlert"] {border-radius:14px;border-color:__BORDER__ !important;background:__ALERTBG__ !important;}
 [data-testid="stAlert"][data-baseweb] {color:__TEXT__ !important;}
 [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#4298ED !important;}
-[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#D79A9D !important;}
+[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#4298ED !important;}
 
 /* Nút, ô nhập và các thẻ áp dụng đúng theme cho cả Sáng và Tối. */
 .stButton button, .stDownloadButton button,
@@ -232,10 +233,10 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 @media (max-width:950px) {.ep-panel{padding:15px}.ep-table{font-size:.82rem;}}
 @media (max-width:580px) {.ep-setting-row{align-items:flex-start;flex-direction:column;gap:8px;}}
 """.replace("__NAVY__", p['sidebar'])
-    extra_css=extra_css.replace('__SIDETEXT__','#ECF4FF')
-    extra_css=extra_css.replace('__SIDEMUTED__','#ABC0DC')
+    extra_css=extra_css.replace('__SIDETEXT__','#ECF4FF' if mode=='Tối' else '#173454')
+    extra_css=extra_css.replace('__SIDEMUTED__','#ABC0DC' if mode=='Tối' else '#6A819C')
     extra_css=extra_css.replace('__SIDEACTIVE__','#FFFFFF')
-    extra_css=extra_css.replace('__TOGGLEBG__','#163A61' if mode=='Tối' else '#1B4269')
+    extra_css=extra_css.replace('__TOGGLEBG__','#163A61' if mode=='Tối' else '#D9E9FB')
     extra_css=extra_css.replace('__ALERTBG__','#1A3553' if mode=='Tối' else '#E9F3FF')
     theme_values = {
         '__TABLE_HEAD__': '#274361' if mode=='Tối' else '#EBF2FB',
@@ -283,6 +284,9 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="primary"] p {
     font-weight:800 !important;
 }
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="primary"]::before {
+    filter:brightness(0) invert(1) !important;
+}
 .ep-method-grid {
     display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
     gap:22px;padding:4px 0 8px;margin:8px 0 26px;
@@ -291,8 +295,8 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 .ep-method-grid .ep-method h3 {margin:0 0 13px;font-size:1.14rem;line-height:1.4;}
 .ep-method-grid .ep-method p {margin:0;line-height:1.8;font-size:.91rem;}
 @media(max-width:850px) {.ep-method-grid {grid-template-columns:1fr;gap:16px;}}
-""".replace("__NAVTEXT__", '#F5EFF1' if mode=='Tối' else '#443B42')
-    nav_button_css=nav_button_css.replace("__NAVACTIVE__", '#FFE5DD' if mode=='Tối' else '#9B514B')
+""".replace("__NAVTEXT__", '#EDF6FF' if mode=='Tối' else '#173454')
+    nav_button_css=nav_button_css.replace("__NAVACTIVE__", '#FFFFFF')
     extra_css+=nav_button_css
     # Banking Insights: colored KPI scorecards, subtle panels, coordinated tables and charts.
     theme_values.update({
@@ -318,12 +322,12 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     })
     finance_css="""
 /* Navy finance dashboard: four pastel KPI tones with individual outline icons. */
-.stApp [data-testid="stSidebar"] .ep-brand-title{color:#F5FAFF !important;}
-.stApp [data-testid="stSidebar"] .ep-brand-sub{color:#BBD1E8 !important;}
+.stApp [data-testid="stSidebar"] .ep-brand-title{color:__SIDEBRANDTITLE__ !important;}
+.stApp [data-testid="stSidebar"] .ep-brand-sub{color:__SIDEBRANDSUB__ !important;}
 .stApp [data-testid="stSidebar"] .ep-brand-mark{
     background:linear-gradient(145deg,#2067C3,#39A1F6) !important;color:#FFF !important;
 }
-[data-testid="stSidebar"] [data-testid="stToggle"] [data-testid="stWidgetLabel"] p {color:#E9F4FF !important;}
+[data-testid="stSidebar"] [data-testid="stToggle"] [data-testid="stWidgetLabel"] p {color:__SIDETOGLABEL__ !important;}
 .ep-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin:16px 0 24px;}
 [data-testid="stMarkdownContainer"] .ep-kpi-grid .ep-card{
     display:flex;align-items:center;gap:14px;min-height:125px;
@@ -366,6 +370,67 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 @media(max-width:950px){.ep-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(195px,1fr));}}
 @media(max-width:640px){.ep-kpi-grid{grid-template-columns:1fr;}.ep-card-icon{width:43px;height:43px;min-width:43px;}}
 """
+    finance_css=finance_css.replace('__SIDEBRANDTITLE__','#F5FAFF' if mode=='Tối' else '#173454')
+    finance_css=finance_css.replace('__SIDEBRANDSUB__','#BBD1E8' if mode=='Tối' else '#66809E')
+    finance_css=finance_css.replace('__SIDETOGLABEL__','#E9F4FF' if mode=='Tối' else '#173454')
+    # Native Streamlit controls otherwise retain the default red pills, focus rings
+    # or light backgrounds even after the custom dashboard palette switches.
+    native_css="""
+/* Native multiselect symbols (ACB/HPG/VPB): no more default Streamlit-red chips. */
+[data-testid="stMultiSelect"] [data-baseweb="tag"],
+[data-testid="stMultiSelect"] [data-baseweb="tag"] > div,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] > span {
+    background:__CHIP_BLUE__ !important;color:#FFFFFF !important;border-radius:8px !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] span,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] button,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] [role="button"] {
+    color:#FFFFFF !important;fill:#FFFFFF !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {stroke:#FFFFFF !important;}
+[data-testid="stMultiSelect"] [data-baseweb="tag"]:hover {background:__CHIP_HOVER__ !important;}
+/* Input boxes, dropdown menu and multi-select share the page's Sáng/Tối background. */
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stDateInput"] [data-baseweb="input"] > div,
+[data-testid="stTextInput"] [data-baseweb="input"] > div,
+[data-testid="stNumberInput"] [data-baseweb="input"] > div {
+    background:__INPUT_BG__ !important;color:__TEXT__ !important;
+    border-color:__BORDER__ !important;
+}
+[data-testid="stMultiSelect"] input,
+[data-testid="stSelectbox"] input,
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input {
+    color:__TEXT__ !important;
+    -webkit-text-fill-color:__TEXT__;
+}
+[data-baseweb="popover"] [role="listbox"],
+[data-baseweb="menu"] {background:__INPUT_BG__ !important;color:__TEXT__ !important;}
+[data-baseweb="popover"] [role="option"],
+[data-baseweb="menu"] [role="option"] {color:__TEXT__ !important;}
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="menu"] [role="option"]:hover {background:__HOVER_BG__ !important;}
+[data-testid="stMultiSelect"] [data-baseweb="select"]:focus-within > div,
+[data-testid="stSelectbox"] [data-baseweb="select"]:focus-within > div,
+[data-testid="stTextInput"] [data-baseweb="input"]:focus-within > div {
+    border-color:__CHIP_BLUE__ !important;
+    box-shadow:0 0 0 1px __CHIP_BLUE__ !important;
+}
+/* Keep the main labels readable; sidebar uses its independent foreground palette. */
+[data-testid="stMain"] [data-testid="stWidgetLabel"] p {color:__TEXT__ !important;}
+"""
+    for old,new in {
+        '__CHIP_BLUE__': '#348BEB' if mode=='Tối' else '#2E83E6',
+        '__CHIP_HOVER__': '#4D9CEE' if mode=='Tối' else '#1D70C9',
+        '__INPUT_BG__': '#192B43' if mode=='Tối' else '#FFFFFF',
+        '__HOVER_BG__': '#294765' if mode=='Tối' else '#E6F1FE',
+        '__TEXT__': p['text'], '__BORDER__': p['border'],
+    }.items():
+        native_css=native_css.replace(old,new)
+    extra_css+=native_css
     for key,value in theme_values.items():
         finance_css=finance_css.replace(key,value)
     extra_css+=finance_css

@@ -4,12 +4,27 @@ from src.app.charts import apply_palette
 from src.app.components import cards_html
 
 
-def test_light_palette_navy_sidebar_and_sky_blue_canvas():
+def test_light_palette_pale_blue_sidebar_and_sky_blue_canvas():
     colors = palette("Sáng")
-    assert colors["sidebar"] == "#0C2747"
+    assert colors["sidebar"] == "#EAF3FC"
     assert colors["bg"] == "#F0F6FD"
     assert colors["surface"] == "#FFFFFF"
     assert colors["accent"] == BLUE_ACCENT
+    css = theme_css("Sáng")
+    assert "#EAF3FC" in css
+    assert "#173454" in css
+    assert '__SIDEBRANDTITLE__' not in css
+    assert '__SIDETOGLABEL__' not in css
+
+
+def test_dark_sidebar_remains_navy_and_brand_contrast():
+    colors = palette("Tối")
+    css = theme_css("Tối")
+    assert colors["sidebar"] == "#091A31"
+    assert "#F5FAFF" in css
+    assert "#ECF5FF" in css
+    assert '__NAVTEXT__' not in css
+    assert '__NAVACTIVE__' not in css
 
 
 def test_dark_palette_uses_blue_background_for_plots_and_tables():
@@ -50,3 +65,26 @@ def test_hero_recolored_to_blue_and_keeps_semantic_description():
     assert "danh mục cổ phiếu" in svg
     assert "#D6EAFF" in svg
     assert "#FFDAD1" not in svg
+
+def test_multiselect_tags_and_native_widgets_use_blue_not_red():
+    css=theme_css("Sáng")
+    assert '[data-testid="stMultiSelect"] [data-baseweb="tag"]' in css
+    assert '#2E83E6' in css
+    assert '#FFFFFF' in css
+    assert '__CHIP_BLUE__' not in css
+
+    dark_css=theme_css("Tối")
+    assert '#348BEB' in dark_css
+    assert '#192B43' in dark_css
+    assert '__INPUT_BG__' not in dark_css
+
+
+def test_nav_icon_and_sidebar_light_favicon_configuration():
+    from pathlib import Path
+    source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
+    assert 'page_icon=None' in source
+    assert '<svg viewBox="0 0 32 32"' in source
+    assert 'from textwrap import dedent' in source
+    css=theme_css("Sáng")
+    assert '#EAF3FC' in css
+    assert '#173454' in css

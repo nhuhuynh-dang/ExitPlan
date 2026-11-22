@@ -1,0 +1,9 @@
+# Base theme for native Streamlit widgets and browser defaults.
+# ExitPlan's custom app-level Light/Dark switch also styles panels and charts.
+[theme]
+base = "light"
+primaryColor = "#2E83E6"
+backgroundColor = "#F0F6FD"
+secondaryBackgroundColor = "#EAF3FC"
+textColor = "#16304F"
+font = "sans serif"
