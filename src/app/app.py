@@ -1,6 +1,7 @@
 """Entry point: python -m streamlit run src/app/app.py"""
 import sys
 from pathlib import Path
+from textwrap import dedent
 ROOT=Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
 import streamlit as st
@@ -13,7 +14,7 @@ with st.sidebar:
     # Logo SVG nhỏ: danh mục (3 thanh) và mũi tên thoát vị thế.
     # Khác với favicon: tab trình duyệt dùng logo Streamlit mặc định.
     st.markdown(
-        """
+        dedent("""
         <div class="ep-brand">
           <span class="ep-brand-mark" role="img" aria-label="Biểu tượng ExitPlan - danh mục và kế hoạch thanh lý">
             <svg viewBox="0 0 32 32" width="29" height="29" aria-hidden="true"
@@ -30,7 +31,7 @@ with st.sidebar:
             <div class="ep-brand-sub">SMART PORTFOLIO EXIT</div>
           </div>
         </div>
-        """,
+        """),
         unsafe_allow_html=True,
     )
     st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')
