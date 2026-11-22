@@ -1,0 +1,2 @@
+{"received_at":"2026-11-18T09:31:05+07:00","message":{"channel":"stockInfo","data":{"symbol":"HPG","closePrice":29800,"bidPrice1":"29750.0","bidVol1":293000,"bidPrice2":29700,"bidVol2":208800,"bidPrice3":29650,"bidVol3":25900,"askPrice1":"29800.0","askVol1":4000,"totalTradingVolume":5736600}}}
+{"received_at":"2026-11-18T09:31:06+07:00","message":{"channel":"stockInfo","data":{"symbol":"VPB","closePrice":19500,"bidPrice1":19450,"bidVol1":50000,"bidPrice2":19400,"bidVol2":40000,"bidPrice3":19350,"bidVol3":30000,"askPrice1":19500,"askVol1":20000,"totalTradingVolume":1100000}}}

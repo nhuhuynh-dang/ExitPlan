@@ -1,0 +1,5 @@
+﻿symbol,records,missing_bid,duplicates,invalid_rows,missing_pct,duplicate_pct,invalid_pct,data_kind
+ACB,25,0,0,0,0.0,0.0,0.0,synthetic
+FPT,25,0,0,0,0.0,0.0,0.0,synthetic
+HPG,25,0,0,0,0.0,0.0,0.0,synthetic
+VPB,25,0,0,0,0.0,0.0,0.0,synthetic

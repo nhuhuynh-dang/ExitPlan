@@ -1,0 +1,13 @@
+{
+  "product": "ExitPlan",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "lot_size": 100,
+  "observed_book_levels": 3,
+  "maximum_assets_mvp": 12,
+  "fee_rate_default": null,
+  "tax_rate_default": null,
+  "impact_coefficient": null,
+  "participation_threshold_pct_default": 10,
+  "data_source": "NEO stockInfo WebSocket recorded by external pipeline",
+  "note": "TODO: xác minh biểu phí, thuế, đơn vị NEO, lịch sử ADV, quy tắc lô giao dịch và impact model trước thử nghiệm thật."
+}

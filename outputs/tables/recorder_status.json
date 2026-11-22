@@ -1,0 +1,8 @@
+{
+  "state": "synthetic_only",
+  "data_kind": "synthetic",
+  "channel": "stockInfo",
+  "last_update_vn": "2026-10-16 14:15:00+07:00",
+  "records": 100,
+  "message": "GIẢ LẬP — không có kết nối WebSocket thật."
+}
