@@ -47,7 +47,7 @@ PAGE_INFO={
  'downloads':('REPRODUCIBILITY','Tải dữ liệu','Xuất các bảng đã tính để kiểm tra, đối chiếu và viết báo cáo.'),
 }
 
-def page_header(key,accent):
+def page_header(key,accent,mode='Sáng'):
     eye,title,description=PAGE_INFO[key]
     icons={
         'overview':'<path d="m3 10 9-7 9 7v10H3z"/><path d="M9 21v-8h6v8"/>',
@@ -64,7 +64,7 @@ def page_header(key,accent):
     html=(
         '<div class="ep-hero"><div class="ep-hero-heading"><span class="ep-hero-icon">'+icon+'</span>'
         '<div><div class="ep-eyebrow">'+escape(eye)+'</div><h1>'+escape(title)+'</h1></div></div>'
-        '<p>'+escape(description)+'</p><div class="art">'+hero_svg(accent)+'</div></div>'
+        '<p>'+escape(description)+'</p><div class="art">'+hero_svg(accent,mode)+'</div></div>'
     )
     st.markdown(html,unsafe_allow_html=True)
 
@@ -588,7 +588,7 @@ FUNCTIONS={'overview':overview,'planner':planner,'compare':compare,'liquidity':l
            'data':data_page,'ssi_history':ssi_history,'validation':validation,'methods':methods,'downloads':downloads}
 
 def render_page(page,root,cfg):
-    page_header(page,cfg['accent'])
+    page_header(page,cfg['accent'],cfg['mode'])
     data=load(root)
     t=charts.apply_palette(cfg['mode'],cfg['accent'])
     try:
