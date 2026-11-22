@@ -13,14 +13,14 @@ def _rotate(hex_color,delta=0.1):
 
 def apply_palette(mode,accent):
     p=palette(mode)
-    p.update(secondary='#F4C9BD' if mode=='Tối' else '#C88192',tertiary='#D58EA3' if mode=='Tối' else '#AB7A8C')
+    p.update(secondary='#6FD6BA' if mode=='Tối' else '#4CB99A',tertiary='#B4A2FF' if mode=='Tối' else '#9280DD')
     return p
 
 def layout(fig,t,height=360,title=None,legend=True):
     fig.update_layout(height=height,margin=dict(l=12,r=14,t=55 if title else 35,b=20),
                       paper_bgcolor=t['surface'],plot_bgcolor=t['plot'],
                       separators=',.',font=dict(family='Be Vietnam Pro, sans-serif',size=12,color=t['text']),
-                      showlegend=legend,legend=dict(orientation='h',y=1.03,x=0),
+                      showlegend=legend,legend=dict(orientation='h',y=1.03,x=0,bgcolor='rgba(0,0,0,0)',font=dict(color=t['text'])),
                       hoverlabel=dict(bgcolor=t['surface'],font_color=t['text'],bordercolor=t['border']),
                       xaxis=dict(tickfont=dict(color=t['text'])),yaxis=dict(tickfont=dict(color=t['text'])))
     if title:fig.update_layout(title=dict(text=title,x=0,font=dict(size=15)))
@@ -90,7 +90,7 @@ def depth_fig(quotes,t):
 def time_fig(df,t,normalize=False):
     """Vẽ chuỗi từ file. normalize=True chỉ chuẩn hóa HIỂN THỊ, không đổi dữ liệu gốc."""
     fig=go.Figure()
-    colors=[t['accent'],t['secondary'],t['tertiary'],'#E6B88A','#BD8198','#F3D0C0']
+    colors=[t['accent'],t['secondary'],t['tertiary'],'#E5AC55','#63A6F2','#7DC6BA']
     for idx,(sym,g) in enumerate(df.groupby('symbol')):
         g=g.sort_values('ts_vn').dropna(subset=['closePrice'])
         if g.empty:continue
