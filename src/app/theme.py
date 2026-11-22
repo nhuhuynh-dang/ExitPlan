@@ -630,6 +630,75 @@ body ul[role="listbox"] [aria-selected="true"]{
     for key,value in theme_values.items():
         finance_css=finance_css.replace(key,value)
     extra_css+=finance_css
+    # A single wide theme switch below the brand. The sun/moon is a monochrome
+    # 24x24 vector INSIDE the right-hand switch knob (never a colored emoji).
+    if mode=='Tối':
+        theme_icon_paths='<path d="M20.985 12.486A9 9 0 0 1 11.514 3.015 9 9 0 1 0 20.985 12.486Z"/>'
+        theme_icon_color='#EAF3FF'
+    else:
+        theme_icon_paths=(
+            '<circle cx="12" cy="12" r="4"/>'
+            '<path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42'
+            'M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/>'
+        )
+        theme_icon_color='#235B96'
+    theme_svg=(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
+        "fill='none' stroke='"+theme_icon_color+"' stroke-width='1.9' "
+        "stroke-linecap='round' stroke-linejoin='round'>"
+        +theme_icon_paths+"</svg>"
+    )
+    theme_icon_uri="data:image/svg+xml,"+quote(theme_svg,safe='')
+    theme_button_css="""
+/* One light/dark theme bar immediately under the Vietnam subtitle. */
+[data-testid="stSidebar"] .st-key-ep_theme_toggle {
+    margin:9px 0 21px !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_toggle button {
+    display:flex !important;align-items:center !important;justify-content:space-between !important;
+    gap:11px !important;width:100% !important;min-height:53px !important;
+    padding:7px 9px 7px 14px !important;
+    background:__THEME_BUTTON_BG__ !important;color:__THEME_BUTTON_TEXT__ !important;
+    border:1px solid __THEME_BUTTON_BORDER__ !important;border-radius:15px !important;
+    box-shadow:0 4px 14px rgba(17,49,94,.065) !important;
+    transition:background .16s ease,border-color .16s ease !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_toggle button:hover {
+    background:__THEME_BUTTON_HOVER__ !important;
+    border-color:__THEME_BUTTON_BORDER_HOVER__ !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_toggle button:focus-visible {
+    outline:2px solid __ACCENT__ !important;outline-offset:2px !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_toggle button p {
+    color:__THEME_BUTTON_TEXT__ !important;font-size:.87rem !important;
+    font-weight:720 !important;line-height:1.4 !important;
+    text-align:left !important;margin:0 !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_toggle button::after {
+    content:"" !important;display:block !important;flex:0 0 35px !important;
+    width:35px !important;height:35px !important;
+    border-radius:50% !important;border:1px solid __THEME_KNOB_BORDER__ !important;
+    background-color:__THEME_KNOB_BG__ !important;
+    background-image:url("__THEME_ICON_URI__") !important;
+    background-repeat:no-repeat !important;background-position:center !important;
+    background-size:20px 20px !important;
+    margin-left:auto !important;box-shadow:0 2px 6px rgba(0,0,0,.05) !important;
+}
+"""
+    theme_button_colors={
+        '__THEME_BUTTON_BG__': '#17314E' if mode=='Tối' else '#FFFFFF',
+        '__THEME_BUTTON_TEXT__': '#EAF3FF' if mode=='Tối' else '#173454',
+        '__THEME_BUTTON_BORDER__': '#355373' if mode=='Tối' else '#CBDFF3',
+        '__THEME_BUTTON_HOVER__': '#223E5D' if mode=='Tối' else '#F6FBFF',
+        '__THEME_BUTTON_BORDER_HOVER__': '#5B98D0' if mode=='Tối' else '#70ACEB',
+        '__THEME_KNOB_BG__': '#28517A' if mode=='Tối' else '#E5F2FF',
+        '__THEME_KNOB_BORDER__': '#4F7EAE' if mode=='Tối' else '#C8E0F7',
+        '__THEME_ICON_URI__': theme_icon_uri,
+    }
+    for old,new in theme_button_colors.items():
+        theme_button_css=theme_button_css.replace(old,new)
+    extra_css+=theme_button_css
     for key,value in theme_values.items():
         extra_css=extra_css.replace(key,value)
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')

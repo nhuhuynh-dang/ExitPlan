@@ -141,10 +141,27 @@ def test_sidebar_no_collapse_chevron_on_desktop_but_has_recovery():
         assert '[data-testid="stAppDeployButton"]' in css
 
 
-def test_theme_toggle_icon_reflects_current_state():
+def test_theme_switch_is_below_brand_and_has_one_stateful_control():
     from pathlib import Path
     source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
     assert "initial_sidebar_state='expanded'" in source
-    assert "current_dark=bool(st.session_state.get('ep_dark_mode',False))" in source
-    assert "mode_label='🌙 Chế độ tối' if current_dark else '☀️ Chế độ sáng'" in source
-    assert "st.toggle(mode_label,value=False,key='ep_dark_mode')" in source
+    subtitle=source.index("st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')")
+    switch=source.index("key='ep_theme_toggle'")
+    navigation=source.index("for nav_key,nav_label in NAV.items():")
+    assert subtitle < switch < navigation
+    assert "'Chế độ tối' if current_dark else 'Chế độ sáng'" in source
+    assert "st.session_state['ep_dark_mode']=not current_dark" in source
+    assert 'st.toggle(' not in source
+
+
+def test_sun_and_moon_icons_are_monochrome_svg_inside_button():
+    light_css=theme_css("Sáng")
+    dark_css=theme_css("Tối")
+    for css in (light_css,dark_css):
+        assert '.st-key-ep_theme_toggle button::after' in css
+        assert 'background-image:url("data:image/svg+xml,' in css
+        assert 'background-size:20px 20px' in css
+        assert '__THEME_ICON_URI__' not in css
+    assert '%3Ccircle' in light_css  # line-art sun
+    assert '%3Ccircle' not in dark_css  # crescent moon
+    assert light_css != dark_css
