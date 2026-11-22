@@ -13,11 +13,11 @@ with st.sidebar:
     st.markdown('<div class="ep-brand"><div class="ep-brand-mark">E</div><div><div class="ep-brand-title">ExitPlan</div><div class="ep-brand-sub">SMART PORTFOLIO EXIT</div></div></div>', unsafe_allow_html=True)
     st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')
     nav_options=list(NAV)
-    page=st.radio('Điều hướng',nav_options,format_func=lambda s:NAV[s],label_visibility='collapsed',key='ep_navigation')
+    page=st.radio('Điều hướng',nav_options,format_func=lambda s:NAV[s].split('  ',1)[-1],label_visibility='collapsed',key='ep_navigation')
     st.caption(PAGE_HELP[page])
     st.divider()
-    with st.expander('Giao diện · Sáng / Tối',expanded=False):
-        mode=st.segmented_control('Chế độ',options=['Sáng','Tối'],default='Sáng',key='ep_theme_mode')
+    dark_mode=st.toggle('🌙 Chế độ tối',value=False,key='ep_dark_mode')
+    mode='Tối' if dark_mode else 'Sáng'
     accent=PEACH_ACCENT
     font='Be Vietnam Pro'
     size_pt=12
