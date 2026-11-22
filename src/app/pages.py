@@ -481,7 +481,32 @@ def validation(root,data,t):
     if not files:
         st.warning('Chưa có dữ liệu: cần file outputs/tables/validation_*.csv')
         return
-    selections=st.selectbox('Bảng kiểm chứng', [f.name for f in files])
+    st.markdown('**Bảng kiểm chứng**')
+    filenames=[f.name for f in files]
+    choice_key='ep_validation_choice'
+    if st.session_state.get(choice_key) not in filenames:
+        st.session_state[choice_key]=filenames[0]
+    if len(filenames)<=3:
+        # Với ít bảng kiểm chứng, dùng nút chọn thay cho native dropdown
+        # (dropdown portal của Streamlit không đồng bộ dark mode).
+        label_map={
+            'validation_replay.csv':'Phát lại dữ liệu',
+            'validation_sensitivity.csv':'Độ nhạy tham số',
+        }
+        buttons=st.columns(len(filenames),gap='small')
+        for col,filename in zip(buttons,filenames):
+            with col:
+                if st.button(label_map.get(filename,filename.replace('validation_','').replace('.csv','')),
+                             key='ep_validation_'+filename,
+                             type='primary' if st.session_state[choice_key]==filename else 'secondary',
+                             use_container_width=True):
+                    st.session_state[choice_key]=filename
+        selections=st.session_state[choice_key]
+        st.caption('Đang xem: '+selections)
+    else:
+        selections=st.selectbox('Chọn tệp kiểm chứng',filenames,
+                                index=filenames.index(st.session_state[choice_key]))
+        st.session_state[choice_key]=selections
     try:
         df=pd.read_csv(folder/selections)
         if 'data_kind' in df and (df['data_kind']=='synthetic').any():st.warning('⚠️ Bảng kiểm chứng GIẢ LẬP: chưa thể dùng làm bằng chứng ngoài mẫu.')
