@@ -134,7 +134,19 @@ def require_result():
     return p
 
 def overview(root,data,t):
-    if not source_labels(data):return
+    if not source_labels(data):
+        # Khi dữ liệu thiếu, hiện trạng thái thật thay vì vẽ số liệu/bảng giả.
+        st.markdown(cards_html([
+            {'label':'Nguồn đang thử nghiệm','value':'SSI','note':'Chưa xác nhận kết nối API thật','tone':'blue'},
+            {'label':'Sổ lệnh cổ phiếu','value':'Chưa có','note':'Cần snapshot giá và khối lượng mua','tone':'mint'},
+            {'label':'Mô hình A/B/C/P','value':'Chưa tính','note':'Cần dữ liệu sổ lệnh hợp lệ','tone':'violet'},
+            {'label':'Dữ liệu trực tiếp','value':'Chưa kết nối','note':'Dashboard đang đọc file đã lưu','tone':'amber'},
+        ]),unsafe_allow_html=True)
+        st.markdown(guide(
+            'Các thẻ trên phản ánh trạng thái hiện tại, không phải giá cổ phiếu hay kết quả mô phỏng.',
+            'Thu thập dữ liệu có quyền truy cập phù hợp hoặc sử dụng dữ liệu giả lập được gắn nhãn để thử mô hình.'
+        ),unsafe_allow_html=True)
+        return
     b=data['books']; latest=latest_books(b); symbols=available_symbols(b)
     plans=st.session_state.get('ep_plans')
     last=b['ts_vn'].max(); sessions=int(b['ts_vn'].dt.date.nunique())
@@ -337,8 +349,11 @@ def ssi_history(root,data,t):
         if view.empty:return st.info('Chọn ít nhất một mã để xem dữ liệu SSI.')
         from plotly import graph_objects as go
         f=go.Figure()
-        for sym,g in view.groupby('symbol'):
-            f.add_trace(go.Scatter(x=g['tradingDate'],y=g['close'],mode='lines+markers',name=sym))
+        ssi_colors=[t['accent'],t['secondary'],t['tertiary'],'#E3AC55','#609CD8']
+        for i,(sym,g) in enumerate(view.groupby('symbol')):
+            f.add_trace(go.Scatter(x=g['tradingDate'],y=g['close'],mode='lines+markers',
+                                   line=dict(color=ssi_colors[i%len(ssi_colors)],width=2.7),
+                                   marker=dict(size=5),name=sym))
         charts.layout(f,t,height=370,legend=True)
         f.update_yaxes(title='Giá đóng cửa (theo đơn vị API)')
         plot(f,'SSI_daily_close')
