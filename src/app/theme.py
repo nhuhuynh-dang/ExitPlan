@@ -12,16 +12,16 @@ def palette(mode, accent=PEACH_ACCENT):
     """Một bộ màu hồng đào pastel cố định, nền tối thực sự cho mọi biểu đồ."""
     dark = mode == 'Tối'
     return {
-        'bg': '#1C2635' if dark else '#FFF8F5',
-        'surface': '#263345' if dark else '#FFFEFD',
-        'sidebar': '#101F35' if dark else '#FFF2EE',
-        'text': '#F8F1F0' if dark else '#443B42',
-        'muted': '#C5BBC3' if dark else '#806D75',
-        'border': '#425167' if dark else '#ECDDD7',
+        'bg': '#261B23' if dark else '#FFF8F5',
+        'surface': '#392832' if dark else '#FFFEFD',
+        'sidebar': '#2C1E29' if dark else '#FFF2EE',
+        'text': '#FFF0EB' if dark else '#443B42',
+        'muted': '#D7B8BC' if dark else '#806D75',
+        'border': '#6B4A59' if dark else '#ECDDD7',
         'accent': PEACH_ACCENT,
-        'positive': '#7FD5C0' if dark else '#238B71',
-        'negative': '#F0A5AC' if dark else '#BF5B62',
-        'plot': '#263345' if dark else '#FFFEFD',
+        'positive': '#9ACBB2' if dark else '#238B71',
+        'negative': '#F8A4A3' if dark else '#BF5B62',
+        'plot': '#392832' if dark else '#FFFEFD',
     }
 
 def theme_css(mode,accent=PEACH_ACCENT,font=None,size_pt=12):
@@ -46,7 +46,7 @@ html{font-size:16px} .stApp{font-size:__SIZE__pt}
 [data-testid="stSidebar"] [role="radiogroup"] label p{font-size:.90rem;line-height:1.4;font-weight:550;margin:0;overflow-wrap:normal;word-break:normal}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{font-weight:750}
 .ep-brand{display:flex;align-items:center;gap:11px;padding:6px 0 12px}
-.ep-brand-mark{display:grid;place-items:center;height:43px;width:43px;border-radius:14px;background:__ACCENT__;color:#132437;font-size:24px;font-weight:850;flex-shrink:0}
+ .ep-brand-mark{display:grid;place-items:center;height:43px;width:43px;border-radius:14px;background:__ACCENT__;color:#462934;font-size:24px;font-weight:850;flex-shrink:0}
 .ep-brand-title{font-size:1.43rem;font-weight:850;color:__TEXT__;line-height:1.2}
 .ep-brand-sub{font-size:.67rem;letter-spacing:.07em;color:__MUTED__;margin-top:4px}
 [data-testid="stSidebar"] [data-testid="stExpander"]{border:1px solid __BORDER__;border-radius:12px;background:__GLASS__}
@@ -105,7 +105,7 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 @media(max-width:720px){.block-container{padding:1rem !important}.ep-hero{padding:19px}.ep-hero p{max-width:100%}.ep-hero .art{opacity:.16;width:70%}}
 </style>"""
     rep={'__FONT__':f,'__SIZE__':str(size),'__GLOW__':rgba(accent,.13 if mode=='Tối' else .14),
-         '__GLOW2__':rgba('#F0B6A7',.08),'__BG__':p['bg'],'__SIDEBAR__':p['sidebar'],
+         '__GLOW2__':rgba('#E9A19A',.09 if mode=='Tối' else .08),'__BG__':p['bg'],'__SIDEBAR__':p['sidebar'],
          '__BORDER__':p['border'],'__TEXT__':p['text'],'__ACCENT__':accent,'__SURFACE__':p['surface'],
          '__MUTED__':p['muted'],'__GLASS__':rgba(p['surface'],.78),
          '__BUTTONTEXT__':'#33252D','__WARNBG__':rgba('#E9A950',.17),'__WARNBORDER__':rgba('#E9A950',.45)}
@@ -147,7 +147,7 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 header[data-testid="stHeader"] [data-testid="stToolbar"],
 #MainMenu, footer {display:none !important;}
 header[data-testid="stHeader"] {background:transparent !important;box-shadow:none !important;}
-/* Sidebar xanh than, icon trắng nét mảnh; trạng thái chọn hồng đào pastel. */
+/* Sidebar hồng mận trầm khi tối, hồng kem khi sáng. */
 [data-testid="stSidebar"] {background:__NAVY__ !important;border-right:1px solid __BORDER__ !important;}
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
 [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
@@ -176,7 +176,13 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-testid="stSidebar"] [role="radiogroup"] label p {font-weight:600 !important;font-size:.91rem;}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:__SIDEACTIVE__ !important;font-weight:750 !important;}
 [data-testid="stSidebar"] [data-testid="stToggle"] {padding:10px 11px;border:1px solid __BORDER__;border-radius:13px;background:__TOGGLEBG__;}
-[data-testid="stSidebar"] .ep-brand-mark {background:#E6A69B;color:#233449;}
+[data-testid="stSidebar"] .ep-brand-mark {background:#E6A69B;color:#462934;}
+/* Dark Mode giữ toàn bộ bề mặt ở dải màu hồng đào / mận trầm. */
+[data-testid="stAlert"] {border-radius:14px;border-color:__BORDER__ !important;background:__ALERTBG__ !important;}
+[data-testid="stAlert"][data-baseweb] {color:__TEXT__ !important;}
+[data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#D79A9D !important;}
+[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#D79A9D !important;}
+
 /* Nút, ô nhập và các thẻ áp dụng đúng theme cho cả Sáng và Tối. */
 .stButton button, .stDownloadButton button,
 [data-testid="stSelectbox"] > div, [data-testid="stTextInput"] input,
@@ -230,17 +236,18 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     extra_css=extra_css.replace('__SIDETEXT__','#F5EFF1' if mode=='Tối' else '#443B42')
     extra_css=extra_css.replace('__SIDEMUTED__','#AEBCCB' if mode=='Tối' else '#806D75')
     extra_css=extra_css.replace('__SIDEACTIVE__','#FFE5DD' if mode=='Tối' else '#9B514B')
-    extra_css=extra_css.replace('__TOGGLEBG__','#223850' if mode=='Tối' else '#FFEAE3')
+    extra_css=extra_css.replace('__TOGGLEBG__','#4D313D' if mode=='Tối' else '#FFEAE3')
+    extra_css=extra_css.replace('__ALERTBG__','#49313B' if mode=='Tối' else '#FFF1EB')
     theme_values = {
-        '__TABLE_HEAD__': '#344358' if mode=='Tối' else '#F8E9E3',
-        '__TABLE_ALT__': '#2C3A4E' if mode=='Tối' else '#FFFAF8',
-        '__TABLE_HOVER__': '#3A455A' if mode=='Tối' else '#FCEFEA',
-        '__GOOD_BG__': '#183F3B' if mode=='Tối' else '#DDF5ED',
-        '__GOOD_TEXT__': '#A6E6D2' if mode=='Tối' else '#166C58',
-        '__WARN_BG__': '#573A39' if mode=='Tối' else '#FFF1E3',
-        '__WARN_TEXT__': '#FFCCB0' if mode=='Tối' else '#A75A33',
-        '__CHIP_BG__': '#4C3B4C' if mode=='Tối' else '#F5E3F0',
-        '__CHIP_TEXT__': '#F8CEDF' if mode=='Tối' else '#815475',
+        '__TABLE_HEAD__': '#533640' if mode=='Tối' else '#F8E9E3',
+        '__TABLE_ALT__': '#412C36' if mode=='Tối' else '#FFFAF8',
+        '__TABLE_HOVER__': '#60404D' if mode=='Tối' else '#FCEFEA',
+        '__GOOD_BG__': '#29463B' if mode=='Tối' else '#DDF5ED',
+        '__GOOD_TEXT__': '#B3E3C7' if mode=='Tối' else '#166C58',
+        '__WARN_BG__': '#65413A' if mode=='Tối' else '#FFF1E3',
+        '__WARN_TEXT__': '#FFD4BD' if mode=='Tối' else '#A75A33',
+        '__CHIP_BG__': '#5B3546' if mode=='Tối' else '#F5E3F0',
+        '__CHIP_TEXT__': '#F7C9D3' if mode=='Tối' else '#815475',
     }
     # Sidebar button navigation; stable st-key selectors instead of fragile radio DOM selectors.
     nav_button_css = """
@@ -297,10 +304,10 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 def hero_svg(accent=PEACH_ACCENT, mode='Sáng'):
     """Minh họa vector ExitPlan: màn hình danh mục, kế hoạch bán, tiền và thanh khoản."""
     dark=mode=='Tối'
-    screen='#303D50' if dark else '#FFFCFA'
-    inner='#253246' if dark else '#FFF8F5'
-    frame='#D6A4A1' if dark else '#A77E84'
-    ink='#F5DAD6' if dark else '#7B6570'
+    screen='#50303E' if dark else '#FFFCFA'
+    inner='#382631' if dark else '#FFF8F5'
+    frame='#DBA7A3' if dark else '#A77E84'
+    ink='#FFE5DC' if dark else '#7B6570'
     line='#EAAEA2'
     pale='#E6B3AE' if dark else '#F9D5CE'
     mint='#8DC5B6'
