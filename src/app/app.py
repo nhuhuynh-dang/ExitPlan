@@ -12,8 +12,21 @@ st.set_page_config(page_title='ExitPlan | Dashboard',page_icon='📊',layout='wi
 with st.sidebar:
     st.markdown('<div class="ep-brand"><div class="ep-brand-mark">E</div><div><div class="ep-brand-title">ExitPlan</div><div class="ep-brand-sub">SMART PORTFOLIO EXIT</div></div></div>', unsafe_allow_html=True)
     st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')
-    nav_options=list(NAV)
-    page=st.radio('Điều hướng',nav_options,format_func=lambda s:NAV[s].split('  ',1)[-1],label_visibility='collapsed',key='ep_navigation')
+    # Dùng nút điều hướng thay radio: không còn chấm tròn, mỗi mục có icon SVG riêng.
+    if st.session_state.get('ep_navigation') not in NAV:
+        st.session_state['ep_navigation']='overview'
+    for nav_key,nav_label in NAV.items():
+        title=nav_label.split('  ',1)[-1]
+        active=st.session_state['ep_navigation']==nav_key
+        if st.button(
+            title,
+            key='ep_nav_'+nav_key,
+            type='primary' if active else 'secondary',
+            use_container_width=True,
+        ):
+            st.session_state['ep_navigation']=nav_key
+            st.rerun()
+    page=st.session_state['ep_navigation']
     st.caption(PAGE_HELP[page])
     st.divider()
     dark_mode=st.toggle('🌙 Chế độ tối',value=False,key='ep_dark_mode')
