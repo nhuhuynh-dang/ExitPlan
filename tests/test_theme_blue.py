@@ -127,3 +127,16 @@ def test_validation_two_file_options_use_buttons_instead_of_dropdown():
     assert "'validation_replay.csv':'Phát lại dữ liệu'" in source
     assert "'validation_sensitivity.csv':'Độ nhạy tham số'" in source
     assert "st.session_state[choice_key]=filename" in source
+
+
+def test_sidebar_expand_control_is_visible_in_both_modes():
+    for mode in ("Sáng", "Tối"):
+        css=theme_css(mode)
+        assert '[data-testid="stSidebarCollapsedControl"]' in css
+        assert '[data-testid="stSidebarCollapseButton"]' in css
+        assert 'position:fixed !important' in css
+        assert 'pointer-events:auto !important' in css
+        assert '[data-testid="stAppDeployButton"]' in css
+        # Hide Deploy only, not the toolbar that can contain sidebar controls.
+        assert '[data-testid="stToolbar"], [data-testid="stToolbarActions"],' not in css
+        assert 'header[data-testid="stHeader"] [data-testid="stToolbar"],' not in css
