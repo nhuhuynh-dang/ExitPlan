@@ -2,6 +2,27 @@
 
 Giao diện Streamlit thuần **chỉ đọc file**, không gọi API, không truy cập tài khoản, không gửi lệnh. `src/analytics/planner.py` là bộ tính MILP thuần được giao diện gọi **chỉ khi nhấn “Tính phương án”**. Người dùng nhập thủ công mã và số lượng; dashboard dùng ảnh chụp ba mức giá mua đã lưu.
 
+## SSI FastConnect V3 — nguồn dữ liệu chính thức (đang chờ cấp quyền)
+
+Khi SSI phê duyệt Market Data **read-only**, ExitPlan có sẵn script chuẩn:
+`scripts/ssi_v3_sync.py`. Script hỗ trợ kiểm tra token, lấy danh sách toàn bộ mã HOSE/HNX/UPCOM,
+tải OHLCV lịch sử và tính ADV, không đụng đến API giao dịch.
+
+```powershell
+py scripts/ssi_v3_sync.py --check
+# Sau khi SSI cấp API Key/Secret và bạn đã đặt chúng qua $env: trong PowerShell:
+py scripts/ssi_v3_sync.py --catalog
+py scripts/ssi_v3_sync.py --history --symbols HPG VPB ACB --from-date 01/09/2026 --to-date 20/11/2026
+```
+
+**Chưa được cấp quyền thì --check chỉ báo trạng thái và KHÔNG tạo dữ liệu.**
+Để xem thủ tục xin quyền, bảo vệ key và ý nghĩa từng file:
+**[Hướng dẫn SSI FastConnect V3](docs/SSI_FASTCONNECT_SETUP.md)**.
+
+OHLCV của SSI không phải snapshot bid/ask. Trang Lập phương án vẫn cần
+dữ liệu quote real-time được SSI cấp quyền, kiểm tra schema và ghi riêng theo phiên.
+Giao diện không tự giao dịch. Không đưa API Key, Secret hay token vào GitHub.
+
 ## Cài và chạy (Windows PowerShell)
 
 ```powershell
@@ -140,7 +161,7 @@ Không commit JWT, mật khẩu hoặc địa chỉ IP vào Git; không cho phé
 Bộ thư viện ghi live dùng `websockets>=15,<17` (thêm trong requirements). Kết quả triển khai
 live phụ thuộc xác thực/được cấp quyền của VPBankS và **chưa được kiểm thử kết nối thực tế**.
 
-## SSI iBoard (tích hợp thử trước khi có FastConnect Key)
+## SSI iBoard endpoint cộng đồng (chỉ để tham khảo lịch sử, có thể không còn hoạt động)
 
 Bản này bổ sung **mã nguồn thật để tải và lưu** dữ liệu SSI iBoard theo tài liệu cộng đồng:
 https://github.com/anhtri04/vnstock-java-kbs/blob/main/docs/SSI_API_DOCUMENTATION.md
