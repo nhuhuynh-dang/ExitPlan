@@ -4,12 +4,27 @@ from src.app.charts import apply_palette
 from src.app.components import cards_html
 
 
-def test_light_palette_navy_sidebar_and_sky_blue_canvas():
+def test_light_palette_pale_blue_sidebar_and_sky_blue_canvas():
     colors = palette("Sáng")
-    assert colors["sidebar"] == "#0C2747"
+    assert colors["sidebar"] == "#EAF3FC"
     assert colors["bg"] == "#F0F6FD"
     assert colors["surface"] == "#FFFFFF"
     assert colors["accent"] == BLUE_ACCENT
+    css = theme_css("Sáng")
+    assert "#EAF3FC" in css
+    assert "#173454" in css
+    assert '__SIDEBRANDTITLE__' not in css
+    assert '__SIDETOGLABEL__' not in css
+
+
+def test_dark_sidebar_remains_navy_and_brand_contrast():
+    colors = palette("Tối")
+    css = theme_css("Tối")
+    assert colors["sidebar"] == "#091A31"
+    assert "#F5FAFF" in css
+    assert "#ECF5FF" in css
+    assert '__NAVTEXT__' not in css
+    assert '__NAVACTIVE__' not in css
 
 
 def test_dark_palette_uses_blue_background_for_plots_and_tables():
