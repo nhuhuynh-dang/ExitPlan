@@ -3,3 +3,12 @@ __pycache__/
 .env
 *.pyc
 .venv/
+
+# Market data and SSI credentials are private/local outputs.
+.streamlit/secrets.toml
+*.pem
+*.key
+token_cache.json
+data/raw/
+data/processed/ssi_*.parquet
+outputs/tables/ssi_*.parquet
