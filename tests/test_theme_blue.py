@@ -141,46 +141,29 @@ def test_sidebar_no_collapse_chevron_on_desktop_but_has_recovery():
         assert '[data-testid="stAppDeployButton"]' in css
 
 
-def test_theme_switch_is_below_brand_and_uses_native_toggle():
+def test_theme_label_left_native_switch_right_under_brand():
     from pathlib import Path
     source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
-    assert "initial_sidebar_state='expanded'" in source
     subtitle=source.index("st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')")
-    switch=source.index("dark_mode=st.toggle(")
+    row=source.index("with st.container(key='ep_theme_row')")
     navigation=source.index("for nav_key,nav_label in NAV.items():")
-    assert subtitle < switch < navigation
-    assert "'Chế độ tối' if current_dark else 'Chế độ sáng'" in source
-    assert "key='ep_dark_mode'" in source
+    assert subtitle < row < navigation
+    assert "label_col, switch_col=st.columns([3,1]" in source
+    assert "st.markdown('**Giao diện**')" in source
+    assert "dark_mode=st.toggle('Bật giao diện tối',key='ep_dark_mode'," in source
+    assert "label_visibility='collapsed'" in source
     assert "mode='Tối' if dark_mode else 'Sáng'" in source
-    assert "key='ep_theme_toggle'" not in source
+    assert "ep_theme_bar" not in source
+    assert source.count("st.toggle(")==1
 
 
-def test_sun_and_moon_on_stable_theme_bar_not_streamlit_internal_dom():
-    light_css=theme_css("Sáng")
-    dark_css=theme_css("Tối")
-    for css in (light_css,dark_css):
-        assert '.st-key-ep_theme_bar::before' in css
-        assert '.st-key-ep_theme_bar::after' in css
-        assert '.st-key-ep_theme_bar .st-key-ep_dark_mode' in css
-        assert 'background-image:url("data:image/svg+xml,' in css
-        assert 'background-size:19px 19px' in css
-        assert 'transition:right .22s ease' in css
-        assert 'opacity:0 !important;cursor:pointer' in css
-        assert ':has(:focus-visible)' in css
+def test_theme_row_never_overlays_or_disables_native_toggle():
+    for mode in ("Sáng", "Tối"):
+        css=theme_css(mode)
+        assert '.st-key-ep_theme_row' in css
+        assert '.st-key-ep_theme_row [data-testid="stCheckbox"]' in css
+        assert 'ep_theme_bar' not in css
         assert '__THEME_ICON_URI__' not in css
         assert '__THEME_THUMB_RIGHT__' not in css
-        assert '[data-testid="stToggle"]::after' not in css
-    assert 'right:51px !important' in light_css  # sun, left of track
-    assert 'right:14px !important' in dark_css  # moon, right of track
-    assert '%3Ccircle' in light_css
-    assert '%3Ccircle' not in dark_css
-
-
-def test_theme_container_keeps_real_keyboard_accessible_streamlit_toggle():
-    from pathlib import Path
-    source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
-    assert "with st.container(key='ep_theme_bar')" in source
-    assert 'class="ep-theme-label"' in source
-    assert "label_visibility='collapsed'" in source
-    assert "dark_mode=st.toggle(" in source
-    assert "key='ep_dark_mode'" in source
+        assert 'opacity:0 !important;cursor:pointer' not in css
+        assert '.st-key-ep_theme_row::after' not in css

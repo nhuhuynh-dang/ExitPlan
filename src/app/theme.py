@@ -630,122 +630,28 @@ body ul[role="listbox"] [aria-selected="true"]{
     for key,value in theme_values.items():
         finance_css=finance_css.replace(key,value)
     extra_css+=finance_css
-    # Real Streamlit switch under the brand. Keep its accessible/keyboard-operable
-    # input in the DOM, but render a custom slide track/thumb in monochrome SVG.
-    if mode=='Tối':
-        theme_icon_paths='<path d="M20.985 12.486A9 9 0 0 1 11.514 3.015 9 9 0 1 0 20.985 12.486Z"/>'
-        theme_icon_color='#EAF3FF'
-    else:
-        theme_icon_paths=(
-            '<circle cx="12" cy="12" r="4"/>'
-            '<path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42'
-            'M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/>'
-        )
-        theme_icon_color='#235B96'
-    theme_svg=(
-        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
-        "fill='none' stroke='"+theme_icon_color+"' stroke-width='1.9' "
-        "stroke-linecap='round' stroke-linejoin='round'>"
-        +theme_icon_paths+"</svg>"
-    )
-    theme_icon_uri="data:image/svg+xml,"+quote(theme_svg,safe='')
-    # Draw on our own stable st.container(key="ep_theme_bar") instead of
-    # relying on Streamlit's version-specific checkbox/switch inner markup.
-    # The real st.toggle remains in the DOM and handles clicks/keyboard.
-    theme_switch_css="""
-/* ExitPlan theme bar directly below SMART PORTFOLIO EXIT · VIỆT NAM. */
-[data-testid="stSidebar"] .st-key-ep_theme_bar {
-    box-sizing:border-box !important;
-    display:block !important;position:relative !important;
-    width:100% !important;min-height:58px !important;height:58px !important;
-    margin:9px 0 21px !important;padding:0 !important;
-    background:__THEME_BG__ !important;
-    border:1px solid __THEME_BORDER__ !important;
-    border-radius:15px !important;
-    box-shadow:0 4px 14px rgba(17,49,94,.065) !important;
-    isolation:isolate !important;
+    # Trang trí khung ngoài; không can thiệp vào track/thumb/input thật
+    # của Streamlit để luôn có thể gạt bằng chuột và bàn phím.
+    simple_theme_css="""
+[data-testid="stSidebar"] .st-key-ep_theme_row {
+    margin:10px 0 21px !important;
+    padding:11px 13px !important;
+    background:__SURFACE__ !important;
+    border:1px solid __BORDER__ !important;
+    border-radius:14px !important;
 }
-[data-testid="stSidebar"] .st-key-ep_theme_bar:hover {
-    background:__THEME_HOVER__ !important;
-    border-color:__THEME_BORDER_HOVER__ !important;
+[data-testid="stSidebar"] .st-key-ep_theme_row p {
+    color:__TEXT__ !important;
+    font-weight:700 !important;
+    font-size:.89rem !important;
+    margin:0 !important;
 }
-/* Human-readable text is separate from the invisible but clickable native toggle. */
-[data-testid="stSidebar"] .st-key-ep_theme_bar .ep-theme-label {
-    position:absolute !important;left:14px !important;top:50% !important;
-    transform:translateY(-50%) !important;
-    margin:0 !important;padding:0 !important;
-    color:__THEME_TEXT__ !important;
-    font-size:.88rem !important;font-weight:720 !important;line-height:1.4 !important;
-    white-space:nowrap !important;pointer-events:none !important;
-    z-index:2 !important;
+[data-testid="stSidebar"] .st-key-ep_theme_row [data-testid="stCheckbox"] {
+    margin:0 !important;
+    padding:0 !important;
 }
-/* Decorative track, anchored to a stable container (NOT stToggle or BaseWeb). */
-[data-testid="stSidebar"] .st-key-ep_theme_bar::before {
-    content:"" !important;display:block !important;position:absolute !important;
-    right:10px !important;top:50% !important;
-    transform:translateY(-50%) !important;
-    width:76px !important;height:38px !important;
-    border-radius:999px !important;
-    background:__THEME_TRACK__ !important;
-    border:1px solid __THEME_TRACK_BORDER__ !important;
-    box-sizing:border-box !important;
-    pointer-events:none !important;z-index:2 !important;
-}
-/* Monochrome SVG on the knob, sliding left (sun) / right (moon). */
-[data-testid="stSidebar"] .st-key-ep_theme_bar::after {
-    content:"" !important;display:block !important;position:absolute !important;
-    right:__THEME_THUMB_RIGHT__ !important;top:50% !important;
-    transform:translateY(-50%) !important;
-    width:30px !important;height:30px !important;border-radius:50% !important;
-    background-color:__THEME_THUMB__ !important;
-    background-image:url("__THEME_ICON_URI__") !important;
-    background-repeat:no-repeat !important;background-position:center !important;
-    background-size:19px 19px !important;
-    box-shadow:0 1px 5px rgba(0,0,0,.16) !important;
-    pointer-events:none !important;z-index:3 !important;
-    transition:right .22s ease,background-color .18s ease !important;
-}
-/* Native st.toggle, transparent but FULL SIZE and accessible.
-   Both BaseWeb and React Aria structures remain clickable. */
-[data-testid="stSidebar"] .st-key-ep_theme_bar .st-key-ep_dark_mode,
-[data-testid="stSidebar"] .st-key-ep_theme_bar .st-key-ep_dark_mode [data-testid="stCheckbox"] {
-    position:absolute !important;inset:0 !important;
-    width:100% !important;height:100% !important;min-height:58px !important;
-    margin:0 !important;padding:0 !important;
-    opacity:0 !important;cursor:pointer !important;
-    z-index:5 !important;
-}
-[data-testid="stSidebar"] .st-key-ep_theme_bar
-.st-key-ep_dark_mode [data-baseweb="checkbox"],
-[data-testid="stSidebar"] .st-key-ep_theme_bar
-.st-key-ep_dark_mode [role="switch"] {
-    display:flex !important;
-    align-items:center !important;
-    width:100% !important;height:100% !important;
-    min-height:58px !important;
-    cursor:pointer !important;
-}
-/* Restore visible keyboard focus on the visual bar. */
-[data-testid="stSidebar"] .st-key-ep_theme_bar:has(:focus-visible) {
-    outline:2px solid __ACCENT__ !important;outline-offset:3px !important;
-}
-/* Do not accidentally show a second native track/label via global toggle CSS. */
 """
-    theme_switch_values={
-        '__THEME_BG__': '#17314E' if mode=='Tối' else '#FFFFFF',
-        '__THEME_TEXT__': '#EAF3FF' if mode=='Tối' else '#173454',
-        '__THEME_BORDER__': '#355373' if mode=='Tối' else '#CBDFF3',
-        '__THEME_HOVER__': '#223E5D' if mode=='Tối' else '#F6FBFF',
-        '__THEME_BORDER_HOVER__': '#5B98D0' if mode=='Tối' else '#70ACEB',
-        '__THEME_TRACK__': '#244D78' if mode=='Tối' else '#D8E9FA',
-        '__THEME_TRACK_BORDER__': '#4F79A6' if mode=='Tối' else '#B8D6F3',
-        '__THEME_THUMB__': '#477EBD' if mode=='Tối' else '#FFFFFF',
-        '__THEME_THUMB_RIGHT__': '14px' if mode=='Tối' else '51px',
-        '__THEME_ICON_URI__': theme_icon_uri,
-    }
-    for old,new in theme_switch_values.items():
-        theme_switch_css=theme_switch_css.replace(old,new)
-    extra_css+=theme_switch_css
+    extra_css+=simple_theme_css
     for key,value in theme_values.items():
         extra_css=extra_css.replace(key,value)
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')

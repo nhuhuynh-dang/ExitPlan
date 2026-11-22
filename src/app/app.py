@@ -35,26 +35,15 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')
-    # Công tắc gạt thật: nút tròn trượt trái/phải, chứa icon đơn sắc.
-    # Giữ dưới dòng Việt Nam và giữ trạng thái khi đổi trang.
-    if 'ep_dark_mode' not in st.session_state:
-        st.session_state['ep_dark_mode']=False
-    current_dark=bool(st.session_state['ep_dark_mode'])
-    # Stable visual shell: icon and sliding thumb are drawn on this container,
-    # independent of internal Streamlit/BaseWeb/React Aria toggle markup.
-    # Native st.toggle remains the actual accessible, keyboard-operable control.
-    with st.container(key='ep_theme_bar'):
-        st.markdown(
-            '<div class="ep-theme-label" aria-hidden="true">'
-            + ('Chế độ tối' if current_dark else 'Chế độ sáng')
-            + '</div>',
-            unsafe_allow_html=True,
-        )
-        dark_mode=st.toggle(
-            'Chế độ tối' if current_dark else 'Chế độ sáng',
-            key='ep_dark_mode',
-            label_visibility='collapsed',
-        )
+    # Dùng toggle gốc của Streamlit, không phủ HTML/CSS lên phần điều khiển.
+    # Nhãn ở bên trái, công tắc gạt thật ở bên phải.
+    with st.container(key='ep_theme_row'):
+        label_col, switch_col=st.columns([3,1],gap='small',vertical_alignment='center')
+        with label_col:
+            st.markdown('**Giao diện**')
+        with switch_col:
+            dark_mode=st.toggle('Bật giao diện tối',key='ep_dark_mode',
+                                label_visibility='collapsed')
     mode='Tối' if dark_mode else 'Sáng'
     # Dùng nút điều hướng thay radio: không còn chấm tròn, mỗi mục có icon SVG riêng.
     if st.session_state.get('ep_navigation') not in NAV:
