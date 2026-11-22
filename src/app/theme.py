@@ -1,32 +1,31 @@
 """Giao diện glass pastel lấy cảm hứng tổ chức code dashboard mẫu; không dùng hình ảnh ngoài."""
 from html import escape
 
-PEACH_ACCENT='#E6A69B'
+BLUE_ACCENT='#2E83E6'
 FONT_FAMILY="'Be Vietnam Pro',sans-serif"
 
 def hex_rgb(h): return tuple(int(h[i:i+2],16) for i in (1,3,5))
 def mix(a,b,f):return '#'+''.join(f'{round(x*(1-f)+y*f):02x}' for x,y in zip(hex_rgb(a),hex_rgb(b)))
 def rgba(hexcolor,alpha):return f'rgba({",".join(map(str,hex_rgb(hexcolor)))},{alpha})'
 
-def palette(mode, accent=PEACH_ACCENT):
-    """Một bộ màu hồng đào pastel cố định, nền tối thực sự cho mọi biểu đồ."""
-    dark = mode == 'Tối'
+def palette(mode, accent=BLUE_ACCENT):
+    """Bảng màu xanh dương chuyên nghiệp, dịu ở chế độ sáng và rõ ở tối."""
+    dark=mode=='Tối'
     return {
-        'bg': '#261B23' if dark else '#FFF8F5',
-        'surface': '#392832' if dark else '#FFFEFD',
-        'sidebar': '#2C1E29' if dark else '#FFF2EE',
-        'text': '#FFF0EB' if dark else '#443B42',
-        'muted': '#D7B8BC' if dark else '#806D75',
-        'border': '#6B4A59' if dark else '#ECDDD7',
-        'accent': PEACH_ACCENT,
-        'positive': '#9ACBB2' if dark else '#238B71',
-        'negative': '#F8A4A3' if dark else '#BF5B62',
-        'plot': '#392832' if dark else '#FFFEFD',
+        'bg': '#0C192C' if dark else '#F0F6FD',
+        'surface': '#192B43' if dark else '#FFFFFF',
+        'sidebar': '#091A31' if dark else '#0C2747',
+        'text': '#EAF3FF' if dark else '#16304F',
+        'muted': '#ACBFDA' if dark else '#607A9D',
+        'border': '#344A67' if dark else '#D6E4F2',
+        'accent': '#69B2FF' if dark else BLUE_ACCENT,
+        'positive': '#71D5B6' if dark else '#1FA587',
+        'negative': '#FF98A3' if dark else '#CE6775',
+        'plot': '#192B43' if dark else '#FFFFFF',
     }
 
-def theme_css(mode,accent=PEACH_ACCENT,font=None,size_pt=12):
-    accent=PEACH_ACCENT
-    p=palette(mode); f=FONT_FAMILY; size=12
+def theme_css(mode,accent=BLUE_ACCENT,font=None,size_pt=12):
+    p=palette(mode); accent=p['accent']; f=FONT_FAMILY; size=12
     css="""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
@@ -46,7 +45,7 @@ html{font-size:16px} .stApp{font-size:__SIZE__pt}
 [data-testid="stSidebar"] [role="radiogroup"] label p{font-size:.90rem;line-height:1.4;font-weight:550;margin:0;overflow-wrap:normal;word-break:normal}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{font-weight:750}
 .ep-brand{display:flex;align-items:center;gap:11px;padding:6px 0 12px}
- .ep-brand-mark{display:grid;place-items:center;height:43px;width:43px;border-radius:14px;background:__ACCENT__;color:#462934;font-size:24px;font-weight:850;flex-shrink:0}
+ .ep-brand-mark{display:grid;place-items:center;height:43px;width:43px;border-radius:14px;background:__ACCENT__;color:#FFFFFF;font-size:24px;font-weight:850;flex-shrink:0}
 .ep-brand-title{font-size:1.43rem;font-weight:850;color:__TEXT__;line-height:1.2}
 .ep-brand-sub{font-size:.67rem;letter-spacing:.07em;color:__MUTED__;margin-top:4px}
 [data-testid="stSidebar"] [data-testid="stExpander"]{border:1px solid __BORDER__;border-radius:12px;background:__GLASS__}
@@ -69,7 +68,7 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 [data-testid="stDataFrame"], [data-testid="stDataEditor"]{border-radius:13px;overflow:hidden;background:__SURFACE__;border:1px solid __BORDER__}
 [data-testid="stDataFrame"] canvas, [data-testid="stDataEditor"] canvas{background:__SURFACE__}
 [data-testid="stDataFrame"] [role="grid"], [data-testid="stDataEditor"] [role="grid"]{background:__SURFACE__;color:__TEXT__}
-[data-testid="stDataFrame"] [role="columnheader"], [data-testid="stDataEditor"] [role="columnheader"]{background:__SIDEBAR__;color:__TEXT__}
+[data-testid="stDataFrame"] [role="columnheader"], [data-testid="stDataEditor"] [role="columnheader"]{background:__SURFACE__;color:__TEXT__}
 [data-testid="stDataFrame"] * , [data-testid="stDataEditor"] * {font-variant-numeric:tabular-nums}
 [data-testid="stMarkdownContainer"] .ep-card{background:__SURFACE__;border:1px solid __BORDER__;border-radius:18px;padding:17px 18px;min-height:116px;box-shadow:0 9px 24px rgba(0,0,0,.025)}
 .ep-eyebrow{font-size:.69rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:__ACCENT__;margin:0 0 9px}
@@ -105,10 +104,10 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 @media(max-width:720px){.block-container{padding:1rem !important}.ep-hero{padding:19px}.ep-hero p{max-width:100%}.ep-hero .art{opacity:.16;width:70%}}
 </style>"""
     rep={'__FONT__':f,'__SIZE__':str(size),'__GLOW__':rgba(accent,.13 if mode=='Tối' else .14),
-         '__GLOW2__':rgba('#E9A19A',.09 if mode=='Tối' else .08),'__BG__':p['bg'],'__SIDEBAR__':p['sidebar'],
+         '__GLOW2__':rgba('#9C8CEB',.11 if mode=='Tối' else .08),'__BG__':p['bg'],'__SIDEBAR__':p['sidebar'],
          '__BORDER__':p['border'],'__TEXT__':p['text'],'__ACCENT__':accent,'__SURFACE__':p['surface'],
          '__MUTED__':p['muted'],'__GLASS__':rgba(p['surface'],.78),
-         '__BUTTONTEXT__':'#33252D','__WARNBG__':rgba('#E9A950',.17),'__WARNBORDER__':rgba('#E9A950',.45)}
+         '__BUTTONTEXT__':'#FFFFFF','__WARNBG__':rgba('#F2B653',.15),'__WARNBORDER__':rgba('#F2B653',.40)}
     # Vùng sidebar dùng icon nét mảnh, tương tự mẫu tham khảo (không dùng emoji).
     # Data URI được dựng từ SVG cố định; không phụ thuộc font icon tải từ mạng.
     from urllib.parse import quote
@@ -128,7 +127,7 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
         'ssi_history','validation','methods','downloads'
     ]
     nav_icons=[]
-    icon_color='#F9E8E4' if mode=='Tối' else '#5C4E58'
+    icon_color='#ECF5FF'
     for key,paths in zip(nav_keys,svg_paths):
         svg=("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
              "fill='none' stroke='"+icon_color+"' stroke-width='1.8' "
@@ -147,7 +146,7 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 header[data-testid="stHeader"] [data-testid="stToolbar"],
 #MainMenu, footer {display:none !important;}
 header[data-testid="stHeader"] {background:transparent !important;box-shadow:none !important;}
-/* Sidebar hồng mận trầm khi tối, hồng kem khi sáng. */
+/* Sidebar xanh navy ở cả hai chế độ, nội dung đổi Sáng/Tối. */
 [data-testid="stSidebar"] {background:__NAVY__ !important;border-right:1px solid __BORDER__ !important;}
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
 [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
@@ -176,11 +175,11 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-testid="stSidebar"] [role="radiogroup"] label p {font-weight:600 !important;font-size:.91rem;}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:__SIDEACTIVE__ !important;font-weight:750 !important;}
 [data-testid="stSidebar"] [data-testid="stToggle"] {padding:10px 11px;border:1px solid __BORDER__;border-radius:13px;background:__TOGGLEBG__;}
-[data-testid="stSidebar"] .ep-brand-mark {background:#E6A69B;color:#462934;}
-/* Dark Mode giữ toàn bộ bề mặt ở dải màu hồng đào / mận trầm. */
+[data-testid="stSidebar"] .ep-brand-mark {background:#2E83E6;color:#FFFFFF;}
+/* Blue mode: đồng bộ ô thông báo và toggle. */
 [data-testid="stAlert"] {border-radius:14px;border-color:__BORDER__ !important;background:__ALERTBG__ !important;}
 [data-testid="stAlert"][data-baseweb] {color:__TEXT__ !important;}
-[data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#D79A9D !important;}
+[data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#4298ED !important;}
 [data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#D79A9D !important;}
 
 /* Nút, ô nhập và các thẻ áp dụng đúng theme cho cả Sáng và Tối. */
@@ -233,21 +232,21 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 @media (max-width:950px) {.ep-panel{padding:15px}.ep-table{font-size:.82rem;}}
 @media (max-width:580px) {.ep-setting-row{align-items:flex-start;flex-direction:column;gap:8px;}}
 """.replace("__NAVY__", p['sidebar'])
-    extra_css=extra_css.replace('__SIDETEXT__','#F5EFF1' if mode=='Tối' else '#443B42')
-    extra_css=extra_css.replace('__SIDEMUTED__','#AEBCCB' if mode=='Tối' else '#806D75')
-    extra_css=extra_css.replace('__SIDEACTIVE__','#FFE5DD' if mode=='Tối' else '#9B514B')
-    extra_css=extra_css.replace('__TOGGLEBG__','#4D313D' if mode=='Tối' else '#FFEAE3')
-    extra_css=extra_css.replace('__ALERTBG__','#49313B' if mode=='Tối' else '#FFF1EB')
+    extra_css=extra_css.replace('__SIDETEXT__','#ECF4FF')
+    extra_css=extra_css.replace('__SIDEMUTED__','#ABC0DC')
+    extra_css=extra_css.replace('__SIDEACTIVE__','#FFFFFF')
+    extra_css=extra_css.replace('__TOGGLEBG__','#163A61' if mode=='Tối' else '#1B4269')
+    extra_css=extra_css.replace('__ALERTBG__','#1A3553' if mode=='Tối' else '#E9F3FF')
     theme_values = {
-        '__TABLE_HEAD__': '#533640' if mode=='Tối' else '#F8E9E3',
-        '__TABLE_ALT__': '#412C36' if mode=='Tối' else '#FFFAF8',
-        '__TABLE_HOVER__': '#60404D' if mode=='Tối' else '#FCEFEA',
-        '__GOOD_BG__': '#29463B' if mode=='Tối' else '#DDF5ED',
-        '__GOOD_TEXT__': '#B3E3C7' if mode=='Tối' else '#166C58',
-        '__WARN_BG__': '#65413A' if mode=='Tối' else '#FFF1E3',
-        '__WARN_TEXT__': '#FFD4BD' if mode=='Tối' else '#A75A33',
-        '__CHIP_BG__': '#5B3546' if mode=='Tối' else '#F5E3F0',
-        '__CHIP_TEXT__': '#F7C9D3' if mode=='Tối' else '#815475',
+        '__TABLE_HEAD__': '#274361' if mode=='Tối' else '#EBF2FB',
+        '__TABLE_ALT__': '#213550' if mode=='Tối' else '#F8FBFF',
+        '__TABLE_HOVER__': '#2A4B70' if mode=='Tối' else '#EAF4FF',
+        '__GOOD_BG__': '#194D49' if mode=='Tối' else '#DDF6EF',
+        '__GOOD_TEXT__': '#A4E8D3' if mode=='Tối' else '#14755E',
+        '__WARN_BG__': '#58432C' if mode=='Tối' else '#FFF0D9',
+        '__WARN_TEXT__': '#FFD996' if mode=='Tối' else '#A76512',
+        '__CHIP_BG__': '#293D68' if mode=='Tối' else '#E5EEFF',
+        '__CHIP_TEXT__': '#B8CEFF' if mode=='Tối' else '#365FAC',
     }
     # Sidebar button navigation; stable st-key selectors instead of fragile radio DOM selectors.
     nav_button_css = """
@@ -275,11 +274,11 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     width:100% !important;margin:0 !important;
 }
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button:hover {
-    background:rgba(230,166,155,.15) !important;
+    background:rgba(72,151,235,.19) !important;
 }
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="primary"] {
-    background:rgba(230,166,155,.22) !important;border:1px solid #E6A69B !important;
-    color:__NAVACTIVE__ !important;box-shadow:inset 3px 0 0 #E6A69B !important;
+    background:linear-gradient(100deg,#226BD0,#319CF0) !important;border:1px solid #58B5FC !important;
+    color:__NAVACTIVE__ !important;box-shadow:inset 3px 0 0 #9BDCFF !important;
 }
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="primary"] p {
     font-weight:800 !important;
@@ -295,23 +294,98 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 """.replace("__NAVTEXT__", '#F5EFF1' if mode=='Tối' else '#443B42')
     nav_button_css=nav_button_css.replace("__NAVACTIVE__", '#FFE5DD' if mode=='Tối' else '#9B514B')
     extra_css+=nav_button_css
+    # Banking Insights: colored KPI scorecards, subtle panels, coordinated tables and charts.
+    theme_values.update({
+        '__MINT_BG__': '#173D44' if mode=='Tối' else '#EFFAF7',
+        '__MINT_BORDER__': '#326968' if mode=='Tối' else '#C9EDE4',
+        '__MINT_ACCENT__': '#78DDC4' if mode=='Tối' else '#36B392',
+        '__MINT_ICON__': '#26555A' if mode=='Tối' else '#DCF6EE',
+        '__VIOLET_BG__': '#312B4E' if mode=='Tối' else '#F7F3FE',
+        '__VIOLET_BORDER__': '#554774' if mode=='Tối' else '#E4DBFA',
+        '__VIOLET_ACCENT__': '#BBA6FF' if mode=='Tối' else '#9475DD',
+        '__VIOLET_ICON__': '#443862' if mode=='Tối' else '#ECE4FC',
+        '__BLUE_BG__': '#173958' if mode=='Tối' else '#F0F6FF',
+        '__BLUE_BORDER__': '#315B7D' if mode=='Tối' else '#D5E6FE',
+        '__BLUE_ACCENT__': '#82BEFF' if mode=='Tối' else '#4A93EF',
+        '__BLUE_ICON__': '#264B6D' if mode=='Tối' else '#E1EEFF',
+        '__AMBER_BG__': '#413828' if mode=='Tối' else '#FFF9EF',
+        '__AMBER_BORDER__': '#665538' if mode=='Tối' else '#F4E3C6',
+        '__AMBER_ACCENT__': '#F1C474' if mode=='Tối' else '#DA9C39',
+        '__AMBER_ICON__': '#57492F' if mode=='Tối' else '#FFF0D6',
+        '__HERO_BG__': '#193A5C' if mode=='Tối' else '#F0F7FF',
+        '__HERO_GLOW__': '#28476B' if mode=='Tối' else '#DDEEFF',
+        '__PANEL_TINT__': '#1D3552' if mode=='Tối' else '#F3F9FF',
+    })
+    finance_css="""
+/* Navy finance dashboard: four pastel KPI tones with individual outline icons. */
+.stApp [data-testid="stSidebar"] .ep-brand-title{color:#F5FAFF !important;}
+.stApp [data-testid="stSidebar"] .ep-brand-sub{color:#BBD1E8 !important;}
+.stApp [data-testid="stSidebar"] .ep-brand-mark{
+    background:linear-gradient(145deg,#2067C3,#39A1F6) !important;color:#FFF !important;
+}
+[data-testid="stSidebar"] [data-testid="stToggle"] [data-testid="stWidgetLabel"] p {color:#E9F4FF !important;}
+.ep-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin:16px 0 24px;}
+[data-testid="stMarkdownContainer"] .ep-kpi-grid .ep-card{
+    display:flex;align-items:center;gap:14px;min-height:125px;
+    padding:17px 16px !important;border:1px solid var(--ep-card-border) !important;
+    border-top:3px solid var(--ep-card-color) !important;
+    background:var(--ep-card-bg) !important;border-radius:18px !important;
+    box-shadow:0 10px 25px rgba(21,57,103,.045) !important;
+}
+.ep-card--mint{--ep-card-bg:__MINT_BG__;--ep-card-border:__MINT_BORDER__;--ep-card-color:__MINT_ACCENT__;--ep-icon-bg:__MINT_ICON__;}
+.ep-card--violet{--ep-card-bg:__VIOLET_BG__;--ep-card-border:__VIOLET_BORDER__;--ep-card-color:__VIOLET_ACCENT__;--ep-icon-bg:__VIOLET_ICON__;}
+.ep-card--blue{--ep-card-bg:__BLUE_BG__;--ep-card-border:__BLUE_BORDER__;--ep-card-color:__BLUE_ACCENT__;--ep-icon-bg:__BLUE_ICON__;}
+.ep-card--amber{--ep-card-bg:__AMBER_BG__;--ep-card-border:__AMBER_BORDER__;--ep-card-color:__AMBER_ACCENT__;--ep-icon-bg:__AMBER_ICON__;}
+.ep-card-icon{display:grid;place-items:center;width:47px;height:47px;min-width:47px;
+    border-radius:15px;background:var(--ep-icon-bg);color:var(--ep-card-color);}
+.ep-card-icon svg{width:25px;height:25px;}
+.ep-card-copy{flex:1;min-width:0;}
+.ep-kpi-value{font-size:1.61rem;line-height:1.27;font-weight:850;color:__TEXT__ !important;overflow-wrap:anywhere;}
+.ep-kpi-label{font-size:.85rem;line-height:1.35;font-weight:750;color:__TEXT__ !important;margin:5px 0 0;}
+.ep-kpi-note{font-size:.73rem;line-height:1.4;color:__MUTED__ !important;margin-top:5px;}
+.ep-hero{background:linear-gradient(102deg,__SURFACE__ 0%,__HERO_BG__ 62%,__HERO_GLOW__ 100%) !important;
+    border:1px solid __BORDER__ !important;box-shadow:0 12px 30px rgba(25,74,127,.055);}
+.ep-hero-icon{color:__ACCENT__ !important;background:__BLUE_ICON__ !important;border-color:__BLUE_BORDER__ !important;}
+.ep-hero .ep-eyebrow{color:__ACCENT__ !important;}
+.ep-panel{background:linear-gradient(116deg,__SURFACE__ 0%,__PANEL_TINT__ 160%) !important;
+    border-color:__BORDER__ !important;box-shadow:0 12px 28px rgba(21,57,103,.035);}
+.ep-panel-title{color:__TEXT__ !important;display:flex;gap:10px;align-items:center;}
+.ep-panel-title::before{content:"";width:8px;height:18px;border-radius:8px;background:__ACCENT__;}
+.ep-method-grid .ep-method {border-top:3px solid __ACCENT__ !important;box-shadow:0 8px 20px rgba(23,62,112,.045);}
+.ep-method-grid .ep-method:nth-child(4n+1){border-top-color:__MINT_ACCENT__ !important;background:__MINT_BG__ !important;}
+.ep-method-grid .ep-method:nth-child(4n+2){border-top-color:__BLUE_ACCENT__ !important;background:__BLUE_BG__ !important;}
+.ep-method-grid .ep-method:nth-child(4n+3){border-top-color:__VIOLET_ACCENT__ !important;background:__VIOLET_BG__ !important;}
+.ep-method-grid .ep-method:nth-child(4n){border-top-color:__AMBER_ACCENT__ !important;background:__AMBER_BG__ !important;}
+.ep-method-grid .ep-method h3{border-left:0 !important;padding-left:0 !important;color:__TEXT__ !important;}
+.ep-method-grid .ep-method p{color:__TEXT__ !important;}
+.ep-table-wrap{box-shadow:0 7px 22px rgba(18,52,102,.035);}
+.ep-table th{font-weight:750 !important;}
+.ep-badge{background:__BLUE_ICON__ !important;border-color:__BLUE_BORDER__ !important;color:__ACCENT__ !important;}
+.ep-badge.warn{background:__WARN_BG__ !important;border-color:__AMBER_BORDER__ !important;color:__WARN_TEXT__ !important;}
+[data-testid="stPlotlyChart"]{box-shadow:0 10px 28px rgba(20,54,99,.045) !important;}
+@media(max-width:950px){.ep-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(195px,1fr));}}
+@media(max-width:640px){.ep-kpi-grid{grid-template-columns:1fr;}.ep-card-icon{width:43px;height:43px;min-width:43px;}}
+"""
+    for key,value in theme_values.items():
+        finance_css=finance_css.replace(key,value)
+    extra_css+=finance_css
     for key,value in theme_values.items():
         extra_css=extra_css.replace(key,value)
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
     return css
 
-def hero_svg(accent=PEACH_ACCENT, mode='Sáng'):
+def hero_svg(accent=BLUE_ACCENT, mode='Sáng'):
     """Minh họa vector ExitPlan: màn hình danh mục, kế hoạch bán, tiền và thanh khoản."""
     dark=mode=='Tối'
-    screen='#50303E' if dark else '#FFFCFA'
-    inner='#382631' if dark else '#FFF8F5'
-    frame='#DBA7A3' if dark else '#A77E84'
-    ink='#FFE5DC' if dark else '#7B6570'
-    line='#EAAEA2'
-    pale='#E6B3AE' if dark else '#F9D5CE'
-    mint='#8DC5B6'
-    light='#FAE9E4' if dark else '#FFFFFF'
+    screen='#244260' if dark else '#FFFFFF'
+    inner='#142E4B' if dark else '#F3F9FF'
+    frame='#4F86C2' if dark else '#7A9FD0'
+    ink='#C7E1FF' if dark else '#607D9F'
+    line='#6AA8EC'
+    pale='#7A9FC9' if dark else '#E0EDFC'
+    mint='#65C8B2'
+    light='#E7F3FF' if dark else '#FFFFFF'
     template="""<svg viewBox="0 0 510 252" xmlns="http://www.w3.org/2000/svg"
        role="img" aria-label="Minh họa ExitPlan: danh mục cổ phiếu, biểu đồ thanh khoản và kế hoạch bán">
       <defs>
@@ -410,4 +484,39 @@ def hero_svg(accent=PEACH_ACCENT, mode='Sáng'):
         '__INK__':ink,'__PALE__':pale,'__MINT__':mint,'__LIGHT__':light
     }.items():
         template=template.replace(key,value)
+    # Recolor the original vector into blue/teal/violet/gold without external assets.
+    banking_vector_colors={
+        '#FFDAD1':'#D6EAFF',
+        '#E5A49E':'#68A9EC',
+        '#F2C1B8':'#D7E9FA',
+        '#C98E8F':'#709FCF',
+        '#9B7071':'#4E78A7',
+        '#E9ADA4':'#88B8E9',
+        '#E7A6A1':'#63A2E3',
+        '#C98E92':'#628FCE',
+        '#8EC2B5':'#5CC7AC',
+        '#D3A5A0':'#719ECF',
+        '#C88F90':'#6D99C9',
+        '#E6A8A0':'#4D9CE9',
+        '#EBA8A0':'#62A9EB',
+        '#D99590':'#D6A956',
+        '#F0B3A6':'#ECC576',
+        '#FFDCD1':'#FFE4AC',
+        '#DA9A96':'#CEA34F',
+        '#CB8988':'#B88F43',
+        '#E4A29A':'#E6B762',
+        '#D79B97':'#D1A350',
+        '#C98986':'#BD9042',
+        '#F8D6CD':'#CDE5FB',
+        '#FFEFEB':'#EDF7FF',
+        '#E7A79E':'#68A6E9',
+        '#B9D8CF':'#65C6B0',
+        '#F0BDB3':'#9C91E3',
+        '#F9DED6':'#E7F3FF',
+        '#A66E79':'#407EBB',
+        '#EDB4A8':'#B7D5F4',
+        '#CE9394':'#5A92CF',
+    }
+    for old,new in banking_vector_colors.items():
+        template=template.replace(old,new)
     return template
