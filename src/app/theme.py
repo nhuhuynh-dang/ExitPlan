@@ -649,71 +649,125 @@ body ul[role="listbox"] [aria-selected="true"]{
         +theme_icon_paths+"</svg>"
     )
     theme_icon_uri="data:image/svg+xml,"+quote(theme_svg,safe='')
+    # Streamlit 1.47+ renders st.toggle as data-testid="stCheckbox" using
+    # BaseWeb: <label data-baseweb="checkbox"><div track><div thumb/></div>...
+    # Styling stToggle in the old version never matched, so the icon vanished.
+    # Keep the REAL BaseWeb input and thumb, not an inaccessible fake overlay.
     theme_switch_css="""
-/* Real click/keyboard-operated slider immediately under Vietnam caption. */
+/* Native accessible toggle, placed beneath Vietnam caption. */
 [data-testid="stSidebar"] .st-key-ep_dark_mode {
     margin:9px 0 21px !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]{
-    position:relative !important;isolation:isolate !important;
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stCheckbox"] {
     width:100% !important;min-height:56px !important;
-    padding:9px 98px 9px 14px !important;
-    display:flex !important;align-items:center !important;
+    padding:9px 12px 9px 14px !important;
     background:__THEME_BG__ !important;color:__THEME_TEXT__ !important;
-    border:1px solid __THEME_BORDER__ !important;border-radius:15px !important;
+    border:1px solid __THEME_BORDER__ !important;
+    border-radius:15px !important;
     box-shadow:0 4px 14px rgba(17,49,94,.065) !important;
     transition:background .17s ease,border-color .17s ease !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]:hover {
-    background:__THEME_HOVER__ !important;border-color:__THEME_BORDER_HOVER__ !important;
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stCheckbox"]:hover {
+    background:__THEME_HOVER__ !important;
+    border-color:__THEME_BORDER_HOVER__ !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]:focus-within {
-    outline:2px solid __ACCENT__ !important;outline-offset:2px !important;
-}
-/* Preserve Streamlit's native input (state, accessibility and keyboard controls),
-   but make its old track invisible so the custom slider is the only visible one. */
+/* BaseWeb Checkbox root is a LABEL. Reverse its two visible children:
+   text left, track on the right. The hidden input remains usable. */
 [data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"] {
-    width:100% !important;
+    display:flex !important;flex-direction:row-reverse !important;
+    align-items:center !important;justify-content:space-between !important;
+    gap:10px !important;width:100% !important;
+    min-height:36px !important;cursor:pointer !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"] label {
-    display:flex !important;align-items:center !important;justify-content:flex-start !important;
-    width:100% !important;min-height:36px !important;cursor:pointer !important;
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stWidgetLabel"] {
+    padding:0 !important;margin:0 !important;
+    flex:1 1 auto !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"] label > div:first-child {
-    opacity:0 !important;position:absolute !important;
-    right:7px !important;top:5px !important;width:85px !important;height:44px !important;
-    z-index:1 !important;
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stWidgetLabel"] p {
+    font-size:.88rem !important;font-weight:720 !important;
+    line-height:1.4 !important;margin:0 !important;
+    color:__THEME_TEXT__ !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"] [role="switch"] {
-    opacity:0 !important;
+/* The actual BaseWeb toggle track (first DIV child of its root label). */
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[data-baseweb="checkbox"] > div:first-of-type {
+    box-sizing:border-box !important;
+    position:relative !important;
+    display:flex !important;align-items:center !important;
+    width:76px !important;min-width:76px !important;
+    height:38px !important;min-height:38px !important;
+    padding:3px !important;margin:0 !important;
+    background:__THEME_TRACK__ !important;
+    border:1px solid __THEME_TRACK_BORDER__ !important;
+    border-radius:999px !important;flex:0 0 76px !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"] p {
-    color:__THEME_TEXT__ !important;font-size:.88rem !important;
-    font-weight:720 !important;line-height:1.4 !important;margin:0 !important;
+/* The real moving circle (not an ::after on a nonexistent stToggle). */
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[data-baseweb="checkbox"] > div:first-of-type > div:first-child {
+    box-sizing:border-box !important;
+    width:30px !important;height:30px !important;flex:0 0 30px !important;
+    margin:0 !important;border-radius:50% !important;
+    background-color:__THEME_THUMB__ !important;
+    background-image:url("__THEME_ICON_URI__") !important;
+    background-repeat:no-repeat !important;
+    background-position:center !important;
+    background-size:19px 19px !important;
+    box-shadow:0 1px 5px rgba(0,0,0,.15) !important;
+    transform:translateX(0) !important;
+    transition:transform .22s ease,background-color .18s ease !important;
 }
-/* Switch track. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]::before {
-    content:"" !important;position:absolute !important;
-    width:74px !important;height:36px !important;
-    right:10px !important;top:50% !important;transform:translateY(-50%) !important;
-    border-radius:999px !important;
+/* Let the native checked state move the genuine thumb rightwards. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[data-baseweb="checkbox"]:has(input[type="checkbox"]:checked)
+> div:first-of-type > div:first-child {
+    transform:translateX(38px) !important;
+}
+/* Keyboard focus remains visible. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"]:focus-within {
+    outline:2px solid __ACCENT__ !important;
+    outline-offset:4px !important;border-radius:10px !important;
+}
+/* Newer Streamlit builds use React Aria, still data-testid=stCheckbox
+   but switch markup has role=switch instead of data-baseweb=checkbox. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[data-testid="stCheckbox"] > [role="switch"] {
+    display:flex !important;flex-direction:row-reverse !important;
+    align-items:center !important;justify-content:space-between !important;
+    width:100% !important;min-height:36px !important;
+    gap:10px !important;cursor:pointer !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"] > div:first-of-type {
+    box-sizing:border-box !important;
+    display:flex !important;align-items:center !important;
+    width:76px !important;min-width:76px !important;
+    height:38px !important;min-height:38px !important;
+    margin:0 !important;padding:3px !important;
     background:__THEME_TRACK__ !important;border:1px solid __THEME_TRACK_BORDER__ !important;
-    pointer-events:none !important;z-index:2 !important;
+    border-radius:999px !important;flex:0 0 76px !important;
 }
-/* Sliding circle; icon lives on the circle itself (not next to the label). */
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]::after {
-    content:"" !important;position:absolute !important;
-    width:31px !important;height:31px !important;
-    right:__THEME_THUMB_RIGHT__ !important;top:50% !important;
-    transform:translateY(-50%) !important;
-    border-radius:50% !important;
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"] > div:first-of-type > div:first-child {
+    box-sizing:border-box !important;
+    width:30px !important;height:30px !important;flex:0 0 30px !important;
+    margin:0 !important;border-radius:50% !important;
     background-color:__THEME_THUMB__ !important;
     background-image:url("__THEME_ICON_URI__") !important;
     background-repeat:no-repeat !important;background-position:center !important;
     background-size:19px 19px !important;
     box-shadow:0 1px 5px rgba(0,0,0,.15) !important;
-    pointer-events:none !important;z-index:3 !important;
-    transition:right .22s ease,background-color .18s ease !important;
+    transform:translateX(0) !important;
+    transition:transform .22s ease,background-color .18s ease !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"][aria-checked="true"] > div:first-of-type > div:first-child,
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"][data-selected] > div:first-of-type > div:first-child {
+    transform:translateX(38px) !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"]:focus-visible {
+    outline:2px solid __ACCENT__ !important;outline-offset:4px !important;
 }
 """
     theme_switch_values={
@@ -725,7 +779,6 @@ body ul[role="listbox"] [aria-selected="true"]{
         '__THEME_TRACK__': '#244D78' if mode=='Tối' else '#D8E9FA',
         '__THEME_TRACK_BORDER__': '#4F79A6' if mode=='Tối' else '#B8D6F3',
         '__THEME_THUMB__': '#477EBD' if mode=='Tối' else '#FFFFFF',
-        '__THEME_THUMB_RIGHT__': '15px' if mode=='Tối' else '47px',
         '__THEME_ICON_URI__': theme_icon_uri,
     }
     for old,new in theme_switch_values.items():
