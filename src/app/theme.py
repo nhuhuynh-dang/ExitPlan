@@ -294,6 +294,81 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 """.replace("__NAVTEXT__", '#F5EFF1' if mode=='Tối' else '#443B42')
     nav_button_css=nav_button_css.replace("__NAVACTIVE__", '#FFE5DD' if mode=='Tối' else '#9B514B')
     extra_css+=nav_button_css
+    # Banking Insights: colored KPI scorecards, subtle panels, coordinated tables and charts.
+    theme_values.update({
+        '__MINT_BG__': '#173D44' if mode=='Tối' else '#EFFAF7',
+        '__MINT_BORDER__': '#326968' if mode=='Tối' else '#C9EDE4',
+        '__MINT_ACCENT__': '#78DDC4' if mode=='Tối' else '#36B392',
+        '__MINT_ICON__': '#26555A' if mode=='Tối' else '#DCF6EE',
+        '__VIOLET_BG__': '#312B4E' if mode=='Tối' else '#F7F3FE',
+        '__VIOLET_BORDER__': '#554774' if mode=='Tối' else '#E4DBFA',
+        '__VIOLET_ACCENT__': '#BBA6FF' if mode=='Tối' else '#9475DD',
+        '__VIOLET_ICON__': '#443862' if mode=='Tối' else '#ECE4FC',
+        '__BLUE_BG__': '#173958' if mode=='Tối' else '#F0F6FF',
+        '__BLUE_BORDER__': '#315B7D' if mode=='Tối' else '#D5E6FE',
+        '__BLUE_ACCENT__': '#82BEFF' if mode=='Tối' else '#4A93EF',
+        '__BLUE_ICON__': '#264B6D' if mode=='Tối' else '#E1EEFF',
+        '__AMBER_BG__': '#413828' if mode=='Tối' else '#FFF9EF',
+        '__AMBER_BORDER__': '#665538' if mode=='Tối' else '#F4E3C6',
+        '__AMBER_ACCENT__': '#F1C474' if mode=='Tối' else '#DA9C39',
+        '__AMBER_ICON__': '#57492F' if mode=='Tối' else '#FFF0D6',
+        '__HERO_BG__': '#193A5C' if mode=='Tối' else '#F0F7FF',
+        '__HERO_GLOW__': '#28476B' if mode=='Tối' else '#DDEEFF',
+        '__PANEL_TINT__': '#1D3552' if mode=='Tối' else '#F3F9FF',
+    })
+    finance_css="""
+/* Navy finance dashboard: four pastel KPI tones with individual outline icons. */
+.stApp [data-testid="stSidebar"] .ep-brand-title{color:#F5FAFF !important;}
+.stApp [data-testid="stSidebar"] .ep-brand-sub{color:#BBD1E8 !important;}
+.stApp [data-testid="stSidebar"] .ep-brand-mark{
+    background:linear-gradient(145deg,#2067C3,#39A1F6) !important;color:#FFF !important;
+}
+[data-testid="stSidebar"] [data-testid="stToggle"] [data-testid="stWidgetLabel"] p {color:#E9F4FF !important;}
+.ep-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin:16px 0 24px;}
+[data-testid="stMarkdownContainer"] .ep-kpi-grid .ep-card{
+    display:flex;align-items:center;gap:14px;min-height:125px;
+    padding:17px 16px !important;border:1px solid var(--ep-card-border) !important;
+    border-top:3px solid var(--ep-card-color) !important;
+    background:var(--ep-card-bg) !important;border-radius:18px !important;
+    box-shadow:0 10px 25px rgba(21,57,103,.045) !important;
+}
+.ep-card--mint{--ep-card-bg:__MINT_BG__;--ep-card-border:__MINT_BORDER__;--ep-card-color:__MINT_ACCENT__;--ep-icon-bg:__MINT_ICON__;}
+.ep-card--violet{--ep-card-bg:__VIOLET_BG__;--ep-card-border:__VIOLET_BORDER__;--ep-card-color:__VIOLET_ACCENT__;--ep-icon-bg:__VIOLET_ICON__;}
+.ep-card--blue{--ep-card-bg:__BLUE_BG__;--ep-card-border:__BLUE_BORDER__;--ep-card-color:__BLUE_ACCENT__;--ep-icon-bg:__BLUE_ICON__;}
+.ep-card--amber{--ep-card-bg:__AMBER_BG__;--ep-card-border:__AMBER_BORDER__;--ep-card-color:__AMBER_ACCENT__;--ep-icon-bg:__AMBER_ICON__;}
+.ep-card-icon{display:grid;place-items:center;width:47px;height:47px;min-width:47px;
+    border-radius:15px;background:var(--ep-icon-bg);color:var(--ep-card-color);}
+.ep-card-icon svg{width:25px;height:25px;}
+.ep-card-copy{flex:1;min-width:0;}
+.ep-kpi-value{font-size:1.61rem;line-height:1.27;font-weight:850;color:__TEXT__ !important;overflow-wrap:anywhere;}
+.ep-kpi-label{font-size:.85rem;line-height:1.35;font-weight:750;color:__TEXT__ !important;margin:5px 0 0;}
+.ep-kpi-note{font-size:.73rem;line-height:1.4;color:__MUTED__ !important;margin-top:5px;}
+.ep-hero{background:linear-gradient(102deg,__SURFACE__ 0%,__HERO_BG__ 62%,__HERO_GLOW__ 100%) !important;
+    border:1px solid __BORDER__ !important;box-shadow:0 12px 30px rgba(25,74,127,.055);}
+.ep-hero-icon{color:__ACCENT__ !important;background:__BLUE_ICON__ !important;border-color:__BLUE_BORDER__ !important;}
+.ep-hero .ep-eyebrow{color:__ACCENT__ !important;}
+.ep-panel{background:linear-gradient(116deg,__SURFACE__ 0%,__PANEL_TINT__ 160%) !important;
+    border-color:__BORDER__ !important;box-shadow:0 12px 28px rgba(21,57,103,.035);}
+.ep-panel-title{color:__TEXT__ !important;display:flex;gap:10px;align-items:center;}
+.ep-panel-title::before{content:"";width:8px;height:18px;border-radius:8px;background:__ACCENT__;}
+.ep-method-grid .ep-method {border-top:3px solid __ACCENT__ !important;box-shadow:0 8px 20px rgba(23,62,112,.045);}
+.ep-method-grid .ep-method:nth-child(4n+1){border-top-color:__MINT_ACCENT__ !important;background:__MINT_BG__ !important;}
+.ep-method-grid .ep-method:nth-child(4n+2){border-top-color:__BLUE_ACCENT__ !important;background:__BLUE_BG__ !important;}
+.ep-method-grid .ep-method:nth-child(4n+3){border-top-color:__VIOLET_ACCENT__ !important;background:__VIOLET_BG__ !important;}
+.ep-method-grid .ep-method:nth-child(4n){border-top-color:__AMBER_ACCENT__ !important;background:__AMBER_BG__ !important;}
+.ep-method-grid .ep-method h3{border-left:0 !important;padding-left:0 !important;color:__TEXT__ !important;}
+.ep-method-grid .ep-method p{color:__TEXT__ !important;}
+.ep-table-wrap{box-shadow:0 7px 22px rgba(18,52,102,.035);}
+.ep-table th{font-weight:750 !important;}
+.ep-badge{background:__BLUE_ICON__ !important;border-color:__BLUE_BORDER__ !important;color:__ACCENT__ !important;}
+.ep-badge.warn{background:__WARN_BG__ !important;border-color:__AMBER_BORDER__ !important;color:__WARN_TEXT__ !important;}
+[data-testid="stPlotlyChart"]{box-shadow:0 10px 28px rgba(20,54,99,.045) !important;}
+@media(max-width:950px){.ep-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(195px,1fr));}}
+@media(max-width:640px){.ep-kpi-grid{grid-template-columns:1fr;}.ep-card-icon{width:43px;height:43px;min-width:43px;}}
+"""
+    for key,value in theme_values.items():
+        finance_css=finance_css.replace(key,value)
+    extra_css+=finance_css
     for key,value in theme_values.items():
         extra_css=extra_css.replace(key,value)
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
