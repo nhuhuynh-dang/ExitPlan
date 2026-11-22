@@ -106,3 +106,24 @@ def test_browser_title_describes_exitplan_not_generic_dashboard():
     source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
     assert "page_title='ExitPlan | Kế hoạch bán'" in source
     assert 'page_icon=None' in source
+
+
+def test_dark_dropdown_portal_and_selected_value_are_legible():
+    css=theme_css("Tối")
+    assert 'body [data-baseweb="popover"] > div' in css
+    assert 'body [data-testid="stSelectboxVirtualDropdown"]' in css
+    assert 'body ul[role="listbox"]' in css
+    assert '[data-testid="stSelectbox"] [data-baseweb="select"] span' in css
+    assert 'background-color:#192B43 !important' in css
+    assert 'color:#EAF3FF !important' in css
+    assert 'background-color:#294765 !important' in css
+
+
+def test_validation_two_file_options_use_buttons_instead_of_dropdown():
+    from pathlib import Path
+    source=(Path(__file__).resolve().parents[1]/'src/app/pages.py').read_text(encoding='utf-8')
+    assert 'if len(filenames)<=3:' in source
+    assert "key='ep_validation_'+filename" in source
+    assert "'validation_replay.csv':'Phát lại dữ liệu'" in source
+    assert "'validation_sensitivity.csv':'Độ nhạy tham số'" in source
+    assert "st.session_state[choice_key]=filename" in source
