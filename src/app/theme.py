@@ -630,51 +630,99 @@ body ul[role="listbox"] [aria-selected="true"]{
     for key,value in theme_values.items():
         finance_css=finance_css.replace(key,value)
     extra_css+=finance_css
-    # Trang trí khung ngoài; không can thiệp vào track/thumb/input thật
-    # của Streamlit để luôn có thể gạt bằng chuột và bàn phím.
-    simple_theme_css="""
-/* Native Streamlit switch stays interactive; only align its neighbors. */
-[data-testid="stSidebar"] .st-key-ep_theme_row {
-    margin:10px 0 21px !important;
-    padding:9px 12px !important;
-    background:__SURFACE__ !important;
-    border:1px solid __BORDER__ !important;
-    border-radius:14px !important;
+    # Pill chỉ trang trí track + thumb THẬT của BaseWeb st.toggle.
+    # Không có nút giả, overlay, opacity:0 hay pointer-events chặn click.
+    # SVG dùng data URI do Python mã hóa nên CSS hoạt động trên Chromium.
+    sun_paths=(
+        '<circle cx="12" cy="12" r="4"/>'
+        '<path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42'
+        'M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/>'
+    )
+    moon_paths='<path d="M20.985 12.486A9 9 0 0 1 11.514 3.015 9 9 0 1 0 20.985 12.486Z"/>'
+    icon_paths=moon_paths if mode=='Tối' else sun_paths
+    line_icon=(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
+        "fill='none' stroke='#2369B4' stroke-width='1.9' "
+        "stroke-linecap='round' stroke-linejoin='round'>"+icon_paths+"</svg>"
+    )
+    icon_uri="data:image/svg+xml,"+quote(line_icon,safe='')
+    pill_css="""
+/* Compact native Streamlit theme pill, same footprint as the visual reference. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode{
+    box-sizing:border-box !important;
+    width:118px !important;max-width:118px !important;
+    margin:10px 0 22px !important;padding:4px 5px !important;
+    border-radius:17px !important;
+    border:1px solid __PILL_BORDER__ !important;
+    background:__PILL_OUTER__ !important;
+    box-shadow:0 3px 11px rgba(19,52,98,.055) !important;
 }
-[data-testid="stSidebar"] .st-key-ep_theme_row [data-testid="stHorizontalBlock"] {
-    align-items:center !important;min-height:34px !important;
-}
-[data-testid="stSidebar"] .st-key-ep_theme_row [data-testid="stColumn"] {
-    align-self:center !important;min-width:0 !important;
-}
-[data-testid="stSidebar"] .st-key-ep_theme_row .ep-theme-heading {
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stCheckbox"]{
     display:flex !important;align-items:center !important;
-    gap:9px !important;min-height:34px !important;height:34px !important;
     width:100% !important;margin:0 !important;padding:0 !important;
-    line-height:1.1 !important;
-    color:__TEXT__ !important;
+    min-height:50px !important;
 }
-[data-testid="stSidebar"] .st-key-ep_theme_row .ep-theme-heading svg {
-    display:block !important;flex:0 0 19px !important;
-    width:19px !important;height:19px !important;
-    color:__ACCENT__ !important;
-}
-[data-testid="stSidebar"] .st-key-ep_theme_row .ep-theme-heading span {
-    display:block !important;color:__TEXT__ !important;
-    font-weight:700 !important;font-size:.89rem !important;
-    line-height:20px !important;margin:0 !important;padding:0 !important;
-    white-space:nowrap !important;
-}
-[data-testid="stSidebar"] .st-key-ep_theme_row [data-testid="stCheckbox"] {
-    margin:0 !important;padding:0 !important;
-    min-height:34px !important;display:flex !important;align-items:center !important;
-    justify-content:flex-end !important;
-}
-[data-testid="stSidebar"] .st-key-ep_theme_row [data-testid="stCheckbox"] label {
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"]{
+    display:flex !important;align-items:center !important;
+    width:100% !important;min-height:50px !important;
     margin:0 !important;cursor:pointer !important;
 }
+/* Track is BaseWeb's first direct DIV child of its native LABEL. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[data-baseweb="checkbox"] > div:first-of-type{
+    box-sizing:border-box !important;
+    display:flex !important;align-items:center !important;justify-content:flex-start !important;
+    position:relative !important;
+    width:104px !important;min-width:104px !important;
+    height:50px !important;min-height:50px !important;
+    padding:5px !important;margin:0 !important;
+    border:2px solid __PILL_ACCENT__ !important;
+    border-radius:999px !important;
+    background:__PILL_TRACK__ !important;
+    cursor:pointer !important;
+}
+/* Thumb remains the genuine movable BaseWeb element. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[data-baseweb="checkbox"] > div:first-of-type > div:first-child{
+    box-sizing:border-box !important;
+    width:36px !important;min-width:36px !important;
+    height:36px !important;min-height:36px !important;
+    border-radius:50% !important;
+    margin:0 !important;
+    background-color:__PILL_THUMB__ !important;
+    background-image:url("__PILL_ICON_URI__") !important;
+    background-repeat:no-repeat !important;
+    background-position:center !important;
+    background-size:21px 21px !important;
+    box-shadow:0 1px 5px rgba(16,59,115,.16) !important;
+    transform:translateX(0) !important;
+    transition:transform .22s ease,background-color .18s ease !important;
+    pointer-events:none !important;
+}
+/* Checked is the real input state (and hence matches Streamlit session state). */
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[data-baseweb="checkbox"]:has(input[type="checkbox"]:checked)
+> div:first-of-type > div:first-child{
+    transform:translateX(54px) !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode:has(:focus-visible){
+    outline:2px solid __PILL_ACCENT__ !important;outline-offset:3px !important;
+}
+/* Keep the accessible label visually collapsed, never create a second label. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stWidgetLabel"]{
+    display:none !important;
+}
 """
-    extra_css+=simple_theme_css
+    for old,new in {
+        '__PILL_BORDER__':'#557392' if mode=='Tối' else '#D5E5F5',
+        '__PILL_OUTER__':'#1A2F49' if mode=='Tối' else '#FFFFFF',
+        '__PILL_ACCENT__':'#69B2FF' if mode=='Tối' else '#2E83E6',
+        '__PILL_TRACK__':'#30577F' if mode=='Tối' else '#DDEBFF',
+        '__PILL_THUMB__':'#F6FAFF',
+        '__PILL_ICON_URI__':icon_uri,
+    }.items():
+        pill_css=pill_css.replace(old,new)
+    extra_css+=pill_css
     for key,value in theme_values.items():
         extra_css=extra_css.replace(key,value)
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
