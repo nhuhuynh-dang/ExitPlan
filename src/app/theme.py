@@ -14,7 +14,7 @@ def palette(mode, accent=PEACH_ACCENT):
     return {
         'bg': '#1C2635' if dark else '#FFF8F5',
         'surface': '#263345' if dark else '#FFFEFD',
-        'sidebar': '#101F35' if dark else '#152B45',
+        'sidebar': '#101F35' if dark else '#FFF2EE',
         'text': '#F8F1F0' if dark else '#443B42',
         'muted': '#C5BBC3' if dark else '#806D75',
         'border': '#425167' if dark else '#ECDDD7',
@@ -121,13 +121,15 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
         '<path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/>',
     ]
     nav_icons = []
+    icon_color='#F9E8E4' if mode=='Tối' else '#5C4E58'
     for i, paths in enumerate(svg_paths, start=1):
         svg = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
-               "fill='none' stroke='#F9E8E4' stroke-width='1.8' "
+               "fill='none' stroke='" + icon_color + "' stroke-width='1.8' "
                "stroke-linecap='round' stroke-linejoin='round'>" + paths + "</svg>")
         uri = "data:image/svg+xml," + quote(svg, safe='')
         nav_icons.append(
-            f'[data-testid="stSidebar"] [role="radiogroup"] label:nth-child({i})::before'
+            f'[data-testid="stSidebar"] [role="radiogroup"] > label:nth-of-type({i})::before, '
+            f'[data-testid="stSidebar"] [role="radiogroup"] > div:nth-child({i}) > label::before'
             + '{content:"";display:block;flex:0 0 21px;width:21px;height:21px;'
               'background-image:url("' + uri + '");background-size:contain;'
               'background-repeat:no-repeat;background-position:center;}'
@@ -140,14 +142,14 @@ header[data-testid="stHeader"] [data-testid="stToolbar"],
 #MainMenu, footer {display:none !important;}
 header[data-testid="stHeader"] {background:transparent !important;box-shadow:none !important;}
 /* Sidebar xanh than, icon trắng nét mảnh; trạng thái chọn hồng đào pastel. */
-[data-testid="stSidebar"] {background:__NAVY__ !important;border-right:1px solid #31445C !important;}
+[data-testid="stSidebar"] {background:__NAVY__ !important;border-right:1px solid __BORDER__ !important;}
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
 [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] .ep-brand-title,
-[data-testid="stSidebar"] [role="radiogroup"] label p {color:#F5EFF1 !important;}
+[data-testid="stSidebar"] [role="radiogroup"] label p {color:__SIDETEXT__ !important;}
 [data-testid="stSidebar"] .ep-brand-sub,
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {color:#AEBCCB !important;}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {color:__SIDEMUTED__ !important;}
 [data-testid="stSidebar"] [role="radiogroup"] {gap:5px;}
 [data-testid="stSidebar"] [role="radiogroup"] label {
     display:flex !important;align-items:center !important;gap:11px !important;
@@ -155,7 +157,10 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     border-radius:13px !important;border:1px solid transparent !important;
     background:transparent !important;transition:background .16s,border-color .16s;
 }
-[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:has(input[type="radio"]) {display:none !important;}
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:not([data-testid="stMarkdownContainer"]) {display:none !important;}
+[data-testid="stSidebar"] [role="radiogroup"] input[type="radio"] {position:absolute !important;opacity:0 !important;width:1px !important;height:1px !important;}
+[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"] {display:none !important;}
+[data-testid="stSidebar"] [role="radiogroup"] label > div:has(> input[type="radio"]) {display:none !important;}
 [data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(230,166,155,.12) !important;}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
     background:rgba(230,166,155,.22) !important;
@@ -163,8 +168,8 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     box-shadow:inset 3px 0 0 #E6A69B;
 }
 [data-testid="stSidebar"] [role="radiogroup"] label p {font-weight:600 !important;font-size:.91rem;}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:#FFE5DD !important;font-weight:750 !important;}
-[data-testid="stSidebar"] [data-testid="stToggle"] {padding:10px 11px;border:1px solid #43566C;border-radius:13px;background:#223850;}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:__SIDEACTIVE__ !important;font-weight:750 !important;}
+[data-testid="stSidebar"] [data-testid="stToggle"] {padding:10px 11px;border:1px solid __BORDER__;border-radius:13px;background:__TOGGLEBG__;}
 [data-testid="stSidebar"] .ep-brand-mark {background:#E6A69B;color:#233449;}
 /* Nút, ô nhập và các thẻ áp dụng đúng theme cho cả Sáng và Tối. */
 .stButton button, .stDownloadButton button,
@@ -207,8 +212,19 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-testid="stDataFrame"] canvas,[data-testid="stDataEditor"] canvas {background:__SURFACE__ !important;}
 /* Diện tích biểu đồ Plotly dùng nền do chart.layout cấp, thẻ ngoài theo theme. */
 [data-testid="stPlotlyChart"] {border:1px solid __BORDER__;border-radius:17px;overflow:hidden;background:__SURFACE__ !important;padding:8px;}
+/* Thẻ thiết lập hệ thống dễ đọc, đồng bộ bảng màu ExitPlan. */
+.ep-setting-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 0;border-bottom:1px solid __BORDER__;}
+.ep-setting-row:last-child{border-bottom:none;}
+.ep-setting-name{color:__TEXT__;font-weight:700;font-size:.89rem;}
+.ep-setting-description{color:__MUTED__;font-size:.77rem;margin-top:5px;}
+.ep-setting-row .ep-pill{flex-shrink:0;}
 @media (max-width:950px) {.ep-panel{padding:15px}.ep-table{font-size:.82rem;}}
+@media (max-width:580px) {.ep-setting-row{align-items:flex-start;flex-direction:column;gap:8px;}}
 """.replace("__NAVY__", p['sidebar'])
+    extra_css=extra_css.replace('__SIDETEXT__','#F5EFF1' if mode=='Tối' else '#443B42')
+    extra_css=extra_css.replace('__SIDEMUTED__','#AEBCCB' if mode=='Tối' else '#806D75')
+    extra_css=extra_css.replace('__SIDEACTIVE__','#FFE5DD' if mode=='Tối' else '#9B514B')
+    extra_css=extra_css.replace('__TOGGLEBG__','#223850' if mode=='Tối' else '#FFEAE3')
     theme_values = {
         '__TABLE_HEAD__': '#344358' if mode=='Tối' else '#F8E9E3',
         '__TABLE_ALT__': '#2C3A4E' if mode=='Tối' else '#FFFAF8',

@@ -495,21 +495,84 @@ def validation(root,data,t):
 def methods(root,data,t):
     source_labels(data)
     config_path=Path(root)/'config.json'
-    try:config=json.loads(config_path.read_text(encoding='utf-8'))
+    try:
+        config=json.loads(config_path.read_text(encoding='utf-8'))
+        if not isinstance(config,dict):
+            raise ValueError('Cấu hình phải là đối tượng JSON')
     except (OSError,ValueError) as ex:
-        st.warning(f'Không đọc được config.json: {ex}');config={}
-    definitions=[('01 · Dữ liệu','Ảnh chụp ba mức bid của NEO API WebSocket đã được pipeline ngoài dashboard lưu, có timestamp Việt Nam và nhãn loại dữ liệu.'),
-      ('02 · Mô hình chi phí','Doanh thu = Σ số cổ phiếu bán × giá mua tại từng mức. Tiền ròng = doanh thu − phí − thuế giả định. Chi phí thanh khoản = max(0; giá gần nhất × lượng được bao phủ − doanh thu).'),
-      ('03 · Bài toán tối ưu','MILP chọn số lô 100 cổ phiếu từ từng mã, không vượt lượng nắm giữ và độ sâu quan sát. A giảm chi phí; B đánh đổi chi phí với proxy tập trung; C giảm proxy tập trung; P gần tỷ trọng bán theo giá trị.'),
-      ('04 · Giới hạn','Không có toàn bộ sổ lệnh hoặc diễn biến sau khi đặt lệnh; không chứng minh khả năng khớp. HHI được tính sau tối ưu, còn mục tiêu tập trung trong MILP sử dụng proxy bình phương giá trị còn lại.')]
+        st.warning(f'Không đọc được config.json: {ex}')
+        config={}
+
+    definitions=[
+        ('01 · Dữ liệu','ExitPlan phân tích ảnh chụp sổ lệnh đã lưu. Dữ liệu SSI lịch sử (nếu có) dùng để tính ADV và nghiên cứu biến động; dữ liệu giả lập luôn được gắn nhãn riêng.'),
+        ('02 · Mô hình chi phí','Doanh thu = Σ số cổ phiếu bán × giá mua tại từng mức. Tiền ròng = doanh thu − phí − thuế giả định. Chi phí thanh khoản = max(0; giá gần nhất × lượng được bao phủ − doanh thu).'),
+        ('03 · Bài toán tối ưu','MILP chọn số lô cổ phiếu từ từng mã, không vượt lượng nắm giữ và độ sâu quan sát. A giảm chi phí; B đánh đổi chi phí với proxy tập trung; C giảm proxy tập trung; P gần tỷ trọng bán theo giá trị.'),
+        ('04 · Giới hạn','Không có toàn bộ sổ lệnh hoặc diễn biến sau khi đặt lệnh; không chứng minh khả năng khớp. HHI được tính sau tối ưu, còn mục tiêu tập trung trong MILP sử dụng proxy bình phương giá trị còn lại.')
+    ]
     columns=st.columns(2)
     for i,(title,body) in enumerate(definitions):
         with columns[i%2]:
-            st.markdown(f'<div class="ep-method"><h3>{escape(title)}</h3><p>{escape(body)}</p></div>',unsafe_allow_html=True)
-    st.subheader('Thông số từ file cấu hình')
-    if config:st.json(config)
-    st.caption('TODO: Xác minh đơn vị NEO thực tế; phí bán, thuế và giả định tác động giá trước khi phân tích thực nghiệm.')
-    st.warning('Không tự động đặt lệnh, không kết nối tài khoản, không đưa khuyến nghị đầu tư. Ước tính chỉ dựa trên ba mức giá mua tại một thời điểm.')
+            st.markdown(
+                f'<div class="ep-method"><h3>{escape(title)}</h3><p>{escape(body)}</p></div>',
+                unsafe_allow_html=True
+            )
+
+    st.subheader('Thiết lập & giới hạn mô hình')
+    st.caption('Thông số khai báo trong config.json, phục vụ minh bạch và tái lập kết quả. Đây không phải dữ liệu thị trường trực tiếp.')
+
+    if config:
+        def show_number(key,suffix='',digits=0):
+            v=config.get(key)
+            return fmt.num(v,digits)+suffix if isinstance(v,(int,float)) and not isinstance(v,bool) else 'Chưa thiết lập'
+
+        st.markdown(cards_html([
+            {'label':'Quy mô lô giao dịch','value':show_number('lot_size',' CP'),'note':'Số cổ phiếu trong một lô'},
+            {'label':'Độ sâu sổ lệnh','value':show_number('observed_book_levels',' mức'),'note':'Số mức giá mua dùng để phân tích'},
+            {'label':'Số mã tối đa','value':show_number('maximum_assets_mvp',' mã'),'note':'Giới hạn khai báo cho phiên bản MVP'},
+            {'label':'Ngưỡng tham gia ADV','value':show_number('participation_threshold_pct_default','%'),'note':'Ngưỡng cảnh báo mặc định'}
+        ]),unsafe_allow_html=True)
+
+        def setting_row(label,key,description,percent=False):
+            v=config.get(key)
+            defined=isinstance(v,(int,float)) and not isinstance(v,bool)
+            value=(fmt.pct(v) if percent else fmt.num(v,4)) if defined else 'Chưa thiết lập'
+            klass='ok' if defined else 'warn'
+            return (
+                '<div class="ep-setting-row">'
+                '<div><div class="ep-setting-name">'+escape(label)+'</div>'
+                '<div class="ep-setting-description">'+escape(description)+'</div></div>'
+                '<span class="ep-pill '+klass+'">'+escape(value)+'</span></div>'
+            )
+
+        st.markdown(
+            '<div class="ep-panel">'
+            '<div class="ep-panel-title">Các giả định chi phí</div>'
+            '<div class="ep-panel-desc">Các giá trị trống không đồng nghĩa với chi phí bằng 0. Cần xác nhận trước khi đánh giá phương án bằng dữ liệu thật.</div>'
+            + setting_row('Phí giao dịch','fee_rate_default','Tỷ lệ phí bán mặc định',percent=True)
+            + setting_row('Thuế giao dịch','tax_rate_default','Tỷ lệ thuế/chi phí thuế mặc định',percent=True)
+            + setting_row('Hệ số tác động giá','impact_coefficient','Tham số ước lượng market impact (nếu dùng)')
+            +'</div>',
+            unsafe_allow_html=True
+        )
+        timezone=config.get('timezone')
+        source=config.get('data_source')
+        st.markdown(
+            '<div class="ep-panel"><div class="ep-panel-title">Thông tin nguồn & thời gian</div>'
+            '<div class="ep-info-row"><span class="ep-info-key">Múi giờ</span><span class="ep-info-val">'
+            +escape(str(timezone) if timezone else 'Chưa xác định')+'</span></div>'
+            '<div class="ep-info-row"><span class="ep-info-key">Nguồn khai báo trong cấu hình</span><span class="ep-info-val">'
+            +escape(str(source) if source else 'Chưa xác định')+'</span></div>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        if source and 'NEO' in str(source).upper():
+            st.info('config.json hiện vẫn ghi nguồn NEO. Điều này không chứng minh dashboard đang kết nối NEO; dữ liệu SSI iBoard lịch sử được xử lý riêng.')
+        with st.expander('Xem cấu hình kỹ thuật (JSON)',expanded=False):
+            st.code(json.dumps(config,ensure_ascii=False,indent=2),language='json')
+    else:
+        st.info('Chưa có thông số để hiển thị. Kiểm tra file config.json.')
+
+    st.warning('Ứng dụng không đặt lệnh thật và không đưa ra khuyến nghị đầu tư. Chi phí và khả năng khớp chỉ là ước tính theo dữ liệu sổ lệnh được cung cấp.')
 
 
 def downloads(root,data,t):
