@@ -30,7 +30,7 @@ PAGE_HELP={
  'compare':'Đánh đổi chi phí – độ tập trung và giải thích phương án.',
  'liquidity':'Độ sâu ba mức mua, ADV và cảnh báo thanh khoản.',
  'data':'Nguồn, chất lượng dữ liệu và bộ ghi WebSocket.',
- 'ssi_history':'OHLCV thật nếu truy cập được iBoard, ADV 20 phiên và trạng thái API.',
+ 'ssi_history':'SSI FastConnect V3: lịch sử giá, danh mục mã, ADV và quyền API.',
  'validation':'Bằng chứng kiểm thử và độ nhạy đã lưu.',
  'methods':'Công thức, thông số, giả định và giới hạn.',
  'downloads':'Xuất bảng kết quả CSV UTF-8 có BOM.',
@@ -41,7 +41,7 @@ PAGE_INFO={
  'compare':('DECISION ANALYTICS','So sánh phương án','So sánh A, B, C và mốc bán tỷ trọng; chỉ báo cáo dựa trên ảnh chụp có sổ lệnh hợp lệ.'),
  'liquidity':('MARKET MICROSTRUCTURE','Thanh khoản các mã','Độ sâu ba mức giá mua, chênh lệch mua–bán và giới hạn khối lượng quan sát.'),
  'data':('DATA OPERATIONS','Dữ liệu & kết nối','Tình trạng file, thời gian, chất lượng dữ liệu và nhật ký bộ ghi thị trường.'),
- 'ssi_history':('SSI IBOARD · HISTORICAL','Dữ liệu lịch sử SSI','Dữ liệu ngày, ADV và biến động từ API iBoard cộng đồng mô tả; chưa phải FastConnect và không có sổ lệnh.'),
+ 'ssi_history':('SSI FASTCONNECT · MARKET DATA','Dữ liệu lịch sử SSI','Giá, khối lượng, ADV từ SSI V3 khi có quyền Market Data; tách biệt dữ liệu sổ lệnh WebSocket.'),
  'validation':('MODEL GOVERNANCE','Kiểm chứng mô hình','Xem kết quả kiểm thử, phân tích độ nhạy và phát lại ảnh chụp đã lưu.'),
  'methods':('METHODOLOGY','Phương pháp & giới hạn','Giả định, công thức, mô hình tối ưu hóa và phạm vi sử dụng có trách nhiệm.'),
  'downloads':('REPRODUCIBILITY','Tải dữ liệu','Xuất các bảng đã tính để kiểm tra, đối chiếu và viết báo cáo.'),
@@ -330,11 +330,15 @@ def liquidity(root,data,t):
 def ssi_history(root,data,t):
     path=Path(root)/'data/processed/ssi_history.parquet'
     stats_path=Path(root)/'outputs/tables/ssi_liquidity_stats.parquet'
-    st.info('Nguồn: SSI iBoard (endpoint do cộng đồng ghi nhận), không phải FastConnect được cấp quyền. '
-            'Dữ liệu OHLCV theo ngày chỉ để tính ADV và phân tích; không có ba mức bid để lập phương án.')
-    st.code('py scripts/fetch_ssi_history.py --symbols HPG VPB ACB --from-date 01/09/2026 --to-date 20/11/2026',language='powershell')
+    st.info('Đang chuẩn bị SSI FastConnect V3 chính thức. Chỉ chạy lệnh sau khi được cấp API Key/Secret Market Data. '
+            'OHLCV theo ngày dùng cho biểu đồ và ADV; không có ba mức bid để lập phương án.')
+    st.code('py scripts/ssi_v3_sync.py --check\n'
+            'py scripts/ssi_v3_sync.py --catalog\n'
+            'py scripts/ssi_v3_sync.py --history --symbols HPG VPB ACB --from-date 01/09/2026 --to-date 20/11/2026',
+            language='powershell')
+    st.caption('Hướng dẫn xin quyền: docs/SSI_FASTCONNECT_SETUP.md. Không nhập API Key hoặc Secret vào dashboard.')
     if not path.exists():
-        st.warning('Chưa tìm thấy data/processed/ssi_history.parquet. Chạy lệnh trên từ thư mục dự án; nếu API trả 400 thì chưa có dữ liệu để hiển thị.')
+        st.warning('Chưa có ssi_history.parquet. Khi SSI cấp quyền, dùng script V3 để ghi dữ liệu thực tế; không tự tạo dữ liệu demo.')
         return
     try:
         h=pd.read_parquet(path)
@@ -342,6 +346,13 @@ def ssi_history(root,data,t):
         if not required.issubset(h.columns):raise ValueError('Thiếu cột: '+', '.join(sorted(required-set(h.columns))))
         if h.empty:return st.warning('File lịch sử SSI trống.')
         if set(h['data_kind'])!={'historical'}:raise ValueError('Nhãn data_kind không phải historical')
+        origins=set(h['source'].dropna().astype(str))
+        if origins=={'ssi_fastconnect_v3'}:
+            st.success('Đã nạp file dữ liệu lịch sử từ SSI FastConnect V3 được ghi bởi script riêng.')
+        else:
+            st.warning('File lịch sử hiện tại không xác nhận là từ SSI FastConnect V3. '
+                       'Nguồn ghi trong file: '+', '.join(sorted(origins or {'không xác định'})))
+        st.caption('Nguồn file lưu cục bộ không chứng minh kết nối API đang hoạt động ở thời điểm xem dashboard.')
         h['tradingDate']=pd.to_datetime(h['tradingDate'],errors='coerce')
         names=sorted(h['symbol'].dropna().unique().tolist())
         selected=st.multiselect('Mã cổ phiếu',names,default=names)
