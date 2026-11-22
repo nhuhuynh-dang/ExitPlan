@@ -339,26 +339,81 @@ def data_page(root,data,t):
           {'label':'Tổng bản ghi','value':fmt.num(len(b)),'note':'Trong file snapshot'},
           {'label':'Số mã','value':fmt.num(b['symbol'].nunique()),'note':'Không tính tự động từ API'},
           {'label':'Khoảng thời gian','value':fmt.num(duration.total_seconds()/3600,1)+' giờ','note':'Từ '+b['ts_vn'].min().strftime('%d/%m %H:%M')}]),unsafe_allow_html=True)
-        st.subheader('Từ điển dữ liệu (đối chiếu NEO API)')
-        from src.data.schema import NEO_TO_STANDARD
-        st.markdown(html_table(['Trường NEO','Trường đã chuẩn hóa'],[[a,b] for a,b in NEO_TO_STANDARD.items()]),unsafe_allow_html=True)
+        with st.expander('Từ điển trường NEO (tham khảo kỹ thuật)',expanded=False):
+            from src.data.schema import NEO_TO_STANDARD
+            st.markdown(html_table(['Trường NEO','Trường đã chuẩn hóa'],[[a,v] for a,v in NEO_TO_STANDARD.items()]),unsafe_allow_html=True)
+
     st.subheader('Chất lượng dữ liệu')
     quality=data['quality']
-    if quality is None:
+    if quality is None or quality.empty:
         st.warning('Chưa có dữ liệu: cần file '+QUALITY)
     else:
-        st.caption('Nhãn nguồn: '+(', '.join(quality['data_kind'].dropna().unique()) if 'data_kind' in quality else 'không có nhãn'))
-        st.dataframe(quality,hide_index=True,use_container_width=True)
-    st.subheader('Trạng thái bộ ghi WebSocket')
+        source=', '.join(sorted(map(str,quality['data_kind'].dropna().unique()))) if 'data_kind' in quality.columns else 'Chưa xác định'
+        if 'synthetic' in source.lower():
+            st.warning('Dữ liệu chất lượng bên dưới là GIẢ LẬP, không phải dữ liệu SSI trực tiếp.')
+        count_col=next((c for c in ('records','rows','n_records','total_records','count') if c in quality.columns),None)
+        symbols=int(quality['symbol'].nunique()) if 'symbol' in quality.columns else 0
+        count_value=pd.to_numeric(quality[count_col],errors='coerce').sum() if count_col else None
+        missing_cols=[c for c in quality.columns if c.startswith('missing_')]
+        issues_cols=[c for c in ('duplicates','invalid_rows','invalid') if c in quality.columns]
+        missing_total=sum(pd.to_numeric(quality[c],errors='coerce').fillna(0).sum() for c in missing_cols)
+        issues_total=sum(pd.to_numeric(quality[c],errors='coerce').fillna(0).sum() for c in issues_cols)
+        kpi=[
+            {'label':'Tổng bản ghi','value':fmt.num(count_value) if count_col else '–','note':'Theo file chất lượng'},
+            {'label':'Mã cổ phiếu','value':fmt.num(symbols),'note':'Được kiểm tra'},
+            {'label':'Giá trị thiếu','value':fmt.num(missing_total) if missing_cols else '–','note':'Tổng các trường thiếu'},
+            {'label':'Lỗi / trùng lặp','value':fmt.num(issues_total) if issues_cols else '–','note':'Theo các cột kiểm tra'}
+        ]
+        st.markdown(cards_html(kpi),unsafe_allow_html=True)
+        display=quality.copy()
+        rename={'symbol':'Mã CK','records':'Bản ghi','rows':'Bản ghi',
+            'n_records':'Bản ghi','total_records':'Bản ghi','count':'Bản ghi',
+            'missing_bid':'Thiếu giá mua','missing_ask':'Thiếu giá bán',
+            'missing_price':'Thiếu giá','duplicates':'Trùng lặp',
+            'invalid_pct':'Tỷ lệ lỗi','invalid_rows':'Bản ghi lỗi',
+            'data_kind':'Nguồn dữ liệu','source':'Nguồn'}
+        shown=[c for c in display.columns if c not in ('data_kind','source')]
+        preferred=[c for c in ('symbol',count_col,'missing_bid','missing_ask','duplicates','invalid_rows','invalid_pct') if c and c in shown]
+        preferred=list(dict.fromkeys(preferred))
+        if preferred:
+            rows=[]
+            for _,r in display.iterrows():
+                line=[]
+                for c in preferred:
+                    value=r[c]
+                    if pd.isna(value):line.append('–')
+                    elif isinstance(value,(int,float)) or hasattr(value,'item'):
+                        try:line.append(fmt.num(value,2 if 'pct' in c else 0))
+                        except (TypeError,ValueError):line.append(str(value))
+                    else:line.append(str(value))
+                rows.append(line)
+            st.markdown(html_table([rename.get(c,c.replace('_',' ').capitalize()) for c in preferred],
+                rows,numeric=tuple(i for i,c in enumerate(preferred) if c!='symbol')),unsafe_allow_html=True)
+        else:
+            st.info('Tệp chưa có cột phù hợp cho bảng tóm tắt.')
+        st.caption('Nguồn dữ liệu: '+source+' · Dữ liệu được đọc từ tệp đã lưu.')
+        with st.expander('Chi tiết kỹ thuật · Bảng gốc',expanded=False):
+            st.dataframe(quality,hide_index=True,use_container_width=True)
+
+    st.subheader('Trạng thái kết nối dữ liệu')
     status_file=Path(root)/'outputs/tables/recorder_status.json'
     if status_file.exists():
         try:
             status=json.loads(status_file.read_text(encoding='utf-8'))
-            st.json(status,expanded=True)
-            if status.get('data_kind')=='synthetic':st.warning('⚠️ Trạng thái bộ ghi này là GIẢ LẬP.')
+            if not isinstance(status,dict):raise ValueError('Trạng thái phải là đối tượng JSON')
+            kind=str(status.get('data_kind','không rõ'))
+            status_label=str(status.get('status',status.get('state','Chưa xác định')))
+            updated=str(status.get('updated_at',status.get('timestamp',status.get('last_update','–'))))
+            rows=[['Loại dữ liệu',kind],['Trạng thái bộ ghi',status_label],['Cập nhật gần nhất',updated]]
+            st.markdown(html_table(['Thông tin','Giá trị'],rows),unsafe_allow_html=True)
+            if kind=='synthetic':
+                st.warning('Đây là trạng thái bộ ghi GIẢ LẬP, không phải SSI/NEO đang kết nối.')
+            with st.expander('Chi tiết kỹ thuật · JSON gốc',expanded=False):
+                st.json(status,expanded=False)
         except (OSError,ValueError) as ex:st.error(f'Tệp trạng thái không hợp lệ: {ex}')
-    else:st.info('Chưa có dữ liệu: cần file outputs/tables/recorder_status.json. Dashboard không tự mở WebSocket.')
-    st.caption('Thời gian được biểu diễn theo Asia/Ho_Chi_Minh (UTC+7); file do pipeline thu thập bên ngoài dashboard tạo.')
+    else:
+        st.info('Chưa có trạng thái bộ ghi. Dashboard chỉ đọc file, không tự mở WebSocket.')
+    st.caption('Múi giờ Asia/Ho_Chi_Minh (UTC+7); file do pipeline bên ngoài dashboard tạo.')
 
 
 def validation(root,data,t):
