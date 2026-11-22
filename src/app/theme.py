@@ -295,8 +295,8 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 .ep-method-grid .ep-method h3 {margin:0 0 13px;font-size:1.14rem;line-height:1.4;}
 .ep-method-grid .ep-method p {margin:0;line-height:1.8;font-size:.91rem;}
 @media(max-width:850px) {.ep-method-grid {grid-template-columns:1fr;gap:16px;}}
-""".replace("__NAVTEXT__", '#F5EFF1' if mode=='Tối' else '#443B42')
-    nav_button_css=nav_button_css.replace("__NAVACTIVE__", '#FFE5DD' if mode=='Tối' else '#9B514B')
+""".replace("__NAVTEXT__", '#EDF6FF' if mode=='Tối' else '#173454')
+    nav_button_css=nav_button_css.replace("__NAVACTIVE__", '#FFFFFF')
     extra_css+=nav_button_css
     # Banking Insights: colored KPI scorecards, subtle panels, coordinated tables and charts.
     theme_values.update({
