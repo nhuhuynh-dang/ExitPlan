@@ -484,4 +484,39 @@ def hero_svg(accent=BLUE_ACCENT, mode='Sáng'):
         '__INK__':ink,'__PALE__':pale,'__MINT__':mint,'__LIGHT__':light
     }.items():
         template=template.replace(key,value)
+    # Recolor the original vector into blue/teal/violet/gold without external assets.
+    banking_vector_colors={
+        '#FFDAD1':'#D6EAFF',
+        '#E5A49E':'#68A9EC',
+        '#F2C1B8':'#D7E9FA',
+        '#C98E8F':'#709FCF',
+        '#9B7071':'#4E78A7',
+        '#E9ADA4':'#88B8E9',
+        '#E7A6A1':'#63A2E3',
+        '#C98E92':'#628FCE',
+        '#8EC2B5':'#5CC7AC',
+        '#D3A5A0':'#719ECF',
+        '#C88F90':'#6D99C9',
+        '#E6A8A0':'#4D9CE9',
+        '#EBA8A0':'#62A9EB',
+        '#D99590':'#D6A956',
+        '#F0B3A6':'#ECC576',
+        '#FFDCD1':'#FFE4AC',
+        '#DA9A96':'#CEA34F',
+        '#CB8988':'#B88F43',
+        '#E4A29A':'#E6B762',
+        '#D79B97':'#D1A350',
+        '#C98986':'#BD9042',
+        '#F8D6CD':'#CDE5FB',
+        '#FFEFEB':'#EDF7FF',
+        '#E7A79E':'#68A6E9',
+        '#B9D8CF':'#65C6B0',
+        '#F0BDB3':'#9C91E3',
+        '#F9DED6':'#E7F3FF',
+        '#A66E79':'#407EBB',
+        '#EDB4A8':'#B7D5F4',
+        '#CE9394':'#5A92CF',
+    }
+    for old,new in banking_vector_colors.items():
+        template=template.replace(old,new)
     return template
