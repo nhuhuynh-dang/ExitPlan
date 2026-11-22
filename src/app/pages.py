@@ -413,7 +413,7 @@ def data_page(root,data,t):
                 unsafe_allow_html=True,
             )
         if 'synthetic' in source.lower():
-            st.warning('Dữ liệu GIẢ LẬP (synthetic) — chưa phản ánh báo giá SSI/NEO thật.')
+            st.warning('Dữ liệu GIẢ LẬP (synthetic) — không phải dữ liệu thị trường SSI thật.')
         st.caption('Nguồn dữ liệu: '+source)
         with st.expander('Chi tiết kỹ thuật · Dữ liệu gốc',expanded=False):
             st.dataframe(quality,hide_index=True,use_container_width=True)
@@ -456,10 +456,6 @@ def data_page(root,data,t):
             st.error(f'Tệp trạng thái không hợp lệ: {ex}')
     else:
         st.info('Chưa có file trạng thái bộ ghi. Dashboard không tự mở WebSocket.')
-    with st.expander('Tham khảo trường dữ liệu NEO',expanded=False):
-        from src.data.schema import NEO_TO_STANDARD
-        st.markdown(html_table(['Trường nguồn','Trường chuẩn hóa'],
-            [[a,v] for a,v in NEO_TO_STANDARD.items()]),unsafe_allow_html=True)
     st.caption('Múi giờ Asia/Ho_Chi_Minh (UTC+7); dữ liệu được thu thập ngoài dashboard.')
 
 
@@ -509,16 +505,16 @@ def methods(root,data,t):
         ('03 · Bài toán tối ưu','MILP chọn số lô cổ phiếu từ từng mã, không vượt lượng nắm giữ và độ sâu quan sát. A giảm chi phí; B đánh đổi chi phí với proxy tập trung; C giảm proxy tập trung; P gần tỷ trọng bán theo giá trị.'),
         ('04 · Giới hạn','Không có toàn bộ sổ lệnh hoặc diễn biến sau khi đặt lệnh; không chứng minh khả năng khớp. HHI được tính sau tối ưu, còn mục tiêu tập trung trong MILP sử dụng proxy bình phương giá trị còn lại.')
     ]
-    columns=st.columns(2)
-    for i,(title,body) in enumerate(definitions):
-        with columns[i%2]:
-            st.markdown(
-                f'<div class="ep-method"><h3>{escape(title)}</h3><p>{escape(body)}</p></div>',
-                unsafe_allow_html=True
-            )
+    # Một khối HTML grid để có khoảng cách dọc/ngang nhất quán trên mọi màn hình.
+    method_cards=''.join(
+        '<article class="ep-method"><h3>'+escape(title)+'</h3>'
+        '<p>'+escape(body)+'</p></article>'
+        for title,body in definitions
+    )
+    st.markdown('<div class="ep-method-grid">'+method_cards+'</div>',unsafe_allow_html=True)
 
     st.subheader('Thiết lập & giới hạn mô hình')
-    st.caption('Thông số khai báo trong config.json, phục vụ minh bạch và tái lập kết quả. Đây không phải dữ liệu thị trường trực tiếp.')
+    st.caption('Thông số vận hành được lưu trong file cấu hình để tái lập kết quả; không phải báo giá hay dữ liệu thị trường trực tiếp.')
 
     if config:
         def show_number(key,suffix='',digits=0):
@@ -565,10 +561,7 @@ def methods(root,data,t):
             '</div>',
             unsafe_allow_html=True
         )
-        if source and 'NEO' in str(source).upper():
-            st.info('config.json hiện vẫn ghi nguồn NEO. Điều này không chứng minh dashboard đang kết nối NEO; dữ liệu SSI iBoard lịch sử được xử lý riêng.')
-        with st.expander('Xem cấu hình kỹ thuật (JSON)',expanded=False):
-            st.code(json.dumps(config,ensure_ascii=False,indent=2),language='json')
+        st.info('Nguồn SSI hiện ở giai đoạn thử nghiệm. Chưa xác nhận kết nối FastConnect hoặc nhận dữ liệu sổ lệnh SSI trực tiếp; kết quả giả lập phải được gắn nhãn riêng.')
     else:
         st.info('Chưa có thông số để hiển thị. Kiểm tra file config.json.')
 
