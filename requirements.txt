@@ -7,3 +7,5 @@ pyarrow>=15,<24
 pytest>=8,<10
 
 websockets>=15,<17
+
+requests>=2.31,<3
