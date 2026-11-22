@@ -633,22 +633,45 @@ body ul[role="listbox"] [aria-selected="true"]{
     # Trang trí khung ngoài; không can thiệp vào track/thumb/input thật
     # của Streamlit để luôn có thể gạt bằng chuột và bàn phím.
     simple_theme_css="""
+/* Native Streamlit switch stays interactive; only align its neighbors. */
 [data-testid="stSidebar"] .st-key-ep_theme_row {
     margin:10px 0 21px !important;
-    padding:11px 13px !important;
+    padding:9px 12px !important;
     background:__SURFACE__ !important;
     border:1px solid __BORDER__ !important;
     border-radius:14px !important;
 }
-[data-testid="stSidebar"] .st-key-ep_theme_row p {
+[data-testid="stSidebar"] .st-key-ep_theme_row [data-testid="stHorizontalBlock"] {
+    align-items:center !important;min-height:34px !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_row [data-testid="stColumn"] {
+    align-self:center !important;min-width:0 !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_row .ep-theme-heading {
+    display:flex !important;align-items:center !important;
+    gap:9px !important;min-height:34px !important;height:34px !important;
+    width:100% !important;margin:0 !important;padding:0 !important;
+    line-height:1.1 !important;
     color:__TEXT__ !important;
-    font-weight:700 !important;
-    font-size:.89rem !important;
-    margin:0 !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_row .ep-theme-heading svg {
+    display:block !important;flex:0 0 19px !important;
+    width:19px !important;height:19px !important;
+    color:__ACCENT__ !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_row .ep-theme-heading span {
+    display:block !important;color:__TEXT__ !important;
+    font-weight:700 !important;font-size:.89rem !important;
+    line-height:20px !important;margin:0 !important;padding:0 !important;
+    white-space:nowrap !important;
 }
 [data-testid="stSidebar"] .st-key-ep_theme_row [data-testid="stCheckbox"] {
-    margin:0 !important;
-    padding:0 !important;
+    margin:0 !important;padding:0 !important;
+    min-height:34px !important;display:flex !important;align-items:center !important;
+    justify-content:flex-end !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_row [data-testid="stCheckbox"] label {
+    margin:0 !important;cursor:pointer !important;
 }
 """
     extra_css+=simple_theme_css
