@@ -727,6 +727,48 @@ body ul[role="listbox"] [aria-selected="true"]{
     outline:2px solid __ACCENT__ !important;
     outline-offset:4px !important;border-radius:10px !important;
 }
+/* Newer Streamlit builds use React Aria, still data-testid=stCheckbox
+   but switch markup has role=switch instead of data-baseweb=checkbox. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[data-testid="stCheckbox"] > [role="switch"] {
+    display:flex !important;flex-direction:row-reverse !important;
+    align-items:center !important;justify-content:space-between !important;
+    width:100% !important;min-height:36px !important;
+    gap:10px !important;cursor:pointer !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"] > div:first-of-type {
+    box-sizing:border-box !important;
+    display:flex !important;align-items:center !important;
+    width:76px !important;min-width:76px !important;
+    height:38px !important;min-height:38px !important;
+    margin:0 !important;padding:3px !important;
+    background:__THEME_TRACK__ !important;border:1px solid __THEME_TRACK_BORDER__ !important;
+    border-radius:999px !important;flex:0 0 76px !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"] > div:first-of-type > div:first-child {
+    box-sizing:border-box !important;
+    width:30px !important;height:30px !important;flex:0 0 30px !important;
+    margin:0 !important;border-radius:50% !important;
+    background-color:__THEME_THUMB__ !important;
+    background-image:url("__THEME_ICON_URI__") !important;
+    background-repeat:no-repeat !important;background-position:center !important;
+    background-size:19px 19px !important;
+    box-shadow:0 1px 5px rgba(0,0,0,.15) !important;
+    transform:translateX(0) !important;
+    transition:transform .22s ease,background-color .18s ease !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"][aria-checked="true"] > div:first-of-type > div:first-child,
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"][data-selected] > div:first-of-type > div:first-child {
+    transform:translateX(38px) !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode
+[role="switch"]:focus-visible {
+    outline:2px solid __ACCENT__ !important;outline-offset:4px !important;
+}
 """
     theme_switch_values={
         '__THEME_BG__': '#17314E' if mode=='Tối' else '#FFFFFF',
