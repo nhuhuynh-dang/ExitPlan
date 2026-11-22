@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
 import streamlit as st
-from src.app.theme import PRESETS,FONTS,theme_css,palette
+from src.app.theme import PEACH_ACCENT, theme_css, palette
 from src.app.pages import render_page, NAV, PAGE_HELP
 
 st.set_page_config(page_title='ExitPlan | Dashboard',page_icon='📊',layout='wide',initial_sidebar_state='expanded')
@@ -17,15 +17,13 @@ with st.sidebar:
     st.caption(PAGE_HELP[page])
     st.divider()
     with st.expander('Giao diện · Sáng / Tối',expanded=False):
-        mode=st.segmented_control('Chế độ',options=['Sáng','Tối'],default='Sáng')
-        preset=st.selectbox('Bảng màu',list(PRESETS)+['Tùy chỉnh'],index=0)
-        custom=st.color_picker('Màu chủ đạo',value=PRESETS['Xanh dương']) if preset=='Tùy chỉnh' else None
-        accent=custom if custom else PRESETS[preset]
-        font=st.selectbox('Kiểu chữ',list(FONTS),index=0)
-        size_pt=st.select_slider('Cỡ chữ (pt)',options=[10,11,12,13,14,16,18,20],value=12)
+        mode=st.segmented_control('Chế độ',options=['Sáng','Tối'],default='Sáng',key='ep_theme_mode')
+    accent=PEACH_ACCENT
+    font='Be Vietnam Pro'
+    size_pt=12
     st.caption('Dữ liệu từ file đã lưu. Không đọc tài khoản hoặc gửi lệnh.')
 
-st.markdown(theme_css(mode,accent,font,size_pt),unsafe_allow_html=True)
+st.markdown(theme_css(mode),unsafe_allow_html=True)
 config=dict(mode=mode,accent=accent,font=font,size_pt=size_pt,theme=palette(mode,accent))
 render_page(page,ROOT,config)
 st.divider()
