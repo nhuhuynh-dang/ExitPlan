@@ -337,6 +337,29 @@ def ssi_history(root,data,t):
             'py scripts/ssi_v3_sync.py --history --symbols HPG VPB ACB --from-date 01/09/2026 --to-date 20/11/2026',
             language='powershell')
     st.caption('Hướng dẫn xin quyền: docs/SSI_FASTCONNECT_SETUP.md. Không nhập API Key hoặc Secret vào dashboard.')
+    # The 3-board securities catalog is real only after --catalog succeeds.
+    # Show it independently of the historical prices, with an explicit source label.
+    catalog_path=Path(root)/'data/processed/ssi_securities.parquet'
+    if catalog_path.exists():
+        with st.expander('Danh sách mã SSI FastConnect V3 đã lưu (HOSE · HNX · UPCOM)'):
+            try:
+                catalog=pd.read_parquet(catalog_path)
+                if not {'symbol','board','source'}.issubset(catalog.columns):
+                    raise ValueError('Thiếu symbol, board hoặc source')
+                if set(catalog['source'])!={'ssi_fastconnect_v3'}:
+                    raise ValueError('Không đúng nguồn SSI FastConnect V3')
+                query=st.text_input('Tìm theo mã / tên chứng khoán',key='ep_ssi_search').strip()
+                if query:
+                    matched=catalog['symbol'].astype(str).str.contains(query,case=False,regex=False)
+                    if 'name' in catalog.columns:
+                        matched=matched|catalog['name'].fillna('').astype(str).str.contains(query,case=False,regex=False)
+                    shown=catalog.loc[matched]
+                else:
+                    shown=catalog
+                st.caption(f'Tìm thấy {len(shown)} / {len(catalog)} mã đã lưu · dữ liệu danh mục không phải báo giá tức thời.')
+                st.markdown(frame_table(shown,max_rows=60),unsafe_allow_html=True)
+            except (OSError,ValueError,KeyError) as exc:
+                st.warning(f'File danh sách mã SSI không đọc được: {exc}')
     if not path.exists():
         st.warning('Chưa có ssi_history.parquet. Khi SSI cấp quyền, dùng script V3 để ghi dữ liệu thực tế; không tự tạo dữ liệu demo.')
         return
