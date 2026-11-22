@@ -49,7 +49,23 @@ PAGE_INFO={
 
 def page_header(key,accent):
     eye,title,description=PAGE_INFO[key]
-    html=f'<div class="ep-hero"><div class="ep-eyebrow">{escape(eye)}</div><h1>{escape(title)}</h1><p>{escape(description)}</p><div class="art">{hero_svg(accent)}</div></div>'
+    icons={
+        'overview':'<path d="m3 10 9-7 9 7v10H3z"/><path d="M9 21v-8h6v8"/>',
+        'planner':'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+        'compare':'<path d="M12 3v18M4 7h16M5 7l-3 6h6l-3-6Zm14 0-3 6h6l-3-6ZM4 21h16"/>',
+        'liquidity':'<path d="M3 20V4M3 20h18M8 16v-4M13 16V7M18 16V9"/>',
+        'data':'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 2 4 3 9 3s9-1 9-3V5M3 12c0 2 4 3 9 3s9-1 9-3"/>',
+        'ssi_history':'<path d="m3 17 6-6 4 3 8-9M16 5h5v5"/>',
+        'validation':'<path d="m12 22 8-4V7l-8-4-8 4v11l8 4ZM9 12l2 2 4-4"/>',
+        'methods':'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>',
+        'downloads':'<path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/>'
+    }
+    icon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icons.get(key,icons['overview'])+'</svg>'
+    html=(
+        '<div class="ep-hero"><div class="ep-hero-heading"><span class="ep-hero-icon">'+icon+'</span>'
+        '<div><div class="ep-eyebrow">'+escape(eye)+'</div><h1>'+escape(title)+'</h1></div></div>'
+        '<p>'+escape(description)+'</p><div class="art">'+hero_svg(accent)+'</div></div>'
+    )
     st.markdown(html,unsafe_allow_html=True)
 
 def note(message):st.info(message,icon='ℹ️')
