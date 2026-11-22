@@ -8,6 +8,6 @@
   "tax_rate_default": null,
   "impact_coefficient": null,
   "participation_threshold_pct_default": 10,
-  "data_source": "NEO stockInfo WebSocket recorded by external pipeline",
-  "note": "TODO: xác minh biểu phí, thuế, đơn vị NEO, lịch sử ADV, quy tắc lô giao dịch và impact model trước thử nghiệm thật."
+  "data_source": "SSI iBoard (OHLCV lịch sử, đang kiểm thử); SSI FastConnect chưa được cấp quyền. Snapshot sổ lệnh lưu riêng, có thể giả lập.",
+  "note": "Chưa xác minh thành công truy cập iBoard hoặc nguồn sổ lệnh SSI thật. Cần quyền FastConnect, xác minh giá/khối lượng, ADV, phí, thuế và điều kiện lô trước khi đánh giá thực nghiệm."
 }
