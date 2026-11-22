@@ -167,11 +167,11 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-testid="stSidebar"] [role="radiogroup"] input[type="radio"] {position:absolute !important;opacity:0 !important;width:1px !important;height:1px !important;}
 [data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"] {display:none !important;}
 [data-testid="stSidebar"] [role="radiogroup"] label > div:has(> input[type="radio"]) {display:none !important;}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(230,166,155,.12) !important;}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(46,131,230,.12) !important;}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-    background:rgba(230,166,155,.22) !important;
-    border-color:#E6A69B !important;
-    box-shadow:inset 3px 0 0 #E6A69B;
+    background:rgba(46,131,230,.22) !important;
+    border-color:#2E83E6 !important;
+    box-shadow:inset 3px 0 0 #2E83E6;
 }
 [data-testid="stSidebar"] [role="radiogroup"] label p {font-weight:600 !important;font-size:.91rem;}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:__SIDEACTIVE__ !important;font-weight:750 !important;}
@@ -181,7 +181,7 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-testid="stAlert"] {border-radius:14px;border-color:__BORDER__ !important;background:__ALERTBG__ !important;}
 [data-testid="stAlert"][data-baseweb] {color:__TEXT__ !important;}
 [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#4298ED !important;}
-[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#D79A9D !important;}
+[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#4298ED !important;}
 
 /* Nút, ô nhập và các thẻ áp dụng đúng theme cho cả Sáng và Tối. */
 .stButton button, .stDownloadButton button,
@@ -373,6 +373,64 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     finance_css=finance_css.replace('__SIDEBRANDTITLE__','#F5FAFF' if mode=='Tối' else '#173454')
     finance_css=finance_css.replace('__SIDEBRANDSUB__','#BBD1E8' if mode=='Tối' else '#66809E')
     finance_css=finance_css.replace('__SIDETOGLABEL__','#E9F4FF' if mode=='Tối' else '#173454')
+    # Native Streamlit controls otherwise retain the default red pills, focus rings
+    # or light backgrounds even after the custom dashboard palette switches.
+    native_css="""
+/* Native multiselect symbols (ACB/HPG/VPB): no more default Streamlit-red chips. */
+[data-testid="stMultiSelect"] [data-baseweb="tag"],
+[data-testid="stMultiSelect"] [data-baseweb="tag"] > div,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] > span {
+    background:__CHIP_BLUE__ !important;color:#FFFFFF !important;border-radius:8px !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] span,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] button,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] [role="button"] {
+    color:#FFFFFF !important;fill:#FFFFFF !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {stroke:#FFFFFF !important;}
+[data-testid="stMultiSelect"] [data-baseweb="tag"]:hover {background:__CHIP_HOVER__ !important;}
+/* Input boxes, dropdown menu and multi-select share the page's Sáng/Tối background. */
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stDateInput"] [data-baseweb="input"] > div,
+[data-testid="stTextInput"] [data-baseweb="input"] > div,
+[data-testid="stNumberInput"] [data-baseweb="input"] > div {
+    background:__INPUT_BG__ !important;color:__TEXT__ !important;
+    border-color:__BORDER__ !important;
+}
+[data-testid="stMultiSelect"] input,
+[data-testid="stSelectbox"] input,
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input {
+    color:__TEXT__ !important;
+    -webkit-text-fill-color:__TEXT__;
+}
+[data-baseweb="popover"] [role="listbox"],
+[data-baseweb="menu"] {background:__INPUT_BG__ !important;color:__TEXT__ !important;}
+[data-baseweb="popover"] [role="option"],
+[data-baseweb="menu"] [role="option"] {color:__TEXT__ !important;}
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="menu"] [role="option"]:hover {background:__HOVER_BG__ !important;}
+[data-testid="stMultiSelect"] [data-baseweb="select"]:focus-within > div,
+[data-testid="stSelectbox"] [data-baseweb="select"]:focus-within > div,
+[data-testid="stTextInput"] [data-baseweb="input"]:focus-within > div {
+    border-color:__CHIP_BLUE__ !important;
+    box-shadow:0 0 0 1px __CHIP_BLUE__ !important;
+}
+/* Keep the main labels readable; sidebar uses its independent foreground palette. */
+[data-testid="stMain"] [data-testid="stWidgetLabel"] p {color:__TEXT__ !important;}
+"""
+    for old,new in {
+        '__CHIP_BLUE__': '#348BEB' if mode=='Tối' else '#2E83E6',
+        '__CHIP_HOVER__': '#4D9CEE' if mode=='Tối' else '#1D70C9',
+        '__INPUT_BG__': '#192B43' if mode=='Tối' else '#FFFFFF',
+        '__HOVER_BG__': '#294765' if mode=='Tối' else '#E6F1FE',
+        '__TEXT__': p['text'], '__BORDER__': p['border'],
+    }.items():
+        native_css=native_css.replace(old,new)
+    extra_css+=native_css
     for key,value in theme_values.items():
         finance_css=finance_css.replace(key,value)
     extra_css+=finance_css
