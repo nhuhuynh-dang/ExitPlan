@@ -13,7 +13,7 @@ def _rotate(hex_color,delta=0.1):
 
 def apply_palette(mode,accent):
     p=palette(mode)
-    p.update(secondary='#B8A4CF' if mode=='Tối' else '#A38ABB',tertiary='#82B4A6' if mode=='Tối' else '#75A99A')
+    p.update(secondary='#F4C9BD' if mode=='Tối' else '#C88192',tertiary='#D58EA3' if mode=='Tối' else '#AB7A8C')
     return p
 
 def layout(fig,t,height=360,title=None,legend=True):
@@ -90,7 +90,7 @@ def depth_fig(quotes,t):
 def time_fig(df,t,normalize=False):
     """Vẽ chuỗi từ file. normalize=True chỉ chuẩn hóa HIỂN THỊ, không đổi dữ liệu gốc."""
     fig=go.Figure()
-    colors=[t['accent'],t['secondary'],t['tertiary'],'#D8AB78','#C38FA8','#8CA6C0']
+    colors=[t['accent'],t['secondary'],t['tertiary'],'#E6B88A','#BD8198','#F3D0C0']
     for idx,(sym,g) in enumerate(df.groupby('symbol')):
         g=g.sort_values('ts_vn').dropna(subset=['closePrice'])
         if g.empty:continue
