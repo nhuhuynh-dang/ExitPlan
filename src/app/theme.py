@@ -8,15 +8,21 @@ def hex_rgb(h): return tuple(int(h[i:i+2],16) for i in (1,3,5))
 def mix(a,b,f):return '#'+''.join(f'{round(x*(1-f)+y*f):02x}' for x,y in zip(hex_rgb(a),hex_rgb(b)))
 def rgba(hexcolor,alpha):return f'rgba({",".join(map(str,hex_rgb(hexcolor)))},{alpha})'
 
-def palette(mode,accent=PEACH_ACCENT):
-    accent=PEACH_ACCENT
-    dark=mode=='Tối'; base='#232B38' if dark else '#FFF8F5'
-    return {'bg':mix(accent,base,.94 if dark else .97),'surface':mix(accent,'#333D4C' if dark else '#FFFFFF',.82 if dark else .96),
-            'sidebar':mix(accent,'#293241' if dark else '#FBEDE8',.9),
-            'text':'#F7EFF0' if dark else '#443B42','muted':'#C2B7BE' if dark else '#806D75',
-            'border':mix(accent,'#596172' if dark else '#EBDAD5',.70),
-            'accent':accent,'positive':'#81D6BE' if dark else '#238B71',
-            'negative':'#F3A5A5' if dark else '#C95555','plot':mix(accent,'#333D4C' if dark else '#FFFFFF',.82 if dark else .96)}
+def palette(mode, accent=PEACH_ACCENT):
+    """Một bộ màu hồng đào pastel cố định, nền tối thực sự cho mọi biểu đồ."""
+    dark = mode == 'Tối'
+    return {
+        'bg': '#1C2635' if dark else '#FFF8F5',
+        'surface': '#263345' if dark else '#FFFEFD',
+        'sidebar': '#101F35' if dark else '#152B45',
+        'text': '#F8F1F0' if dark else '#443B42',
+        'muted': '#C5BBC3' if dark else '#806D75',
+        'border': '#425167' if dark else '#ECDDD7',
+        'accent': PEACH_ACCENT,
+        'positive': '#7FD5C0' if dark else '#238B71',
+        'negative': '#F0A5AC' if dark else '#BF5B62',
+        'plot': '#263345' if dark else '#FFFEFD',
+    }
 
 def theme_css(mode,accent=PEACH_ACCENT,font=None,size_pt=12):
     accent=PEACH_ACCENT
@@ -96,6 +102,123 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
          '__BORDER__':p['border'],'__TEXT__':p['text'],'__ACCENT__':accent,'__SURFACE__':p['surface'],
          '__MUTED__':p['muted'],'__GLASS__':rgba(p['surface'],.78),
          '__BUTTONTEXT__':'#33252D','__WARNBG__':rgba('#E9A950',.17),'__WARNBORDER__':rgba('#E9A950',.45)}
+    # Vùng sidebar dùng icon nét mảnh, tương tự mẫu tham khảo (không dùng emoji).
+    # Data URI được dựng từ SVG cố định; không phụ thuộc font icon tải từ mạng.
+    from urllib.parse import quote
+    svg_paths = [
+        '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
+        '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+        '<path d="M12 3v18M5 7l-3 5h6L5 7Zm14 0-3 5h6l-3-5ZM3 21h18M5 7h14"/>',
+        '<path d="M3 3v18h18M7 16v-4M12 16V7M17 16V9"/>',
+        '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>',
+        '<path d="M3 17l6-6 4 3 8-9M16 5h5v5"/>',
+        '<path d="m12 22 8-4V7l-8-4-8 4v11l8 4ZM9 12l2 2 4-4"/>',
+        '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>',
+        '<path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/>',
+    ]
+    nav_icons = []
+    for i, paths in enumerate(svg_paths, start=1):
+        svg = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
+               "fill='none' stroke='#F9E8E4' stroke-width='1.8' "
+               "stroke-linecap='round' stroke-linejoin='round'>" + paths + "</svg>")
+        uri = "data:image/svg+xml," + quote(svg, safe='')
+        nav_icons.append(
+            f'[data-testid="stSidebar"] [role="radiogroup"] label:nth-child({i})::before'
+            + '{content:"";display:block;flex:0 0 21px;width:21px;height:21px;'
+              'background-image:url("' + uri + '");background-size:contain;'
+              'background-repeat:no-repeat;background-position:center;}'
+        )
+    extra_css = """
+/* Ẩn hành động Deploy và menu không cần thiết; giữ nút mở/đóng sidebar. */
+.stAppDeployButton, [data-testid="stAppDeployButton"],
+[data-testid="stToolbar"], [data-testid="stToolbarActions"],
+header[data-testid="stHeader"] [data-testid="stToolbar"],
+#MainMenu, footer {display:none !important;}
+header[data-testid="stHeader"] {background:transparent !important;box-shadow:none !important;}
+/* Sidebar xanh than, icon trắng nét mảnh; trạng thái chọn hồng đào pastel. */
+[data-testid="stSidebar"] {background:__NAVY__ !important;border-right:1px solid #31445C !important;}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] .ep-brand-title,
+[data-testid="stSidebar"] [role="radiogroup"] label p {color:#F5EFF1 !important;}
+[data-testid="stSidebar"] .ep-brand-sub,
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {color:#AEBCCB !important;}
+[data-testid="stSidebar"] [role="radiogroup"] {gap:5px;}
+[data-testid="stSidebar"] [role="radiogroup"] label {
+    display:flex !important;align-items:center !important;gap:11px !important;
+    padding:11px 13px !important;min-height:47px !important;
+    border-radius:13px !important;border:1px solid transparent !important;
+    background:transparent !important;transition:background .16s,border-color .16s;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:has(input[type="radio"]) {display:none !important;}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(230,166,155,.12) !important;}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+    background:rgba(230,166,155,.22) !important;
+    border-color:#E6A69B !important;
+    box-shadow:inset 3px 0 0 #E6A69B;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label p {font-weight:600 !important;font-size:.91rem;}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:#FFE5DD !important;font-weight:750 !important;}
+[data-testid="stSidebar"] [data-testid="stToggle"] {padding:10px 11px;border:1px solid #43566C;border-radius:13px;background:#223850;}
+[data-testid="stSidebar"] .ep-brand-mark {background:#E6A69B;color:#233449;}
+/* Nút, ô nhập và các thẻ áp dụng đúng theme cho cả Sáng và Tối. */
+.stButton button, .stDownloadButton button,
+[data-testid="stSelectbox"] > div, [data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input, [data-testid="stMultiSelect"] > div,
+[data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] {
+    background-color:__SURFACE__ !important;color:__TEXT__ !important;
+    border-color:__BORDER__ !important;
+}
+[data-testid="stExpander"] summary, [data-testid="stExpander"] summary * {color:__TEXT__ !important;}
+[data-testid="stMetric"], .ep-panel, .ep-card {box-shadow:0 10px 28px rgba(0,0,0,.06);}
+[data-testid="stMarkdownContainer"] .ep-card {min-height:116px;}
+/* Bảng dữ liệu đọc-only: nền tối cả hàng, đầu bảng và hover. */
+.ep-table-wrap {background:__SURFACE__ !important;border:1px solid __BORDER__ !important;border-radius:16px !important;overflow:auto !important;}
+.ep-table {background:__SURFACE__ !important;border-collapse:separate !important;border-spacing:0 !important;width:100%;}
+.ep-table th {background:__TABLE_HEAD__ !important;color:__TEXT__ !important;font-size:.79rem;font-weight:750 !important;}
+.ep-table td {background:__SURFACE__ !important;color:__TEXT__ !important;line-height:1.5;}
+.ep-table tbody tr:nth-child(even) td {background:__TABLE_ALT__ !important;}
+.ep-table tbody tr:hover td {background:__TABLE_HOVER__ !important;}
+.ep-table td:first-child {font-weight:650;}
+.ep-pill {display:inline-block;padding:5px 10px;border-radius:100px;font-size:.75rem;font-weight:750;white-space:nowrap;}
+.ep-pill.ok {background:__GOOD_BG__;color:__GOOD_TEXT__;}
+.ep-pill.warn {background:__WARN_BG__;color:__WARN_TEXT__;}
+.ep-pill.neutral {background:__CHIP_BG__;color:__CHIP_TEXT__;}
+.ep-panel {padding:18px 20px;background:__SURFACE__;border:1px solid __BORDER__;border-radius:19px;margin:12px 0 16px;}
+.ep-panel-title {font-size:1.04rem;font-weight:750;color:__TEXT__;margin:0 0 5px;}
+.ep-panel-desc {font-size:.8rem;color:__MUTED__;margin-bottom:15px;}
+.ep-info-row {padding:12px 0;display:flex;align-items:center;justify-content:space-between;gap:13px;border-bottom:1px solid __BORDER__;font-size:.84rem;}
+.ep-info-row:last-child {border-bottom:0;}
+.ep-info-key {color:__MUTED__;}
+.ep-info-val {color:__TEXT__;font-weight:650;text-align:right;overflow-wrap:anywhere;}
+/* Ngăn các bảng kỹ thuật và JSON trắng chói trong dark mode. */
+[data-testid="stJson"], [data-testid="stJson"] pre,
+[data-testid="stDataFrame"], [data-testid="stDataEditor"] {
+    background:__SURFACE__ !important;color:__TEXT__ !important;
+    border-color:__BORDER__ !important;border-radius:14px !important;
+}
+[data-testid="stJson"] * {color:__TEXT__ !important;}
+[data-testid="stDataFrame"] [role="grid"],[data-testid="stDataEditor"] [role="grid"] {background:__SURFACE__ !important;}
+[data-testid="stDataFrame"] canvas,[data-testid="stDataEditor"] canvas {background:__SURFACE__ !important;}
+/* Diện tích biểu đồ Plotly dùng nền do chart.layout cấp, thẻ ngoài theo theme. */
+[data-testid="stPlotlyChart"] {border:1px solid __BORDER__;border-radius:17px;overflow:hidden;background:__SURFACE__ !important;padding:8px;}
+@media (max-width:950px) {.ep-panel{padding:15px}.ep-table{font-size:.82rem;}}
+""".replace("__NAVY__", p['sidebar'])
+    theme_values = {
+        '__TABLE_HEAD__': '#344358' if mode=='Tối' else '#F8E9E3',
+        '__TABLE_ALT__': '#2C3A4E' if mode=='Tối' else '#FFFAF8',
+        '__TABLE_HOVER__': '#3A455A' if mode=='Tối' else '#FCEFEA',
+        '__GOOD_BG__': '#183F3B' if mode=='Tối' else '#DDF5ED',
+        '__GOOD_TEXT__': '#A6E6D2' if mode=='Tối' else '#166C58',
+        '__WARN_BG__': '#573A39' if mode=='Tối' else '#FFF1E3',
+        '__WARN_TEXT__': '#FFCCB0' if mode=='Tối' else '#A75A33',
+        '__CHIP_BG__': '#4C3B4C' if mode=='Tối' else '#F5E3F0',
+        '__CHIP_TEXT__': '#F8CEDF' if mode=='Tối' else '#815475',
+    }
+    for key,value in theme_values.items():
+        extra_css=extra_css.replace(key,value)
+    css=css.replace('</style>', extra_css+'\\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
     return css
 
