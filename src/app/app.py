@@ -35,30 +35,10 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')
-    # "Giao diện" rõ nghĩa hơn "Chế độ" khi đặt cạnh công tắc Sáng/Tối.
-    # SVG nét đơn sắc nằm bên nhãn, KHÔNG can thiệp vào toggle thật.
-    is_dark=bool(st.session_state.get('ep_dark_mode',False))
-    theme_icon=(
-        '<path d="M20.985 12.486A9 9 0 0 1 11.514 3.015 9 9 0 1 0 20.985 12.486Z"/>'
-        if is_dark else
-        '<circle cx="12" cy="12" r="4"/>'
-        '<path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42'
-        'M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/>'
-    )
-    with st.container(key='ep_theme_row'):
-        label_col, switch_col=st.columns([3,1],gap='small',vertical_alignment='center')
-        with label_col:
-            st.markdown(
-                '<div class="ep-theme-heading">'
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-                'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" '
-                'aria-hidden="true">'+theme_icon+'</svg>'
-                '<span>Giao diện</span></div>',
-                unsafe_allow_html=True,
-            )
-        with switch_col:
-            dark_mode=st.toggle('Bật giao diện tối',key='ep_dark_mode',
-                                label_visibility='collapsed')
+    # Công tắc pill nhỏ: dùng toggle thật, icon mặt trời/trăng gắn lên thumb bằng CSS.
+    # Nhãn kỹ thuật chỉ dành cho trợ năng, không hiện chữ cạnh công tắc.
+    dark_mode=st.toggle('Chuyển giao diện Sáng/Tối',key='ep_dark_mode',
+                        label_visibility='collapsed')
     mode='Tối' if dark_mode else 'Sáng'
     # Dùng nút điều hướng thay radio: không còn chấm tròn, mỗi mục có icon SVG riêng.
     if st.session_state.get('ep_navigation') not in NAV:

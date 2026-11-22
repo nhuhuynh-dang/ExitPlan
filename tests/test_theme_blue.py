@@ -141,36 +141,38 @@ def test_sidebar_no_collapse_chevron_on_desktop_but_has_recovery():
         assert '[data-testid="stAppDeployButton"]' in css
 
 
-def test_theme_label_left_native_switch_right_under_brand():
+def test_compact_switch_is_under_brand_without_large_label():
     from pathlib import Path
     source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
     subtitle=source.index("st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')")
-    row=source.index("with st.container(key='ep_theme_row')")
+    toggle=source.index("dark_mode=st.toggle(")
     navigation=source.index("for nav_key,nav_label in NAV.items():")
-    assert subtitle < row < navigation
-    assert "label_col, switch_col=st.columns([3,1]" in source
-    assert 'class="ep-theme-heading"' in source
-    assert '<span>Giao diện</span>' in source
-    assert "if is_dark else" in source
-    assert '<circle cx="12" cy="12" r="4"/>' in source
-    assert 'M20.985 12.486' in source
-    assert "dark_mode=st.toggle('Bật giao diện tối',key='ep_dark_mode'," in source
+    assert subtitle < toggle < navigation
+    assert "dark_mode=st.toggle('Chuyển giao diện Sáng/Tối',key='ep_dark_mode'," in source
     assert "label_visibility='collapsed'" in source
     assert "mode='Tối' if dark_mode else 'Sáng'" in source
+    assert "ep_theme_row" not in source
     assert "ep_theme_bar" not in source
     assert source.count("st.toggle(")==1
 
 
-def test_theme_row_never_overlays_or_disables_native_toggle():
-    for mode in ("Sáng", "Tối"):
-        css=theme_css(mode)
-        assert '.st-key-ep_theme_row' in css
-        assert '.st-key-ep_theme_row [data-testid="stCheckbox"]' in css
-        assert '.ep-theme-heading svg' in css
-        assert '.ep-theme-heading span' in css
-        assert 'align-items:center !important' in css
+def test_compact_native_track_and_moving_sun_moon_thumb():
+    light_css=theme_css("Sáng")
+    dark_css=theme_css("Tối")
+    for css in (light_css,dark_css):
+        assert '.st-key-ep_dark_mode' in css
+        assert '[data-baseweb="checkbox"] > div:first-of-type' in css
+        assert '[data-baseweb="checkbox"]:has(input[type="checkbox"]:checked)' in css
+        assert 'transform:translateX(54px) !important' in css
+        assert 'background-image:url("data:image/svg+xml,' in css
+        assert 'background-size:21px 21px' in css
+        assert 'width:118px !important' in css
+        assert 'width:104px !important' in css
+        assert 'height:50px !important' in css
         assert 'ep_theme_bar' not in css
-        assert '__THEME_ICON_URI__' not in css
-        assert '__THEME_THUMB_RIGHT__' not in css
+        assert 'ep_theme_row' not in css
         assert 'opacity:0 !important;cursor:pointer' not in css
-        assert '.st-key-ep_theme_row::after' not in css
+        assert '__PILL_ICON_URI__' not in css
+    assert '%3Ccircle' in light_css
+    assert '%3Ccircle' not in dark_css
+    assert light_css != dark_css
