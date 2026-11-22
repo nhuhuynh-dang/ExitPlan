@@ -141,12 +141,45 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
               'background-repeat:no-repeat;background-position:center;}'
         )
     extra_css = """
-/* Ẩn hành động Deploy và menu không cần thiết; giữ nút mở/đóng sidebar. */
+/* Hide only Deploy and unneeded menus; NEVER hide the entire Streamlit toolbar.
+   The collapsed sidebar's expand control can live inside the toolbar/header. */
 .stAppDeployButton, [data-testid="stAppDeployButton"],
-[data-testid="stToolbar"], [data-testid="stToolbarActions"],
-header[data-testid="stHeader"] [data-testid="stToolbar"],
 #MainMenu, footer {display:none !important;}
-header[data-testid="stHeader"] {background:transparent !important;box-shadow:none !important;}
+header[data-testid="stHeader"] {
+    background:transparent !important;box-shadow:none !important;
+    visibility:visible !important;pointer-events:none;
+}
+header[data-testid="stHeader"] button,
+header[data-testid="stHeader"] [data-testid="stToolbar"],
+header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
+    pointer-events:auto;
+}
+/* Native controls: both left-pointing collapse and right-pointing expand. */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {
+    display:flex !important;visibility:visible !important;opacity:1 !important;
+    position:fixed !important;top:14px !important;left:14px !important;
+    z-index:999991 !important;pointer-events:auto !important;
+}
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="collapsedControl"] button {
+    display:inline-flex !important;visibility:visible !important;opacity:1 !important;
+    justify-content:center !important;align-items:center !important;
+    width:40px !important;height:40px !important;border-radius:12px !important;
+    border:1px solid __BORDER__ !important;
+    background:__SIDEBAR__ !important;color:__TEXT__ !important;
+    box-shadow:0 3px 13px rgba(13,42,80,.13) !important;cursor:pointer !important;
+}
+[data-testid="stSidebarCollapsedControl"] button svg,
+[data-testid="collapsedControl"] button svg {color:__TEXT__ !important;fill:__TEXT__ !important;}
+[data-testid="stSidebarCollapsedControl"] button:hover,
+[data-testid="collapsedControl"] button:hover {
+    border-color:__ACCENT__ !important;box-shadow:0 5px 15px rgba(29,88,160,.22) !important;
+}
+[data-testid="stSidebarCollapseButton"] button {
+    opacity:1 !important;visibility:visible !important;cursor:pointer !important;
+}
+
 /* Sidebar xanh navy ở cả hai chế độ, nội dung đổi Sáng/Tối. */
 [data-testid="stSidebar"] {background:__NAVY__ !important;border-right:1px solid __BORDER__ !important;}
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
