@@ -52,7 +52,10 @@ with st.sidebar:
     page=st.session_state['ep_navigation']
     st.caption(PAGE_HELP[page])
     st.divider()
-    dark_mode=st.toggle('🌙 Chế độ tối',value=False,key='ep_dark_mode')
+    # Biểu tượng phản ánh chính chế độ đang bật, thay đổi tức thì khi gạt công tắc.
+    current_dark=bool(st.session_state.get('ep_dark_mode',False))
+    mode_label='🌙 Chế độ tối' if current_dark else '☀️ Chế độ sáng'
+    dark_mode=st.toggle(mode_label,value=False,key='ep_dark_mode')
     mode='Tối' if dark_mode else 'Sáng'
     accent=BLUE_ACCENT
     font='Be Vietnam Pro'

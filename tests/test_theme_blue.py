@@ -129,14 +129,22 @@ def test_validation_two_file_options_use_buttons_instead_of_dropdown():
     assert "st.session_state[choice_key]=filename" in source
 
 
-def test_sidebar_expand_control_is_visible_in_both_modes():
-    for mode in ("Sáng", "Tối"):
+def test_sidebar_no_collapse_chevron_on_desktop_but_has_recovery():
+    for mode in ("Sáng","Tối"):
         css=theme_css(mode)
-        assert '[data-testid="stSidebarCollapsedControl"]' in css
+        assert "@media (min-width: 769px)" in css
         assert '[data-testid="stSidebarCollapseButton"]' in css
-        assert 'position:fixed !important' in css
-        assert 'pointer-events:auto !important' in css
+        assert 'display:none !important' in css
+        # A previously-collapsed sidebar can still be reopened; mobile retains
+        # the built-in navigation controls.
+        assert '[data-testid="stSidebarCollapsedControl"]' in css
         assert '[data-testid="stAppDeployButton"]' in css
-        # Hide Deploy only, not the toolbar that can contain sidebar controls.
-        assert '[data-testid="stToolbar"], [data-testid="stToolbarActions"],' not in css
-        assert 'header[data-testid="stHeader"] [data-testid="stToolbar"],' not in css
+
+
+def test_theme_toggle_icon_reflects_current_state():
+    from pathlib import Path
+    source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
+    assert "initial_sidebar_state='expanded'" in source
+    assert "current_dark=bool(st.session_state.get('ep_dark_mode',False))" in source
+    assert "mode_label='🌙 Chế độ tối' if current_dark else '☀️ Chế độ sáng'" in source
+    assert "st.toggle(mode_label,value=False,key='ep_dark_mode')" in source
