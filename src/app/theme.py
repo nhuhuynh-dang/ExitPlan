@@ -176,8 +176,23 @@ header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
 [data-testid="collapsedControl"] button:hover {
     border-color:__ACCENT__ !important;box-shadow:0 5px 15px rgba(29,88,160,.22) !important;
 }
-[data-testid="stSidebarCollapseButton"] button {
-    opacity:1 !important;visibility:visible !important;cursor:pointer !important;
+/* ExitPlan giữ sidebar mở cố định trên desktop. Không hiển thị nút « thu gọn.
+   Trên màn hình nhỏ giữ nút gốc để người dùng vẫn điều hướng được.
+   Nút mở lại của Streamlit chỉ dùng để khôi phục phiên từng bị thu gọn. */
+@media (min-width: 769px) {
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebar"] button[aria-label="Collapse sidebar"],
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"] {
+        display:none !important;
+        visibility:hidden !important;
+    }
+}
+/* Một công tắc Sáng/Tối duy nhất với icon ☀️ hoặc 🌙 theo trạng thái. */
+[data-testid="stSidebar"] [data-testid="stToggle"] label {
+    display:flex !important;
+    align-items:center !important;
+    gap:9px !important;
+    cursor:pointer !important;
 }
 
 /* Sidebar xanh navy ở cả hai chế độ, nội dung đổi Sáng/Tối. */
