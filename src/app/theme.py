@@ -120,18 +120,21 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
         '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>',
         '<path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/>',
     ]
-    nav_icons = []
+    nav_keys=[
+        'overview','planner','compare','liquidity','data',
+        'ssi_history','validation','methods','downloads'
+    ]
+    nav_icons=[]
     icon_color='#F9E8E4' if mode=='Tối' else '#5C4E58'
-    for i, paths in enumerate(svg_paths, start=1):
-        svg = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
-               "fill='none' stroke='" + icon_color + "' stroke-width='1.8' "
-               "stroke-linecap='round' stroke-linejoin='round'>" + paths + "</svg>")
-        uri = "data:image/svg+xml," + quote(svg, safe='')
+    for key,paths in zip(nav_keys,svg_paths):
+        svg=("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
+             "fill='none' stroke='"+icon_color+"' stroke-width='1.8' "
+             "stroke-linecap='round' stroke-linejoin='round'>"+paths+"</svg>")
+        uri="data:image/svg+xml,"+quote(svg,safe='')
         nav_icons.append(
-            f'[data-testid="stSidebar"] [role="radiogroup"] > label:nth-of-type({i})::before, '
-            f'[data-testid="stSidebar"] [role="radiogroup"] > div:nth-child({i}) > label::before'
-            + '{content:"";display:block;flex:0 0 21px;width:21px;height:21px;'
-              'background-image:url("' + uri + '");background-size:contain;'
+            f'[data-testid="stSidebar"] .st-key-ep_nav_{key} button::before'
+            +'{content:"";display:inline-block;flex:0 0 21px;width:21px;height:21px;'
+              'background-image:url("'+uri+'");background-size:contain;'
               'background-repeat:no-repeat;background-position:center;}'
         )
     extra_css = """
@@ -236,6 +239,42 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
         '__CHIP_BG__': '#4C3B4C' if mode=='Tối' else '#F5E3F0',
         '__CHIP_TEXT__': '#F8CEDF' if mode=='Tối' else '#815475',
     }
+    # Sidebar button navigation; stable st-key selectors instead of fragile radio DOM selectors.
+    nav_button_css = """
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] {margin-bottom:5px;}
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button {
+    display:flex !important;align-items:center !important;justify-content:flex-start !important;
+    gap:11px !important;width:100% !important;min-height:47px !important;
+    text-align:left !important;border-radius:13px !important;
+    border:1px solid transparent !important;padding:11px 13px !important;
+    background:transparent !important;color:__NAVTEXT__ !important;
+    box-shadow:none !important;transition:background .15s,border-color .15s !important;
+}
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button p {
+    color:inherit !important;font-size:.90rem !important;font-weight:650 !important;
+    text-align:left !important;white-space:normal !important;line-height:1.42 !important;
+}
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button:hover {
+    background:rgba(230,166,155,.15) !important;
+}
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="primary"] {
+    background:rgba(230,166,155,.22) !important;border:1px solid #E6A69B !important;
+    color:__NAVACTIVE__ !important;box-shadow:inset 3px 0 0 #E6A69B !important;
+}
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="primary"] p {
+    font-weight:800 !important;
+}
+.ep-method-grid {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:22px;padding:4px 0 8px;margin:8px 0 26px;
+}
+.ep-method-grid .ep-method {min-height:190px;margin:0;padding:22px 23px;display:block;}
+.ep-method-grid .ep-method h3 {margin:0 0 13px;font-size:1.14rem;line-height:1.4;}
+.ep-method-grid .ep-method p {margin:0;line-height:1.8;font-size:.91rem;}
+@media(max-width:850px) {.ep-method-grid {grid-template-columns:1fr;gap:16px;}}
+""".replace("__NAVTEXT__", '#F5EFF1' if mode=='Tối' else '#443B42')
+    nav_button_css=nav_button_css.replace("__NAVACTIVE__", '#FFE5DD' if mode=='Tối' else '#9B514B')
+    extra_css+=nav_button_css
     for key,value in theme_values.items():
         extra_css=extra_css.replace(key,value)
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
