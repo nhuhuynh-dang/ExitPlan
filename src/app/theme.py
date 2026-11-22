@@ -649,126 +649,87 @@ body ul[role="listbox"] [aria-selected="true"]{
         +theme_icon_paths+"</svg>"
     )
     theme_icon_uri="data:image/svg+xml,"+quote(theme_svg,safe='')
-    # Streamlit 1.47+ renders st.toggle as data-testid="stCheckbox" using
-    # BaseWeb: <label data-baseweb="checkbox"><div track><div thumb/></div>...
-    # Styling stToggle in the old version never matched, so the icon vanished.
-    # Keep the REAL BaseWeb input and thumb, not an inaccessible fake overlay.
+    # Draw on our own stable st.container(key="ep_theme_bar") instead of
+    # relying on Streamlit's version-specific checkbox/switch inner markup.
+    # The real st.toggle remains in the DOM and handles clicks/keyboard.
     theme_switch_css="""
-/* Native accessible toggle, placed beneath Vietnam caption. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode {
-    margin:9px 0 21px !important;
-}
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stCheckbox"] {
-    width:100% !important;min-height:56px !important;
-    padding:9px 12px 9px 14px !important;
-    background:__THEME_BG__ !important;color:__THEME_TEXT__ !important;
+/* ExitPlan theme bar directly below SMART PORTFOLIO EXIT · VIỆT NAM. */
+[data-testid="stSidebar"] .st-key-ep_theme_bar {
+    box-sizing:border-box !important;
+    display:block !important;position:relative !important;
+    width:100% !important;min-height:58px !important;height:58px !important;
+    margin:9px 0 21px !important;padding:0 !important;
+    background:__THEME_BG__ !important;
     border:1px solid __THEME_BORDER__ !important;
     border-radius:15px !important;
     box-shadow:0 4px 14px rgba(17,49,94,.065) !important;
-    transition:background .17s ease,border-color .17s ease !important;
+    isolation:isolate !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stCheckbox"]:hover {
+[data-testid="stSidebar"] .st-key-ep_theme_bar:hover {
     background:__THEME_HOVER__ !important;
     border-color:__THEME_BORDER_HOVER__ !important;
 }
-/* BaseWeb Checkbox root is a LABEL. Reverse its two visible children:
-   text left, track on the right. The hidden input remains usable. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"] {
-    display:flex !important;flex-direction:row-reverse !important;
-    align-items:center !important;justify-content:space-between !important;
-    gap:10px !important;width:100% !important;
-    min-height:36px !important;cursor:pointer !important;
-}
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stWidgetLabel"] {
-    padding:0 !important;margin:0 !important;
-    flex:1 1 auto !important;
-}
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stWidgetLabel"] p {
-    font-size:.88rem !important;font-weight:720 !important;
-    line-height:1.4 !important;margin:0 !important;
+/* Human-readable text is separate from the invisible but clickable native toggle. */
+[data-testid="stSidebar"] .st-key-ep_theme_bar .ep-theme-label {
+    position:absolute !important;left:14px !important;top:50% !important;
+    transform:translateY(-50%) !important;
+    margin:0 !important;padding:0 !important;
     color:__THEME_TEXT__ !important;
+    font-size:.88rem !important;font-weight:720 !important;line-height:1.4 !important;
+    white-space:nowrap !important;pointer-events:none !important;
+    z-index:2 !important;
 }
-/* The actual BaseWeb toggle track (first DIV child of its root label). */
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[data-baseweb="checkbox"] > div:first-of-type {
-    box-sizing:border-box !important;
-    position:relative !important;
-    display:flex !important;align-items:center !important;
-    width:76px !important;min-width:76px !important;
-    height:38px !important;min-height:38px !important;
-    padding:3px !important;margin:0 !important;
+/* Decorative track, anchored to a stable container (NOT stToggle or BaseWeb). */
+[data-testid="stSidebar"] .st-key-ep_theme_bar::before {
+    content:"" !important;display:block !important;position:absolute !important;
+    right:10px !important;top:50% !important;
+    transform:translateY(-50%) !important;
+    width:76px !important;height:38px !important;
+    border-radius:999px !important;
     background:__THEME_TRACK__ !important;
     border:1px solid __THEME_TRACK_BORDER__ !important;
-    border-radius:999px !important;flex:0 0 76px !important;
-}
-/* The real moving circle (not an ::after on a nonexistent stToggle). */
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[data-baseweb="checkbox"] > div:first-of-type > div:first-child {
     box-sizing:border-box !important;
-    width:30px !important;height:30px !important;flex:0 0 30px !important;
-    margin:0 !important;border-radius:50% !important;
-    background-color:__THEME_THUMB__ !important;
-    background-image:url("__THEME_ICON_URI__") !important;
-    background-repeat:no-repeat !important;
-    background-position:center !important;
-    background-size:19px 19px !important;
-    box-shadow:0 1px 5px rgba(0,0,0,.15) !important;
-    transform:translateX(0) !important;
-    transition:transform .22s ease,background-color .18s ease !important;
+    pointer-events:none !important;z-index:2 !important;
 }
-/* Let the native checked state move the genuine thumb rightwards. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[data-baseweb="checkbox"]:has(input[type="checkbox"]:checked)
-> div:first-of-type > div:first-child {
-    transform:translateX(38px) !important;
-}
-/* Keyboard focus remains visible. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"]:focus-within {
-    outline:2px solid __ACCENT__ !important;
-    outline-offset:4px !important;border-radius:10px !important;
-}
-/* Newer Streamlit builds use React Aria, still data-testid=stCheckbox
-   but switch markup has role=switch instead of data-baseweb=checkbox. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[data-testid="stCheckbox"] > [role="switch"] {
-    display:flex !important;flex-direction:row-reverse !important;
-    align-items:center !important;justify-content:space-between !important;
-    width:100% !important;min-height:36px !important;
-    gap:10px !important;cursor:pointer !important;
-}
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[role="switch"] > div:first-of-type {
-    box-sizing:border-box !important;
-    display:flex !important;align-items:center !important;
-    width:76px !important;min-width:76px !important;
-    height:38px !important;min-height:38px !important;
-    margin:0 !important;padding:3px !important;
-    background:__THEME_TRACK__ !important;border:1px solid __THEME_TRACK_BORDER__ !important;
-    border-radius:999px !important;flex:0 0 76px !important;
-}
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[role="switch"] > div:first-of-type > div:first-child {
-    box-sizing:border-box !important;
-    width:30px !important;height:30px !important;flex:0 0 30px !important;
-    margin:0 !important;border-radius:50% !important;
+/* Monochrome SVG on the knob, sliding left (sun) / right (moon). */
+[data-testid="stSidebar"] .st-key-ep_theme_bar::after {
+    content:"" !important;display:block !important;position:absolute !important;
+    right:__THEME_THUMB_RIGHT__ !important;top:50% !important;
+    transform:translateY(-50%) !important;
+    width:30px !important;height:30px !important;border-radius:50% !important;
     background-color:__THEME_THUMB__ !important;
     background-image:url("__THEME_ICON_URI__") !important;
     background-repeat:no-repeat !important;background-position:center !important;
     background-size:19px 19px !important;
-    box-shadow:0 1px 5px rgba(0,0,0,.15) !important;
-    transform:translateX(0) !important;
-    transition:transform .22s ease,background-color .18s ease !important;
+    box-shadow:0 1px 5px rgba(0,0,0,.16) !important;
+    pointer-events:none !important;z-index:3 !important;
+    transition:right .22s ease,background-color .18s ease !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[role="switch"][aria-checked="true"] > div:first-of-type > div:first-child,
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[role="switch"][data-selected] > div:first-of-type > div:first-child {
-    transform:translateX(38px) !important;
+/* Native st.toggle, transparent but FULL SIZE and accessible.
+   Both BaseWeb and React Aria structures remain clickable. */
+[data-testid="stSidebar"] .st-key-ep_theme_bar .st-key-ep_dark_mode,
+[data-testid="stSidebar"] .st-key-ep_theme_bar .st-key-ep_dark_mode [data-testid="stCheckbox"] {
+    position:absolute !important;inset:0 !important;
+    width:100% !important;height:100% !important;min-height:58px !important;
+    margin:0 !important;padding:0 !important;
+    opacity:0 !important;cursor:pointer !important;
+    z-index:5 !important;
 }
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[role="switch"]:focus-visible {
-    outline:2px solid __ACCENT__ !important;outline-offset:4px !important;
+[data-testid="stSidebar"] .st-key-ep_theme_bar
+.st-key-ep_dark_mode [data-baseweb="checkbox"],
+[data-testid="stSidebar"] .st-key-ep_theme_bar
+.st-key-ep_dark_mode [role="switch"] {
+    display:flex !important;
+    align-items:center !important;
+    width:100% !important;height:100% !important;
+    min-height:58px !important;
+    cursor:pointer !important;
 }
+/* Restore visible keyboard focus on the visual bar. */
+[data-testid="stSidebar"] .st-key-ep_theme_bar:has(:focus-visible) {
+    outline:2px solid __ACCENT__ !important;outline-offset:3px !important;
+}
+/* Do not accidentally show a second native track/label via global toggle CSS. */
 """
     theme_switch_values={
         '__THEME_BG__': '#17314E' if mode=='Tối' else '#FFFFFF',
@@ -779,6 +740,7 @@ body ul[role="listbox"] [aria-selected="true"]{
         '__THEME_TRACK__': '#244D78' if mode=='Tối' else '#D8E9FA',
         '__THEME_TRACK_BORDER__': '#4F79A6' if mode=='Tối' else '#B8D6F3',
         '__THEME_THUMB__': '#477EBD' if mode=='Tối' else '#FFFFFF',
+        '__THEME_THUMB_RIGHT__': '14px' if mode=='Tối' else '51px',
         '__THEME_ICON_URI__': theme_icon_uri,
     }
     for old,new in theme_switch_values.items():

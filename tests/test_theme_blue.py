@@ -155,23 +155,32 @@ def test_theme_switch_is_below_brand_and_uses_native_toggle():
     assert "key='ep_theme_toggle'" not in source
 
 
-def test_sun_and_moon_are_in_real_streamlit_thumb():
-    """Streamlit 1.47 toggle is a stCheckbox with a BaseWeb track/thumb."""
+def test_sun_and_moon_on_stable_theme_bar_not_streamlit_internal_dom():
     light_css=theme_css("Sáng")
     dark_css=theme_css("Tối")
     for css in (light_css,dark_css):
-        assert '[data-testid="stCheckbox"]' in css
-        assert '[data-baseweb="checkbox"] > div:first-of-type' in css
-        assert '[data-baseweb="checkbox"]:has(input[type="checkbox"]:checked)' in css
-        assert '[role="switch"][aria-checked="true"]' in css
+        assert '.st-key-ep_theme_bar::before' in css
+        assert '.st-key-ep_theme_bar::after' in css
+        assert '.st-key-ep_theme_bar .st-key-ep_dark_mode' in css
         assert 'background-image:url("data:image/svg+xml,' in css
         assert 'background-size:19px 19px' in css
-        assert 'transform:translateX(38px) !important' in css
-        assert 'transition:transform .22s ease' in css
+        assert 'transition:right .22s ease' in css
+        assert 'opacity:0 !important;cursor:pointer' in css
+        assert ':has(:focus-visible)' in css
         assert '__THEME_ICON_URI__' not in css
         assert '__THEME_THUMB_RIGHT__' not in css
         assert '[data-testid="stToggle"]::after' not in css
-    assert '%3Ccircle' in light_css  # monochrome sun
-    assert '%3Ccircle' not in dark_css  # monochrome crescent
-    assert '#235B96' in light_css
-    assert '#EAF3FF' in dark_css
+    assert 'right:51px !important' in light_css  # sun, left of track
+    assert 'right:14px !important' in dark_css  # moon, right of track
+    assert '%3Ccircle' in light_css
+    assert '%3Ccircle' not in dark_css
+
+
+def test_theme_container_keeps_real_keyboard_accessible_streamlit_toggle():
+    from pathlib import Path
+    source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
+    assert "with st.container(key='ep_theme_bar')" in source
+    assert 'class="ep-theme-label"' in source
+    assert "label_visibility='collapsed'" in source
+    assert "dark_mode=st.toggle(" in source
+    assert "key='ep_dark_mode'" in source
