@@ -149,7 +149,11 @@ def test_theme_label_left_native_switch_right_under_brand():
     navigation=source.index("for nav_key,nav_label in NAV.items():")
     assert subtitle < row < navigation
     assert "label_col, switch_col=st.columns([3,1]" in source
-    assert "st.markdown('**Giao diện**')" in source
+    assert 'class="ep-theme-heading"' in source
+    assert '<span>Giao diện</span>' in source
+    assert "if is_dark else" in source
+    assert '<circle cx="12" cy="12" r="4"/>' in source
+    assert 'M20.985 12.486' in source
     assert "dark_mode=st.toggle('Bật giao diện tối',key='ep_dark_mode'," in source
     assert "label_visibility='collapsed'" in source
     assert "mode='Tối' if dark_mode else 'Sáng'" in source
@@ -162,6 +166,9 @@ def test_theme_row_never_overlays_or_disables_native_toggle():
         css=theme_css(mode)
         assert '.st-key-ep_theme_row' in css
         assert '.st-key-ep_theme_row [data-testid="stCheckbox"]' in css
+        assert '.ep-theme-heading svg' in css
+        assert '.ep-theme-heading span' in css
+        assert 'align-items:center !important' in css
         assert 'ep_theme_bar' not in css
         assert '__THEME_ICON_URI__' not in css
         assert '__THEME_THUMB_RIGHT__' not in css
