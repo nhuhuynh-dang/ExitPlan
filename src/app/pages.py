@@ -333,7 +333,7 @@ def ssi_history(root,data,t):
             stats=pd.read_parquet(stats_path)
             st.subheader('ADV 20 phiên và độ biến động')
             st.caption('ADV/sigma chỉ có khi >=20 phiên hợp lệ mỗi mã. Đơn vị volume: số cổ phiếu theo nguồn API.')
-            st.markdown(frame_table(stats[stats['symbol'].isin(selected)]],max_rows=40),unsafe_allow_html=True)
+            st.markdown(frame_table(stats[stats['symbol'].isin(selected)],max_rows=40),unsafe_allow_html=True)
         st.subheader('Dữ liệu OHLCV đã lưu')
         st.markdown(frame_table(view,max_rows=60),unsafe_allow_html=True)
         st.download_button('⬇️ Tải CSV lịch sử SSI',fmt.csv_bom(view),'ExitPlan_SSI_history.csv','text/csv')
