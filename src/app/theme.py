@@ -74,6 +74,10 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 [data-testid="stMarkdownContainer"] .ep-card{background:__SURFACE__;border:1px solid __BORDER__;border-radius:18px;padding:17px 18px;min-height:116px;box-shadow:0 9px 24px rgba(0,0,0,.025)}
 .ep-eyebrow{font-size:.69rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:__ACCENT__;margin:0 0 9px}
 .ep-hero{position:relative;overflow:hidden;background:__SURFACE__;border:1px solid __BORDER__;border-radius:24px;padding:27px 32px;margin-bottom:21px;min-height:165px}
+.ep-hero-heading{display:flex;gap:15px;align-items:center;margin-bottom:11px;position:relative;z-index:1}
+.ep-hero-icon{width:51px;height:51px;min-width:51px;border-radius:15px;display:grid;place-items:center;background:__GLOW__;border:1px solid __BORDER__;color:__ACCENT__}
+.ep-hero-icon svg{width:26px;height:26px}
+.ep-hero-heading .ep-eyebrow{margin-bottom:6px}
 .ep-hero h1{font-size:clamp(1.5rem,2.8vw,2.3rem);line-height:1.3;margin:0 0 9px;font-weight:800;color:__TEXT__}
 .ep-hero p{font-size:.92rem;max-width:67%;color:__MUTED__;margin:0;line-height:1.65}
 .ep-hero .art{position:absolute;right:1rem;top:0;width:32%;height:100%;opacity:.35;pointer-events:none}
