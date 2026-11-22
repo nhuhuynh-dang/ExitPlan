@@ -40,10 +40,21 @@ with st.sidebar:
     if 'ep_dark_mode' not in st.session_state:
         st.session_state['ep_dark_mode']=False
     current_dark=bool(st.session_state['ep_dark_mode'])
-    dark_mode=st.toggle(
-        'Chế độ tối' if current_dark else 'Chế độ sáng',
-        key='ep_dark_mode',
-    )
+    # Stable visual shell: icon and sliding thumb are drawn on this container,
+    # independent of internal Streamlit/BaseWeb/React Aria toggle markup.
+    # Native st.toggle remains the actual accessible, keyboard-operable control.
+    with st.container(key='ep_theme_bar'):
+        st.markdown(
+            '<div class="ep-theme-label" aria-hidden="true">'
+            + ('Chế độ tối' if current_dark else 'Chế độ sáng')
+            + '</div>',
+            unsafe_allow_html=True,
+        )
+        dark_mode=st.toggle(
+            'Chế độ tối' if current_dark else 'Chế độ sáng',
+            key='ep_dark_mode',
+            label_visibility='collapsed',
+        )
     mode='Tối' if dark_mode else 'Sáng'
     # Dùng nút điều hướng thay radio: không còn chấm tròn, mỗi mục có icon SVG riêng.
     if st.session_state.get('ep_navigation') not in NAV:
