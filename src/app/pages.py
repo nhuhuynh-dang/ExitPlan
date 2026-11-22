@@ -58,6 +58,17 @@ def explain(title,txt):
 def choose(label,options,default=None,key=None):
     return st.segmented_control(label,options=options,default=default or options[0],key=key)
 
+def frame_table(frame,max_rows=70):
+    """Bảng chỉ đọc dạng HTML, đồng bộ light/dark và thoát nội dung không tin cậy."""
+    frame=frame.head(max_rows)
+    values=[]
+    for row in frame.itertuples(index=False,name=None):
+        values.append(['–' if pd.isna(v) else fmt.num(v,2) if isinstance(v,float) else str(v) for v in row])
+    return html_table([str(x) for x in frame.columns],values,
+                      numeric=tuple(i for i,c in enumerate(frame.columns)
+                                    if pd.api.types.is_numeric_dtype(frame[c])))
+
+
 def load(root):
     overrides={}
     if str(st.query_params.get('advanced',''))=='1':
@@ -199,7 +210,7 @@ def compare(root,data,t):
         saved=data['saved_plans']
         if saved is not None and not saved.empty:
             st.warning('BẢNG MẪU ĐÃ LƯU (không gắn với danh mục tự nhập hiện tại). Chỉ để kiểm tra giao diện.')
-            st.dataframe(saved,hide_index=True,use_container_width=True)
+            st.markdown(frame_table(saved),unsafe_allow_html=True)
         return
     params=st.session_state['ep_params']
     if str(data['books']['ts_vn'].max())!=params['snapshot_at']:
@@ -241,7 +252,7 @@ def compare(root,data,t):
     st.markdown(guide('Mốc đầu là giá trị lượng bán theo giá gần nhất; lần lượt trừ chi phí thanh khoản, phí và thuế giả định.',
         'Tiền ròng chỉ áp dụng với lượng bán nằm trong ba mức mua đang quan sát.'),unsafe_allow_html=True)
     detail=pd.DataFrame(p['details']).rename(columns={'symbol':'Mã','held':'Nắm giữ','sold':'Bán','remaining':'Còn lại','net':'Tiền ròng','visible_depth':'Độ sâu ba mức','uncovered':'Chưa bao phủ'})
-    st.dataframe(detail[['Mã','Nắm giữ','Bán','Còn lại','Độ sâu ba mức','Tiền ròng']],hide_index=True,use_container_width=True)
+    st.markdown(frame_table(detail[['Mã','Nắm giữ','Bán','Còn lại','Độ sâu ba mức','Tiền ròng']]),unsafe_allow_html=True)
     explain('Các cột phương án','**HHI** = Σ(tỷ trọng giá trị còn lại)². **Chi phí bps** = (chi phí thanh khoản/doanh số khớp mô phỏng) × 10.000. **A/B/C/P** là tối ưu hóa theo các hàm mục tiêu khác nhau; không được hiểu là khuyến nghị mua bán.')
 
 
@@ -322,77 +333,73 @@ def ssi_history(root,data,t):
             stats=pd.read_parquet(stats_path)
             st.subheader('ADV 20 phiên và độ biến động')
             st.caption('ADV/sigma chỉ có khi >=20 phiên hợp lệ mỗi mã. Đơn vị volume: số cổ phiếu theo nguồn API.')
-            st.dataframe(stats[stats['symbol'].isin(selected)],hide_index=True,use_container_width=True)
+            st.markdown(frame_table(stats[stats['symbol'].isin(selected)]],max_rows=40),unsafe_allow_html=True)
         st.subheader('Dữ liệu OHLCV đã lưu')
-        st.dataframe(view,hide_index=True,use_container_width=True)
+        st.markdown(frame_table(view,max_rows=60),unsafe_allow_html=True)
         st.download_button('⬇️ Tải CSV lịch sử SSI',fmt.csv_bom(view),'ExitPlan_SSI_history.csv','text/csv')
         st.warning('Không tự tạo bidPrice1–3/bidVol1–3 từ giá đóng cửa. Trang Lập phương án chỉ dùng snapshot sổ lệnh độc lập.')
     except Exception as exc:st.error(f'Lỗi đọc dữ liệu SSI: {type(exc).__name__}: {exc}')
 
 
 def data_page(root,data,t):
+    """Trình bày thống kê và trạng thái kết nối theo thẻ, không nhúng Excel/JSON thô."""
     valid=source_labels(data)
     b=data['books']
     if valid:
         duration=b['ts_vn'].max()-b['ts_vn'].min()
-        st.markdown(cards_html([{'label':'Số phiên','value':fmt.num(b['ts_vn'].dt.date.nunique()),'note':'Theo ngày giờ Việt Nam'},
-          {'label':'Tổng bản ghi','value':fmt.num(len(b)),'note':'Trong file snapshot'},
-          {'label':'Số mã','value':fmt.num(b['symbol'].nunique()),'note':'Không tính tự động từ API'},
-          {'label':'Khoảng thời gian','value':fmt.num(duration.total_seconds()/3600,1)+' giờ','note':'Từ '+b['ts_vn'].min().strftime('%d/%m %H:%M')}]),unsafe_allow_html=True)
-        with st.expander('Từ điển trường NEO (tham khảo kỹ thuật)',expanded=False):
-            from src.data.schema import NEO_TO_STANDARD
-            st.markdown(html_table(['Trường NEO','Trường đã chuẩn hóa'],[[a,v] for a,v in NEO_TO_STANDARD.items()]),unsafe_allow_html=True)
+        st.markdown(cards_html([
+            {'label':'Số phiên','value':fmt.num(b['ts_vn'].dt.date.nunique()),'note':'Theo ngày giờ Việt Nam'},
+            {'label':'Tổng bản ghi','value':fmt.num(len(b)),'note':'Trong file snapshot'},
+            {'label':'Số mã','value':fmt.num(b['symbol'].nunique()),'note':'Được theo dõi'},
+            {'label':'Khoảng thời gian','value':fmt.num(duration.total_seconds()/3600,1)+' giờ','note':'Dữ liệu đã ghi'}
+        ]),unsafe_allow_html=True)
 
     st.subheader('Chất lượng dữ liệu')
     quality=data['quality']
     if quality is None or quality.empty:
-        st.warning('Chưa có dữ liệu: cần file '+QUALITY)
+        st.info('Chưa có file chất lượng dữ liệu. Vui lòng chạy pipeline trước.')
     else:
         source=', '.join(sorted(map(str,quality['data_kind'].dropna().unique()))) if 'data_kind' in quality.columns else 'Chưa xác định'
-        if 'synthetic' in source.lower():
-            st.warning('Dữ liệu chất lượng bên dưới là GIẢ LẬP, không phải dữ liệu SSI trực tiếp.')
         count_col=next((c for c in ('records','rows','n_records','total_records','count') if c in quality.columns),None)
-        symbols=int(quality['symbol'].nunique()) if 'symbol' in quality.columns else 0
-        count_value=pd.to_numeric(quality[count_col],errors='coerce').sum() if count_col else None
-        missing_cols=[c for c in quality.columns if c.startswith('missing_')]
-        issues_cols=[c for c in ('duplicates','invalid_rows','invalid') if c in quality.columns]
-        missing_total=sum(pd.to_numeric(quality[c],errors='coerce').fillna(0).sum() for c in missing_cols)
-        issues_total=sum(pd.to_numeric(quality[c],errors='coerce').fillna(0).sum() for c in issues_cols)
-        kpi=[
-            {'label':'Tổng bản ghi','value':fmt.num(count_value) if count_col else '–','note':'Theo file chất lượng'},
-            {'label':'Mã cổ phiếu','value':fmt.num(symbols),'note':'Được kiểm tra'},
-            {'label':'Giá trị thiếu','value':fmt.num(missing_total) if missing_cols else '–','note':'Tổng các trường thiếu'},
-            {'label':'Lỗi / trùng lặp','value':fmt.num(issues_total) if issues_cols else '–','note':'Theo các cột kiểm tra'}
-        ]
-        st.markdown(cards_html(kpi),unsafe_allow_html=True)
-        display=quality.copy()
-        rename={'symbol':'Mã CK','records':'Bản ghi','rows':'Bản ghi',
-            'n_records':'Bản ghi','total_records':'Bản ghi','count':'Bản ghi',
-            'missing_bid':'Thiếu giá mua','missing_ask':'Thiếu giá bán',
-            'missing_price':'Thiếu giá','duplicates':'Trùng lặp',
-            'invalid_pct':'Tỷ lệ lỗi','invalid_rows':'Bản ghi lỗi',
-            'data_kind':'Nguồn dữ liệu','source':'Nguồn'}
-        shown=[c for c in display.columns if c not in ('data_kind','source')]
-        preferred=[c for c in ('symbol',count_col,'missing_bid','missing_ask','duplicates','invalid_rows','invalid_pct') if c and c in shown]
-        preferred=list(dict.fromkeys(preferred))
-        if preferred:
+        missing_cols=[c for c in quality.columns if c.startswith('missing_') and not c.endswith('_pct')]
+        duplicates_cols=[c for c in ('duplicates','invalid_rows','invalid') if c in quality.columns]
+        total=lambda cols: sum(pd.to_numeric(quality[c],errors='coerce').fillna(0).sum() for c in cols)
+        nr=pd.to_numeric(quality[count_col],errors='coerce').fillna(0).sum() if count_col else None
+        missing=total(missing_cols)
+        invalid=total(duplicates_cols)
+        st.markdown(cards_html([
+            {'label':'Tổng bản ghi','value':fmt.num(nr) if nr is not None else '–','note':'Theo bảng kiểm tra'},
+            {'label':'Mã chứng khoán','value':fmt.num(quality['symbol'].nunique()) if 'symbol' in quality else '–','note':'Được kiểm tra'},
+            {'label':'Giá trị thiếu','value':fmt.num(missing) if missing_cols else '–','note':'Các trường dữ liệu nguồn'},
+            {'label':'Lỗi & trùng lặp','value':fmt.num(invalid) if duplicates_cols else '–','note':'Cần đối chiếu khi khác 0'}
+        ]),unsafe_allow_html=True)
+        cols=[c for c in ('symbol',count_col,'missing_bid','duplicates','invalid_rows') if c and c in quality]
+        cols=list(dict.fromkeys(cols))
+        vn={'symbol':'Mã cổ phiếu','records':'Bản ghi','missing_bid':'Thiếu giá mua',
+            'duplicates':'Trùng lặp','invalid_rows':'Bản ghi lỗi','rows':'Bản ghi',
+            'n_records':'Bản ghi','total_records':'Bản ghi','count':'Bản ghi'}
+        if cols:
             rows=[]
-            for _,r in display.iterrows():
-                line=[]
-                for c in preferred:
-                    value=r[c]
-                    if pd.isna(value):line.append('–')
-                    elif isinstance(value,(int,float)) or hasattr(value,'item'):
-                        try:line.append(fmt.num(value,2 if 'pct' in c else 0))
-                        except (TypeError,ValueError):line.append(str(value))
-                    else:line.append(str(value))
-                rows.append(line)
-            st.markdown(html_table([rename.get(c,c.replace('_',' ').capitalize()) for c in preferred],
-                rows,numeric=tuple(i for i,c in enumerate(preferred) if c!='symbol')),unsafe_allow_html=True)
-        else:
-            st.info('Tệp chưa có cột phù hợp cho bảng tóm tắt.')
-        st.caption('Nguồn dữ liệu: '+source+' · Dữ liệu được đọc từ tệp đã lưu.')
-        with st.expander('Chi tiết kỹ thuật · Bảng gốc',expanded=False):
+            for _,r in quality.iterrows():
+                values=[]
+                for c in cols:
+                    v=r[c]
+                    values.append('–' if pd.isna(v) else str(v) if c=='symbol' else fmt.num(v))
+                good=all(pd.to_numeric(pd.Series([r.get(c,0)]),errors='coerce').fillna(0).iloc[0]==0 for c in ('missing_bid','duplicates','invalid_rows'))
+                rows.append(values+['Đạt' if good else 'Cần kiểm tra'])
+            st.markdown(
+                '<div class="ep-panel"><div class="ep-panel-title">Chi tiết theo mã cổ phiếu</div>'
+                '<div class="ep-panel-desc">Đối chiếu số bản ghi, dữ liệu thiếu và lỗi theo từng mã.</div>'
+                +html_table([vn.get(c,c) for c in cols]+['Đánh giá'],rows,
+                    numeric=tuple(i for i,c in enumerate(cols) if c!='symbol'),
+                    pills={len(cols):{'Đạt':'ok','Cần kiểm tra':'warn'}})
+                +'</div>',
+                unsafe_allow_html=True,
+            )
+        if 'synthetic' in source.lower():
+            st.warning('Dữ liệu GIẢ LẬP (synthetic) — chưa phản ánh báo giá SSI/NEO thật.')
+        st.caption('Nguồn dữ liệu: '+source)
+        with st.expander('Chi tiết kỹ thuật · Dữ liệu gốc',expanded=False):
             st.dataframe(quality,hide_index=True,use_container_width=True)
 
     st.subheader('Trạng thái kết nối dữ liệu')
@@ -401,19 +408,43 @@ def data_page(root,data,t):
         try:
             status=json.loads(status_file.read_text(encoding='utf-8'))
             if not isinstance(status,dict):raise ValueError('Trạng thái phải là đối tượng JSON')
-            kind=str(status.get('data_kind','không rõ'))
-            status_label=str(status.get('status',status.get('state','Chưa xác định')))
-            updated=str(status.get('updated_at',status.get('timestamp',status.get('last_update','–'))))
-            rows=[['Loại dữ liệu',kind],['Trạng thái bộ ghi',status_label],['Cập nhật gần nhất',updated]]
-            st.markdown(html_table(['Thông tin','Giá trị'],rows),unsafe_allow_html=True)
-            if kind=='synthetic':
-                st.warning('Đây là trạng thái bộ ghi GIẢ LẬP, không phải SSI/NEO đang kết nối.')
-            with st.expander('Chi tiết kỹ thuật · JSON gốc',expanded=False):
-                st.json(status,expanded=False)
-        except (OSError,ValueError) as ex:st.error(f'Tệp trạng thái không hợp lệ: {ex}')
+            kind=str(status.get('data_kind','unknown'))
+            state=str(status.get('state',status.get('status','unknown')))
+            status_label='Giả lập' if kind=='synthetic' else ('Đang ghi dữ liệu' if state in ('connected','recording') else 'Chưa kết nối')
+            updated=str(status.get('last_update_vn',status.get('updated_at',status.get('timestamp','–'))))
+            channel=str(status.get('channel','–'))
+            records=status.get('records')
+            display_time=updated.replace('T',' ')[:25] if updated!='–' else updated
+            info=[
+                ('Nguồn dữ liệu','Giả lập (synthetic)' if kind=='synthetic' else kind),
+                ('Kênh ghi nhận',channel),
+                ('Cập nhật gần nhất',display_time),
+                ('Số bản ghi',fmt.num(records) if records is not None else '–'),
+            ]
+            info_html=''.join(
+                '<div class="ep-info-row"><span class="ep-info-key">'+escape(k)+'</span>'
+                '<span class="ep-info-val">'+escape(str(v))+'</span></div>' for k,v in info
+            )
+            st.markdown(
+                '<div class="ep-panel"><div class="ep-panel-title">Bộ thu thập dữ liệu thị trường'
+                ' <span class="ep-pill '+('warn' if kind=='synthetic' else 'ok' if state in ('connected','recording') else 'neutral')+'">'
+                +escape(status_label)+'</span></div>'
+                '<div class="ep-panel-desc">Tình trạng từ file đã ghi; dashboard không tự kết nối API.</div>'
+                +info_html+'</div>',
+                unsafe_allow_html=True,
+            )
+            if kind=='synthetic':st.warning('Bộ ghi chỉ đang mô phỏng. Chưa có kết nối WebSocket thật.')
+            with st.expander('Chi tiết kỹ thuật · Nhật ký JSON',expanded=False):
+                st.code(json.dumps(status,ensure_ascii=False,indent=2),language='json')
+        except (OSError,ValueError) as ex:
+            st.error(f'Tệp trạng thái không hợp lệ: {ex}')
     else:
-        st.info('Chưa có trạng thái bộ ghi. Dashboard chỉ đọc file, không tự mở WebSocket.')
-    st.caption('Múi giờ Asia/Ho_Chi_Minh (UTC+7); file do pipeline bên ngoài dashboard tạo.')
+        st.info('Chưa có file trạng thái bộ ghi. Dashboard không tự mở WebSocket.')
+    with st.expander('Tham khảo trường dữ liệu NEO',expanded=False):
+        from src.data.schema import NEO_TO_STANDARD
+        st.markdown(html_table(['Trường nguồn','Trường chuẩn hóa'],
+            [[a,v] for a,v in NEO_TO_STANDARD.items()]),unsafe_allow_html=True)
+    st.caption('Múi giờ Asia/Ho_Chi_Minh (UTC+7); dữ liệu được thu thập ngoài dashboard.')
 
 
 def validation(root,data,t):
@@ -427,7 +458,7 @@ def validation(root,data,t):
     try:
         df=pd.read_csv(folder/selections)
         if 'data_kind' in df and (df['data_kind']=='synthetic').any():st.warning('⚠️ Bảng kiểm chứng GIẢ LẬP: chưa thể dùng làm bằng chứng ngoài mẫu.')
-        st.dataframe(df,hide_index=True,use_container_width=True)
+        st.markdown(frame_table(df,max_rows=80),unsafe_allow_html=True)
         if {'variable','value','net'}.issubset(df.columns):
             st.subheader('Độ nhạy tham số (đã tính và lưu)')
             plot(charts.sensitivity_fig(df,t),'EP06_sensitivity')
@@ -441,7 +472,7 @@ def validation(root,data,t):
     st.subheader('Kiểm thử tự động')
     path=folder/'test_results.csv'
     if path.exists():
-        st.dataframe(pd.read_csv(path),hide_index=True,use_container_width=True)
+        st.markdown(frame_table(pd.read_csv(path),max_rows=80),unsafe_allow_html=True)
     else:st.info('Chưa có dữ liệu: cần file outputs/tables/test_results.csv sau khi chạy pytest.')
 
 
