@@ -35,10 +35,20 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')
-    # Công tắc pill nhỏ: dùng toggle thật, icon mặt trời/trăng gắn lên thumb bằng CSS.
-    # Nhãn kỹ thuật chỉ dành cho trợ năng, không hiện chữ cạnh công tắc.
-    dark_mode=st.toggle('Chuyển giao diện Sáng/Tối',key='ep_dark_mode',
-                        label_visibility='collapsed')
+    # Pill điều khiển giao diện: bấm trực tiếp toàn bộ nút, KHÔNG overlay.
+    # Bề mặt pill và nút tròn/icon được vẽ trên chính st.button (DOM ổn định hơn
+    # cấu trúc track/thumb nội bộ của st.toggle giữa các bản Streamlit).
+    def _switch_theme():
+        st.session_state['ep_dark_mode']=not st.session_state.get('ep_dark_mode',False)
+
+    dark_mode=bool(st.session_state.get('ep_dark_mode',False))
+    st.button(
+        'Chuyển sang giao diện sáng' if dark_mode else 'Chuyển sang giao diện tối',
+        key='ep_theme_switch',
+        on_click=_switch_theme,
+        help='Nhấn để chuyển sang giao diện sáng' if dark_mode
+             else 'Nhấn để chuyển sang giao diện tối',
+    )
     mode='Tối' if dark_mode else 'Sáng'
     # Dùng nút điều hướng thay radio: không còn chấm tròn, mỗi mục có icon SVG riêng.
     if st.session_state.get('ep_navigation') not in NAV:

@@ -141,38 +141,39 @@ def test_sidebar_no_collapse_chevron_on_desktop_but_has_recovery():
         assert '[data-testid="stAppDeployButton"]' in css
 
 
-def test_compact_switch_is_under_brand_without_large_label():
+def test_compact_switch_is_under_brand_and_clickable():
     from pathlib import Path
     source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
     subtitle=source.index("st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')")
-    toggle=source.index("dark_mode=st.toggle(")
+    switch=source.index("key='ep_theme_switch'")
     navigation=source.index("for nav_key,nav_label in NAV.items():")
-    assert subtitle < toggle < navigation
-    assert "dark_mode=st.toggle('Chuyển giao diện Sáng/Tối',key='ep_dark_mode'," in source
-    assert "label_visibility='collapsed'" in source
+    assert subtitle < switch < navigation
+    assert "on_click=_switch_theme" in source
+    assert "st.session_state['ep_dark_mode']=not st.session_state.get('ep_dark_mode',False)" in source
     assert "mode='Tối' if dark_mode else 'Sáng'" in source
     assert "ep_theme_row" not in source
     assert "ep_theme_bar" not in source
-    assert source.count("st.toggle(")==1
+    assert "st.toggle(" not in source
 
 
-def test_compact_native_track_and_moving_sun_moon_thumb():
-    light_css=theme_css("Sáng")
-    dark_css=theme_css("Tối")
-    for css in (light_css,dark_css):
-        assert '.st-key-ep_dark_mode' in css
-        assert '[data-baseweb="checkbox"] > div:first-of-type' in css
-        assert '[data-baseweb="checkbox"]:has(input[type="checkbox"]:checked)' in css
-        assert 'transform:translateX(54px) !important' in css
+def test_compact_pill_svg_is_on_clickable_button_not_native_track():
+    light=theme_css('Sáng')
+    dark=theme_css('Tối')
+    for css in (light,dark):
+        assert '.st-key-ep_theme_switch button::after' in css
+        assert '.st-key-ep_theme_switch button {' in css
+        assert 'width:106px !important' in css
+        assert 'height:52px !important' in css
+        assert 'width:38px !important' in css
         assert 'background-image:url("data:image/svg+xml,' in css
         assert 'background-size:21px 21px' in css
-        assert 'width:118px !important' in css
-        assert 'width:104px !important' in css
-        assert 'height:50px !important' in css
+        assert 'pointer-events:none !important' in css
+        assert '__EP_ICON_URI__' not in css
+        assert '__EP_THUMB_LEFT__' not in css
+        assert '.st-key-ep_dark_mode' not in css
         assert 'ep_theme_bar' not in css
         assert 'ep_theme_row' not in css
-        assert 'opacity:0 !important;cursor:pointer' not in css
-        assert '__PILL_ICON_URI__' not in css
-    assert '%3Ccircle' in light_css
-    assert '%3Ccircle' not in dark_css
-    assert light_css != dark_css
+    assert 'left:5px !important' in light
+    assert 'left:60px !important' in dark
+    assert '%3Ccircle' in light
+    assert '%3Ccircle' not in dark

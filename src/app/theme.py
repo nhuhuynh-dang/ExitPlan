@@ -630,9 +630,9 @@ body ul[role="listbox"] [aria-selected="true"]{
     for key,value in theme_values.items():
         finance_css=finance_css.replace(key,value)
     extra_css+=finance_css
-    # Pill chỉ trang trí track + thumb THẬT của BaseWeb st.toggle.
-    # Không có nút giả, overlay, opacity:0 hay pointer-events chặn click.
-    # SVG dùng data URI do Python mã hóa nên CSS hoạt động trên Chromium.
+    # Clickable pill is an ordinary, accessible Streamlit BUTTON.  The background
+    # and thumb are drawn ON the button itself, not on fragile BaseWeb internals.
+    # ::after is decorative (pointer-events:none), so the entire pill is clickable.
     sun_paths=(
         '<circle cx="12" cy="12" r="4"/>'
         '<path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42'
@@ -640,86 +640,70 @@ body ul[role="listbox"] [aria-selected="true"]{
     )
     moon_paths='<path d="M20.985 12.486A9 9 0 0 1 11.514 3.015 9 9 0 1 0 20.985 12.486Z"/>'
     icon_paths=moon_paths if mode=='Tối' else sun_paths
-    line_icon=(
+    icon_svg=(
         "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' "
         "fill='none' stroke='#2369B4' stroke-width='1.9' "
         "stroke-linecap='round' stroke-linejoin='round'>"+icon_paths+"</svg>"
     )
-    icon_uri="data:image/svg+xml,"+quote(line_icon,safe='')
+    icon_uri="data:image/svg+xml,"+quote(icon_svg,safe='')
     pill_css="""
-/* Compact native Streamlit theme pill, same footprint as the visual reference. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode{
+/* Compact blue switch from reference: one pill, no outer white rectangle. */
+[data-testid="stSidebar"] .st-key-ep_theme_switch{
+    width:106px !important;max-width:106px !important;
+    margin:10px 0 20px !important;padding:0 !important;
+    background:transparent !important;border:0 !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_switch button {
     box-sizing:border-box !important;
-    width:118px !important;max-width:118px !important;
-    margin:10px 0 22px !important;padding:4px 5px !important;
-    border-radius:17px !important;
-    border:1px solid __PILL_BORDER__ !important;
-    background:__PILL_OUTER__ !important;
-    box-shadow:0 3px 11px rgba(19,52,98,.055) !important;
-}
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stCheckbox"]{
-    display:flex !important;align-items:center !important;
-    width:100% !important;margin:0 !important;padding:0 !important;
-    min-height:50px !important;
-}
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"]{
-    display:flex !important;align-items:center !important;
-    width:100% !important;min-height:50px !important;
-    margin:0 !important;cursor:pointer !important;
-}
-/* Track is BaseWeb's first direct DIV child of its native LABEL. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[data-baseweb="checkbox"] > div:first-of-type{
-    box-sizing:border-box !important;
-    display:flex !important;align-items:center !important;justify-content:flex-start !important;
-    position:relative !important;
-    width:104px !important;min-width:104px !important;
-    height:50px !important;min-height:50px !important;
-    padding:5px !important;margin:0 !important;
-    border:2px solid __PILL_ACCENT__ !important;
+    position:relative !important;display:block !important;
+    width:106px !important;min-width:106px !important;max-width:106px !important;
+    height:52px !important;min-height:52px !important;
+    padding:0 !important;margin:0 !important;
+    background:__EP_TRACK_BG__ !important;
+    border:2px solid __EP_TRACK_BORDER__ !important;
     border-radius:999px !important;
-    background:__PILL_TRACK__ !important;
-    cursor:pointer !important;
+    box-shadow:0 3px 10px rgba(20,72,143,.10) !important;
+    cursor:pointer !important;overflow:hidden !important;
+    transition:background .20s ease,border-color .20s ease !important;
 }
-/* Thumb remains the genuine movable BaseWeb element. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[data-baseweb="checkbox"] > div:first-of-type > div:first-child{
-    box-sizing:border-box !important;
-    width:36px !important;min-width:36px !important;
-    height:36px !important;min-height:36px !important;
-    border-radius:50% !important;
-    margin:0 !important;
-    background-color:__PILL_THUMB__ !important;
-    background-image:url("__PILL_ICON_URI__") !important;
-    background-repeat:no-repeat !important;
-    background-position:center !important;
+[data-testid="stSidebar"] .st-key-ep_theme_switch button:hover {
+    background:__EP_TRACK_HOVER__ !important;
+    border-color:__EP_TRACK_BORDER_HOVER__ !important;
+}
+[data-testid="stSidebar"] .st-key-ep_theme_switch button:focus-visible {
+    outline:2px solid __ACCENT__ !important;
+    outline-offset:3px !important;
+}
+/* Keep an accessible name on the native button while visually hiding the label. */
+[data-testid="stSidebar"] .st-key-ep_theme_switch button [data-testid="stMarkdownContainer"] {
+    position:absolute !important;width:1px !important;height:1px !important;
+    padding:0 !important;margin:-1px !important;overflow:hidden !important;
+    clip-path:inset(50%) !important;white-space:nowrap !important;border:0 !important;
+}
+/* Thumb: SVG image is ON the button, not on Streamlit's version-dependent toggle. */
+[data-testid="stSidebar"] .st-key-ep_theme_switch button::after {
+    content:"" !important;display:block !important;
+    position:absolute !important;left:__EP_THUMB_LEFT__ !important;top:50% !important;
+    width:38px !important;height:38px !important;
+    border-radius:50% !important;box-sizing:border-box !important;
+    background-color:__EP_THUMB_BG__ !important;
+    background-image:url("__EP_ICON_URI__") !important;
+    background-position:center !important;background-repeat:no-repeat !important;
     background-size:21px 21px !important;
-    box-shadow:0 1px 5px rgba(16,59,115,.16) !important;
-    transform:translateX(0) !important;
-    transition:transform .22s ease,background-color .18s ease !important;
+    box-shadow:0 2px 7px rgba(14,55,100,.16) !important;
+    transform:translateY(-50%) !important;
+    transition:left .22s ease,background-color .18s ease !important;
     pointer-events:none !important;
-}
-/* Checked is the real input state (and hence matches Streamlit session state). */
-[data-testid="stSidebar"] .st-key-ep_dark_mode
-[data-baseweb="checkbox"]:has(input[type="checkbox"]:checked)
-> div:first-of-type > div:first-child{
-    transform:translateX(54px) !important;
-}
-[data-testid="stSidebar"] .st-key-ep_dark_mode:has(:focus-visible){
-    outline:2px solid __PILL_ACCENT__ !important;outline-offset:3px !important;
-}
-/* Keep the accessible label visually collapsed, never create a second label. */
-[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stWidgetLabel"]{
-    display:none !important;
 }
 """
     for old,new in {
-        '__PILL_BORDER__':'#557392' if mode=='Tối' else '#D5E5F5',
-        '__PILL_OUTER__':'#1A2F49' if mode=='Tối' else '#FFFFFF',
-        '__PILL_ACCENT__':'#69B2FF' if mode=='Tối' else '#2E83E6',
-        '__PILL_TRACK__':'#30577F' if mode=='Tối' else '#DDEBFF',
-        '__PILL_THUMB__':'#F6FAFF',
-        '__PILL_ICON_URI__':icon_uri,
+        '__EP_TRACK_BG__':'#315A84' if mode=='Tối' else '#DDEBFF',
+        '__EP_TRACK_BORDER__':'#76B9FF' if mode=='Tối' else '#2E83E6',
+        '__EP_TRACK_HOVER__':'#376997' if mode=='Tối' else '#CDE3FF',
+        '__EP_TRACK_BORDER_HOVER__':'#A5D2FF' if mode=='Tối' else '#1E74D6',
+        '__EP_THUMB_BG__':'#F8FBFF',
+        '__EP_THUMB_LEFT__':'60px' if mode=='Tối' else '5px',
+        '__EP_ICON_URI__':icon_uri,
     }.items():
         pill_css=pill_css.replace(old,new)
     extra_css+=pill_css
