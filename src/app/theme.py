@@ -178,7 +178,7 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-testid="stSidebar"] [data-testid="stToggle"] {padding:10px 11px;border:1px solid __BORDER__;border-radius:13px;background:__TOGGLEBG__;}
 [data-testid="stSidebar"] .ep-brand-mark {background:#E6A69B;color:#462934;}
 /* Dark Mode giữ toàn bộ bề mặt ở dải màu hồng đào / mận trầm. */
-[data-testid="stAlert"] {border-radius:14px;border-color:__BORDER__ !important;}
+[data-testid="stAlert"] {border-radius:14px;border-color:__BORDER__ !important;background:__ALERTBG__ !important;}
 [data-testid="stAlert"][data-baseweb] {color:__TEXT__ !important;}
 [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#D79A9D !important;}
 [data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"][aria-checked="true"] {background:#D79A9D !important;}
@@ -237,6 +237,7 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     extra_css=extra_css.replace('__SIDEMUTED__','#AEBCCB' if mode=='Tối' else '#806D75')
     extra_css=extra_css.replace('__SIDEACTIVE__','#FFE5DD' if mode=='Tối' else '#9B514B')
     extra_css=extra_css.replace('__TOGGLEBG__','#4D313D' if mode=='Tối' else '#FFEAE3')
+    extra_css=extra_css.replace('__ALERTBG__','#49313B' if mode=='Tối' else '#FFF1EB')
     theme_values = {
         '__TABLE_HEAD__': '#533640' if mode=='Tối' else '#F8E9E3',
         '__TABLE_ALT__': '#412C36' if mode=='Tối' else '#FFFAF8',
