@@ -65,3 +65,26 @@ def test_hero_recolored_to_blue_and_keeps_semantic_description():
     assert "danh mục cổ phiếu" in svg
     assert "#D6EAFF" in svg
     assert "#FFDAD1" not in svg
+
+def test_multiselect_tags_and_native_widgets_use_blue_not_red():
+    css=theme_css("Sáng")
+    assert '[data-testid="stMultiSelect"] [data-baseweb="tag"]' in css
+    assert '#2E83E6' in css
+    assert '#FFFFFF' in css
+    assert '__CHIP_BLUE__' not in css
+
+    dark_css=theme_css("Tối")
+    assert '#348BEB' in dark_css
+    assert '#192B43' in dark_css
+    assert '__INPUT_BG__' not in dark_css
+
+
+def test_nav_icon_and_sidebar_light_favicon_configuration():
+    from pathlib import Path
+    source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
+    assert 'page_icon=None' in source
+    assert '<svg viewBox="0 0 32 32"' in source
+    assert 'from textwrap import dedent' in source
+    css=theme_css("Sáng")
+    assert '#EAF3FC' in css
+    assert '#173454' in css
