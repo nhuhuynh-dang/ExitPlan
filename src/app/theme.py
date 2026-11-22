@@ -1,28 +1,29 @@
 """Giao diện glass pastel lấy cảm hứng tổ chức code dashboard mẫu; không dùng hình ảnh ngoài."""
 from html import escape
 
-PRESETS={'Xanh dương':'#76A9EA','Bạc hà':'#65BDAA','Tím nhạt':'#AD98DB','Đào pastel':'#E6A6A1'}
-FONTS={'Be Vietnam Pro':"'Be Vietnam Pro',sans-serif",'Inter':'Inter,sans-serif',
-       'Lexend':'Lexend,sans-serif','Manrope':'Manrope,sans-serif'}
+PEACH_ACCENT='#E6A69B'
+FONT_FAMILY="'Be Vietnam Pro',sans-serif"
 
 def hex_rgb(h): return tuple(int(h[i:i+2],16) for i in (1,3,5))
 def mix(a,b,f):return '#'+''.join(f'{round(x*(1-f)+y*f):02x}' for x,y in zip(hex_rgb(a),hex_rgb(b)))
 def rgba(hexcolor,alpha):return f'rgba({",".join(map(str,hex_rgb(hexcolor)))},{alpha})'
 
-def palette(mode,accent):
-    dark=mode=='Tối'; base='#111B2B' if dark else '#F7FAFF'
-    return {'bg':mix(accent,base,.94 if dark else .97),'surface':mix(accent,'#223149' if dark else '#FFFFFF',.82 if dark else .96),
-            'sidebar':mix(accent,'#192438' if dark else '#F0F5FD',.9),
-            'text':'#EDF3FC' if dark else '#213047','muted':'#A8B7C9' if dark else '#66768B',
-            'border':mix(accent,'#42516B' if dark else '#DDE7F1',.70),
+def palette(mode,accent=PEACH_ACCENT):
+    accent=PEACH_ACCENT
+    dark=mode=='Tối'; base='#232B38' if dark else '#FFF8F5'
+    return {'bg':mix(accent,base,.94 if dark else .97),'surface':mix(accent,'#333D4C' if dark else '#FFFFFF',.82 if dark else .96),
+            'sidebar':mix(accent,'#293241' if dark else '#FBEDE8',.9),
+            'text':'#F7EFF0' if dark else '#443B42','muted':'#C2B7BE' if dark else '#806D75',
+            'border':mix(accent,'#596172' if dark else '#EBDAD5',.70),
             'accent':accent,'positive':'#81D6BE' if dark else '#238B71',
-            'negative':'#F3A5A5' if dark else '#C95555','plot':'rgba(0,0,0,0)'}
+            'negative':'#F3A5A5' if dark else '#C95555','plot':mix(accent,'#333D4C' if dark else '#FFFFFF',.82 if dark else .96)}
 
-def theme_css(mode,accent,font,size_pt):
-    p=palette(mode,accent); f=FONTS.get(font,FONTS['Be Vietnam Pro']); size=max(10,min(20,int(size_pt)))
+def theme_css(mode,accent=PEACH_ACCENT,font=None,size_pt=12):
+    accent=PEACH_ACCENT
+    p=palette(mode); f=FONT_FAMILY; size=12
     css="""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Lexend:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
 html, body, .stApp {font-family:__FONT__}
 .stApp [data-testid="stMarkdownContainer"], .stApp input, .stApp textarea {font-family:__FONT__}
 html{font-size:16px} .stApp{font-size:__SIZE__pt}
@@ -59,7 +60,10 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 [data-testid="stSegmentedControl"]{border-radius:28px}
 .stButton > button, .stDownloadButton > button {border-radius:12px;border:1px solid __BORDER__;font-weight:600}
 .stButton > button[kind="primary"]{background:__ACCENT__;color:__BUTTONTEXT__;border:0}
-[data-testid="stDataFrame"], [data-testid="stDataEditor"]{border-radius:13px;overflow:hidden}
+[data-testid="stDataFrame"], [data-testid="stDataEditor"]{border-radius:13px;overflow:hidden;background:__SURFACE__;border:1px solid __BORDER__}
+[data-testid="stDataFrame"] canvas, [data-testid="stDataEditor"] canvas{background:__SURFACE__}
+[data-testid="stDataFrame"] [role="grid"], [data-testid="stDataEditor"] [role="grid"]{background:__SURFACE__;color:__TEXT__}
+[data-testid="stDataFrame"] [role="columnheader"], [data-testid="stDataEditor"] [role="columnheader"]{background:__SIDEBAR__;color:__TEXT__}
 [data-testid="stDataFrame"] * , [data-testid="stDataEditor"] * {font-variant-numeric:tabular-nums}
 [data-testid="stMarkdownContainer"] .ep-card{background:__SURFACE__;border:1px solid __BORDER__;border-radius:18px;padding:17px 18px;min-height:116px;box-shadow:0 9px 24px rgba(0,0,0,.025)}
 .ep-eyebrow{font-size:.69rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:__ACCENT__;margin:0 0 9px}
@@ -76,7 +80,7 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 .ep-guide{background:__GLASS__;border:1px dashed __BORDER__;border-radius:14px;padding:12px 17px;margin:12px 0;color:__MUTED__;font-size:.88rem}
 .ep-table-wrap{width:100%;overflow:auto;border:1px solid __BORDER__;border-radius:14px;margin:12px 0}
 .ep-table{border-collapse:collapse;width:100%;font-size:.90rem;color:__TEXT__;background:__SURFACE__}
-.ep-table th{font-size:.81rem;background:__GLASS__;color:__MUTED__;text-align:left;white-space:nowrap}
+.ep-table th{font-size:.81rem;background:__SIDEBAR__;color:__TEXT__;text-align:left;white-space:nowrap}
 .ep-table td,.ep-table th{padding:12px 13px;border-bottom:1px solid __BORDER__}
 .ep-table tr:last-child td{border-bottom:none}
 .ep-table tbody tr:hover{background:__GLOW__}
@@ -88,10 +92,10 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 @media(max-width:720px){.block-container{padding:1rem !important}.ep-hero{padding:19px}.ep-hero p{max-width:100%}.ep-hero .art{opacity:.08;width:65%}}
 </style>"""
     rep={'__FONT__':f,'__SIZE__':str(size),'__GLOW__':rgba(accent,.13 if mode=='Tối' else .14),
-         '__GLOW2__':rgba('#D8A5C8',.06),'__BG__':p['bg'],'__SIDEBAR__':p['sidebar'],
+         '__GLOW2__':rgba('#F0B6A7',.08),'__BG__':p['bg'],'__SIDEBAR__':p['sidebar'],
          '__BORDER__':p['border'],'__TEXT__':p['text'],'__ACCENT__':accent,'__SURFACE__':p['surface'],
          '__MUTED__':p['muted'],'__GLASS__':rgba(p['surface'],.78),
-         '__BUTTONTEXT__':'#101D31','__WARNBG__':rgba('#E9A950',.17),'__WARNBORDER__':rgba('#E9A950',.45)}
+         '__BUTTONTEXT__':'#33252D','__WARNBG__':rgba('#E9A950',.17),'__WARNBORDER__':rgba('#E9A950',.45)}
     for a,b in rep.items():css=css.replace(a,b)
     return css
 
