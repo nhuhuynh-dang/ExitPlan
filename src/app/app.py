@@ -35,20 +35,16 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')
-    # Công tắc gọn dưới logo: icon mặt trời/trăng nét đơn sắc nằm TRONG nút.
-    # Chỉ có một nút đổi chế độ; state giữ nguyên khi chuyển các trang ExitPlan.
+    # Công tắc gạt thật: nút tròn trượt trái/phải, chứa icon đơn sắc.
+    # Giữ dưới dòng Việt Nam và giữ trạng thái khi đổi trang.
     if 'ep_dark_mode' not in st.session_state:
         st.session_state['ep_dark_mode']=False
     current_dark=bool(st.session_state['ep_dark_mode'])
-    if st.button(
+    dark_mode=st.toggle(
         'Chế độ tối' if current_dark else 'Chế độ sáng',
-        key='ep_theme_toggle',
-        use_container_width=True,
-        help='Nhấn để chuyển sang chế độ sáng' if current_dark else 'Nhấn để chuyển sang chế độ tối',
-    ):
-        st.session_state['ep_dark_mode']=not current_dark
-        st.rerun()
-    mode='Tối' if st.session_state['ep_dark_mode'] else 'Sáng'
+        key='ep_dark_mode',
+    )
+    mode='Tối' if dark_mode else 'Sáng'
     # Dùng nút điều hướng thay radio: không còn chấm tròn, mỗi mục có icon SVG riêng.
     if st.session_state.get('ep_navigation') not in NAV:
         st.session_state['ep_navigation']='overview'

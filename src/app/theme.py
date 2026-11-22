@@ -630,8 +630,8 @@ body ul[role="listbox"] [aria-selected="true"]{
     for key,value in theme_values.items():
         finance_css=finance_css.replace(key,value)
     extra_css+=finance_css
-    # A single wide theme switch below the brand. The sun/moon is a monochrome
-    # 24x24 vector INSIDE the right-hand switch knob (never a colored emoji).
+    # Real Streamlit switch under the brand. Keep its accessible/keyboard-operable
+    # input in the DOM, but render a custom slide track/thumb in monochrome SVG.
     if mode=='Tối':
         theme_icon_paths='<path d="M20.985 12.486A9 9 0 0 1 11.514 3.015 9 9 0 1 0 20.985 12.486Z"/>'
         theme_icon_color='#EAF3FF'
@@ -649,56 +649,88 @@ body ul[role="listbox"] [aria-selected="true"]{
         +theme_icon_paths+"</svg>"
     )
     theme_icon_uri="data:image/svg+xml,"+quote(theme_svg,safe='')
-    theme_button_css="""
-/* One light/dark theme bar immediately under the Vietnam subtitle. */
-[data-testid="stSidebar"] .st-key-ep_theme_toggle {
+    theme_switch_css="""
+/* Real click/keyboard-operated slider immediately under Vietnam caption. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode {
     margin:9px 0 21px !important;
 }
-[data-testid="stSidebar"] .st-key-ep_theme_toggle button {
-    display:flex !important;align-items:center !important;justify-content:space-between !important;
-    gap:11px !important;width:100% !important;min-height:53px !important;
-    padding:7px 9px 7px 14px !important;
-    background:__THEME_BUTTON_BG__ !important;color:__THEME_BUTTON_TEXT__ !important;
-    border:1px solid __THEME_BUTTON_BORDER__ !important;border-radius:15px !important;
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]{
+    position:relative !important;isolation:isolate !important;
+    width:100% !important;min-height:56px !important;
+    padding:9px 98px 9px 14px !important;
+    display:flex !important;align-items:center !important;
+    background:__THEME_BG__ !important;color:__THEME_TEXT__ !important;
+    border:1px solid __THEME_BORDER__ !important;border-radius:15px !important;
     box-shadow:0 4px 14px rgba(17,49,94,.065) !important;
-    transition:background .16s ease,border-color .16s ease !important;
+    transition:background .17s ease,border-color .17s ease !important;
 }
-[data-testid="stSidebar"] .st-key-ep_theme_toggle button:hover {
-    background:__THEME_BUTTON_HOVER__ !important;
-    border-color:__THEME_BUTTON_BORDER_HOVER__ !important;
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]:hover {
+    background:__THEME_HOVER__ !important;border-color:__THEME_BORDER_HOVER__ !important;
 }
-[data-testid="stSidebar"] .st-key-ep_theme_toggle button:focus-visible {
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]:focus-within {
     outline:2px solid __ACCENT__ !important;outline-offset:2px !important;
 }
-[data-testid="stSidebar"] .st-key-ep_theme_toggle button p {
-    color:__THEME_BUTTON_TEXT__ !important;font-size:.87rem !important;
-    font-weight:720 !important;line-height:1.4 !important;
-    text-align:left !important;margin:0 !important;
+/* Preserve Streamlit's native input (state, accessibility and keyboard controls),
+   but make its old track invisible so the custom slider is the only visible one. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"] {
+    width:100% !important;
 }
-[data-testid="stSidebar"] .st-key-ep_theme_toggle button::after {
-    content:"" !important;display:block !important;flex:0 0 35px !important;
-    width:35px !important;height:35px !important;
-    border-radius:50% !important;border:1px solid __THEME_KNOB_BORDER__ !important;
-    background-color:__THEME_KNOB_BG__ !important;
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"] label {
+    display:flex !important;align-items:center !important;justify-content:flex-start !important;
+    width:100% !important;min-height:36px !important;cursor:pointer !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-baseweb="checkbox"] label > div:first-child {
+    opacity:0 !important;position:absolute !important;
+    right:7px !important;top:5px !important;width:85px !important;height:44px !important;
+    z-index:1 !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"] [role="switch"] {
+    opacity:0 !important;
+}
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"] p {
+    color:__THEME_TEXT__ !important;font-size:.88rem !important;
+    font-weight:720 !important;line-height:1.4 !important;margin:0 !important;
+}
+/* Switch track. */
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]::before {
+    content:"" !important;position:absolute !important;
+    width:74px !important;height:36px !important;
+    right:10px !important;top:50% !important;transform:translateY(-50%) !important;
+    border-radius:999px !important;
+    background:__THEME_TRACK__ !important;border:1px solid __THEME_TRACK_BORDER__ !important;
+    pointer-events:none !important;z-index:2 !important;
+}
+/* Sliding circle; icon lives on the circle itself (not next to the label). */
+[data-testid="stSidebar"] .st-key-ep_dark_mode [data-testid="stToggle"]::after {
+    content:"" !important;position:absolute !important;
+    width:31px !important;height:31px !important;
+    right:__THEME_THUMB_RIGHT__ !important;top:50% !important;
+    transform:translateY(-50%) !important;
+    border-radius:50% !important;
+    background-color:__THEME_THUMB__ !important;
     background-image:url("__THEME_ICON_URI__") !important;
     background-repeat:no-repeat !important;background-position:center !important;
-    background-size:20px 20px !important;
-    margin-left:auto !important;box-shadow:0 2px 6px rgba(0,0,0,.05) !important;
+    background-size:19px 19px !important;
+    box-shadow:0 1px 5px rgba(0,0,0,.15) !important;
+    pointer-events:none !important;z-index:3 !important;
+    transition:right .22s ease,background-color .18s ease !important;
 }
 """
-    theme_button_colors={
-        '__THEME_BUTTON_BG__': '#17314E' if mode=='Tối' else '#FFFFFF',
-        '__THEME_BUTTON_TEXT__': '#EAF3FF' if mode=='Tối' else '#173454',
-        '__THEME_BUTTON_BORDER__': '#355373' if mode=='Tối' else '#CBDFF3',
-        '__THEME_BUTTON_HOVER__': '#223E5D' if mode=='Tối' else '#F6FBFF',
-        '__THEME_BUTTON_BORDER_HOVER__': '#5B98D0' if mode=='Tối' else '#70ACEB',
-        '__THEME_KNOB_BG__': '#28517A' if mode=='Tối' else '#E5F2FF',
-        '__THEME_KNOB_BORDER__': '#4F7EAE' if mode=='Tối' else '#C8E0F7',
+    theme_switch_values={
+        '__THEME_BG__': '#17314E' if mode=='Tối' else '#FFFFFF',
+        '__THEME_TEXT__': '#EAF3FF' if mode=='Tối' else '#173454',
+        '__THEME_BORDER__': '#355373' if mode=='Tối' else '#CBDFF3',
+        '__THEME_HOVER__': '#223E5D' if mode=='Tối' else '#F6FBFF',
+        '__THEME_BORDER_HOVER__': '#5B98D0' if mode=='Tối' else '#70ACEB',
+        '__THEME_TRACK__': '#244D78' if mode=='Tối' else '#D8E9FA',
+        '__THEME_TRACK_BORDER__': '#4F79A6' if mode=='Tối' else '#B8D6F3',
+        '__THEME_THUMB__': '#477EBD' if mode=='Tối' else '#FFFFFF',
+        '__THEME_THUMB_RIGHT__': '15px' if mode=='Tối' else '47px',
         '__THEME_ICON_URI__': theme_icon_uri,
     }
-    for old,new in theme_button_colors.items():
-        theme_button_css=theme_button_css.replace(old,new)
-    extra_css+=theme_button_css
+    for old,new in theme_switch_values.items():
+        theme_switch_css=theme_switch_css.replace(old,new)
+    extra_css+=theme_switch_css
     for key,value in theme_values.items():
         extra_css=extra_css.replace(key,value)
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
