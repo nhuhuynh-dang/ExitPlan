@@ -431,6 +431,99 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     }.items():
         native_css=native_css.replace(old,new)
     extra_css+=native_css
+    # .streamlit/config.toml fixes Streamlit's built-in accent but its base is light.
+    # In app-level Dark Mode, override the native widgets that Streamlit still renders
+    # on a pale background, including selectboxes, multiselects and code examples.
+    if mode=='Tối':
+        dark_native_css="""
+/* Native selection boxes: make the complete control navy, not just its outer wrapper. */
+[data-testid="stSelectbox"] [data-baseweb="select"],
+[data-testid="stMultiSelect"] [data-baseweb="select"],
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+[data-testid="stSelectbox"] [data-baseweb="select"] [data-baseweb="input"],
+[data-testid="stMultiSelect"] [data-baseweb="select"] [data-baseweb="input"],
+[data-testid="stSelectbox"] [data-baseweb="select"] [role="combobox"],
+[data-testid="stMultiSelect"] [data-baseweb="select"] [role="combobox"],
+[data-testid="stSelectbox"] [data-baseweb="select"] [aria-haspopup="listbox"],
+[data-testid="stMultiSelect"] [data-baseweb="select"] [aria-haspopup="listbox"] {
+    background-color:#192B43 !important;
+    color:#EAF3FF !important;
+    border-color:#344A67 !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] input,
+[data-testid="stMultiSelect"] [data-baseweb="select"] input,
+[data-testid="stSelectbox"] [data-baseweb="select"] [role="combobox"] *,
+[data-testid="stMultiSelect"] [data-baseweb="select"] [role="combobox"] *,
+[data-testid="stSelectbox"] [data-baseweb="select"] [aria-selected],
+[data-testid="stMultiSelect"] [data-baseweb="select"] [aria-selected] {
+    color:#EAF3FF !important;
+    -webkit-text-fill-color:#EAF3FF !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] svg,
+[data-testid="stMultiSelect"] [data-baseweb="select"] svg {fill:#BBD2EF !important;color:#BBD2EF !important;}
+/* Keep selected ticker tags blue; they are independent of the dark input background. */
+[data-testid="stMultiSelect"] [data-baseweb="tag"],
+[data-testid="stMultiSelect"] [data-baseweb="tag"] > div,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] > span{
+    background:#348BEB !important;color:#FFFFFF !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] span {
+    color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;
+}
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {fill:#FFFFFF !important;stroke:#FFFFFF !important;}
+/* Floating selectbox menu is rendered outside stMain in a portal. */
+[data-baseweb="popover"] [role="listbox"],
+[data-baseweb="popover"] [role="option"],
+[data-baseweb="menu"],
+[data-baseweb="menu"] [role="option"]{
+    background-color:#192B43 !important;color:#EAF3FF !important;
+}
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="menu"] [role="option"]:hover,
+[data-baseweb="popover"] [aria-selected="true"],
+[data-baseweb="menu"] [aria-selected="true"]{
+    background-color:#294765 !important;color:#FFFFFF !important;
+}
+/* Streamlit st.code / Prism syntax-highlighter, copy button and code frame. */
+[data-testid="stCodeBlock"],
+[data-testid="stCodeBlock"] > div,
+[data-testid="stCodeBlock"] pre,
+[data-testid="stCodeBlock"] code,
+[data-testid="stCodeBlock"] pre code,
+.stCodeBlock,
+.stCodeBlock pre,
+.stCodeBlock code{
+    background:#192B43 !important;color:#EAF3FF !important;
+    border-color:#344A67 !important;
+}
+[data-testid="stCodeBlock"]{
+    border:1px solid #344A67 !important;border-radius:13px !important;overflow:hidden !important;
+}
+[data-testid="stCodeBlock"] pre{
+    border:0 !important;box-shadow:none !important;
+}
+[data-testid="stCodeBlock"] button,
+[data-testid="stCodeBlock"] button:hover{
+    background:#294765 !important;color:#EAF3FF !important;border:1px solid #426286 !important;
+}
+[data-testid="stCodeBlock"] button svg{color:#EAF3FF !important;fill:#EAF3FF !important;}
+/* Command text must be readable even when Streamlit uses highlighted token spans. */
+[data-testid="stCodeBlock"] .token {color:#B7D8FF !important;}
+[data-testid="stCodeBlock"] .token.string,
+[data-testid="stCodeBlock"] .token.attr-value {color:#8EE0C0 !important;}
+[data-testid="stCodeBlock"] .token.keyword,
+[data-testid="stCodeBlock"] .token.function {color:#C1AEFF !important;}
+[data-testid="stCodeBlock"] .token.number,
+[data-testid="stCodeBlock"] .token.operator {color:#FFD08A !important;}
+/* Alert body and heading in the same dark palette (no dark-blue text on blue). */
+[data-testid="stAlert"] {background:#1D3553 !important;border:1px solid #344A67 !important;}
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p{
+    color:#EAF3FF !important;-webkit-text-fill-color:#EAF3FF !important;
+}
+"""
+        extra_css+=dark_native_css
     for key,value in theme_values.items():
         finance_css=finance_css.replace(key,value)
     extra_css+=finance_css

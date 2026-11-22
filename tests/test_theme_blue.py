@@ -88,3 +88,21 @@ def test_nav_icon_and_sidebar_light_favicon_configuration():
     css=theme_css("Sáng")
     assert '#EAF3FC' in css
     assert '#173454' in css
+
+
+def test_dark_widget_surfaces_and_code_are_consistent():
+    css=theme_css("Tối")
+    assert '[data-testid="stCodeBlock"] pre' in css
+    assert '[data-testid="stSelectbox"] [data-baseweb="select"]' in css
+    assert '[data-testid="stMultiSelect"] [data-baseweb="select"]' in css
+    assert '[data-testid="stAlert"] p' in css
+    assert '#192B43' in css
+    assert '#EAF3FF' in css
+    assert '#348BEB' in css
+
+
+def test_browser_title_describes_exitplan_not_generic_dashboard():
+    from pathlib import Path
+    source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
+    assert "page_title='ExitPlan | Kế hoạch bán'" in source
+    assert 'page_icon=None' in source

@@ -8,7 +8,7 @@ import streamlit as st
 from src.app.theme import BLUE_ACCENT, theme_css, palette
 from src.app.pages import render_page, NAV, PAGE_HELP
 
-st.set_page_config(page_title='ExitPlan | Dashboard',page_icon=None,layout='wide',initial_sidebar_state='expanded')
+st.set_page_config(page_title='ExitPlan | Kế hoạch bán',page_icon=None,layout='wide',initial_sidebar_state='expanded')
 
 with st.sidebar:
     # Logo SVG nhỏ: danh mục (3 thanh) và mũi tên thoát vị thế.
