@@ -80,7 +80,10 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 .ep-hero-heading .ep-eyebrow{margin-bottom:6px}
 .ep-hero h1{font-size:clamp(1.5rem,2.8vw,2.3rem);line-height:1.3;margin:0 0 9px;font-weight:800;color:__TEXT__}
 .ep-hero p{font-size:.92rem;max-width:67%;color:__MUTED__;margin:0;line-height:1.65}
-.ep-hero .art{position:absolute;right:1rem;top:0;width:32%;height:100%;opacity:.35;pointer-events:none}
+.ep-hero .art{position:absolute;right:.45rem;top:0;width:39%;height:100%;opacity:1;pointer-events:none;display:flex;align-items:center;justify-content:flex-end}
+.ep-hero .art svg{display:block;width:100%;height:100%;max-height:255px;object-fit:contain}
+.ep-hero{min-height:204px}
+.ep-hero>p{position:relative;z-index:1;max-width:60%}
 .ep-badge{display:inline-block;border:1px solid __BORDER__;background:__GLOW__;border-radius:999px;padding:5px 10px;font-size:.74rem;font-weight:650;color:__TEXT__;margin-right:6px}
 .ep-badge.warn{background:__WARNBG__;border-color:__WARNBORDER__}
 .ep-kpi-label{color:__MUTED__;font-size:.80rem;margin-bottom:11px}
@@ -99,7 +102,7 @@ div[data-testid="stTabs"] button[aria-selected="true"]{background:__GLOW__;borde
 /* Các nút điều khiển Streamlit phải dùng font icon gốc, không hiện tên icon thành chữ */
 [data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {font-family:'Material Symbols Rounded' !important}
 @media(max-width:960px){[data-testid="stSidebar"]{min-width:240px;max-width:270px}.block-container{padding:1.4rem 1.1rem 2rem !important}}
-@media(max-width:720px){.block-container{padding:1rem !important}.ep-hero{padding:19px}.ep-hero p{max-width:100%}.ep-hero .art{opacity:.08;width:65%}}
+@media(max-width:720px){.block-container{padding:1rem !important}.ep-hero{padding:19px}.ep-hero p{max-width:100%}.ep-hero .art{opacity:.16;width:70%}}
 </style>"""
     rep={'__FONT__':f,'__SIZE__':str(size),'__GLOW__':rgba(accent,.13 if mode=='Tối' else .14),
          '__GLOW2__':rgba('#F0B6A7',.08),'__BG__':p['bg'],'__SIDEBAR__':p['sidebar'],
@@ -243,16 +246,26 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     nav_button_css = """
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] {margin-bottom:5px;}
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button {
-    display:flex !important;align-items:center !important;justify-content:flex-start !important;
-    gap:11px !important;width:100% !important;min-height:47px !important;
+    display:grid !important;grid-template-columns:21px minmax(0,1fr) !important;
+    align-items:center !important;justify-content:stretch !important;justify-items:start !important;
+    gap:12px !important;width:100% !important;min-height:47px !important;
     text-align:left !important;border-radius:13px !important;
     border:1px solid transparent !important;padding:11px 13px !important;
     background:transparent !important;color:__NAVTEXT__ !important;
     box-shadow:none !important;transition:background .15s,border-color .15s !important;
 }
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button::before {
+    grid-column:1 !important;grid-row:1;align-self:center;margin:0 !important;
+}
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button > div,
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button [data-testid="stMarkdownContainer"] {
+    grid-column:2 !important;grid-row:1;min-width:0;width:100% !important;
+    justify-self:stretch !important;justify-content:flex-start !important;text-align:left !important;
+}
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button p {
     color:inherit !important;font-size:.90rem !important;font-weight:650 !important;
     text-align:left !important;white-space:normal !important;line-height:1.42 !important;
+    width:100% !important;margin:0 !important;
 }
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button:hover {
     background:rgba(230,166,155,.15) !important;
@@ -281,10 +294,113 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     for a,b in rep.items():css=css.replace(a,b)
     return css
 
-def hero_svg(accent):
-    """SVG inline vẽ nến, thanh danh mục và các mức sổ lệnh."""
-    return f'''<svg viewBox="0 0 420 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Minh họa tài chính">
-      <g fill="none" stroke="{accent}" stroke-width="3" stroke-linecap="round">
-      <path d="M15 174H403" opacity=".35"/><path d="M32 138V82M76 152V74M120 129V54M164 118V42M208 103V26" />
-      </g><g fill="{accent}" opacity=".74"><rect x="21" y="100" width="22" height="34" rx="4"/><rect x="65" y="89" width="22" height="42" rx="4"/><rect x="109" y="70" width="22" height="45" rx="4"/><rect x="153" y="55" width="22" height="47" rx="4"/><rect x="197" y="39" width="22" height="46" rx="4"/></g>
-      <g fill="{accent}" opacity=".35"><rect x="267" y="48" width="120" height="12" rx="5"/><rect x="267" y="75" width="93" height="12" rx="5"/><rect x="267" y="102" width="61" height="12" rx="5"/><rect x="267" y="129" width="108" height="12" rx="5"/></g></svg>'''
+def hero_svg(accent=PEACH_ACCENT, mode='Sáng'):
+    """Minh họa vector ExitPlan: màn hình danh mục, kế hoạch bán, tiền và thanh khoản."""
+    dark=mode=='Tối'
+    screen='#303D50' if dark else '#FFFCFA'
+    inner='#253246' if dark else '#FFF8F5'
+    frame='#D6A4A1' if dark else '#A77E84'
+    ink='#F5DAD6' if dark else '#7B6570'
+    line='#EAAEA2'
+    pale='#E6B3AE' if dark else '#F9D5CE'
+    mint='#8DC5B6'
+    light='#FAE9E4' if dark else '#FFFFFF'
+    template="""<svg viewBox="0 0 510 252" xmlns="http://www.w3.org/2000/svg"
+       role="img" aria-label="Minh họa ExitPlan: danh mục cổ phiếu, biểu đồ thanh khoản và kế hoạch bán">
+      <defs>
+        <linearGradient id="epLaptop" x1="0" y1="0" x2="0.9" y2="1">
+          <stop offset="0" stop-color="__SCREEN__"/><stop offset="1" stop-color="__INNER__"/>
+        </linearGradient>
+        <linearGradient id="epPeach" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FFDAD1"/><stop offset="1" stop-color="#E5A49E"/>
+        </linearGradient>
+        <linearGradient id="epBase" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#F2C1B8"/><stop offset="1" stop-color="#C98E8F"/>
+        </linearGradient>
+        <filter id="epShadow" x="-25%" y="-30%" width="155%" height="170%">
+          <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#9B7071" flood-opacity=".18"/>
+        </filter>
+      </defs>
+      <ellipse cx="252" cy="229" rx="216" ry="14" fill="__PALE__" opacity=".28"/>
+      <!-- Phiếu phân tích thanh khoản -->
+      <g transform="translate(45 35) rotate(-7 62 51)" filter="url(#epShadow)">
+        <rect width="114" height="96" rx="15" fill="__INNER__" stroke="__PALE__" stroke-width="2"/>
+        <path d="M21 75H96" stroke="__INK__" stroke-opacity=".25" stroke-width="1.5"/>
+        <rect x="22" y="54" width="12" height="21" rx="3" fill="__PALE__"/>
+        <rect x="42" y="44" width="12" height="31" rx="3" fill="#E9ADA4"/>
+        <rect x="62" y="29" width="12" height="46" rx="3" fill="#E7A6A1"/>
+        <rect x="82" y="17" width="12" height="58" rx="3" fill="#C98E92"/>
+        <circle cx="22" cy="20" r="4" fill="#8EC2B5"/>
+      </g>
+      <!-- Laptop: danh mục và nến giá -->
+      <g filter="url(#epShadow)">
+        <path d="M186 49Q187 32 206 31L419 30Q439 30 437 48L416 198Q414 210 399 210H165Q149 210 152 196Z"
+              fill="__FRAME__" stroke="__FRAME__" stroke-width="4"/>
+        <path d="M198 51Q200 44 208 44L415 43Q423 43 422 51L403 188Q402 196 394 196H173Q167 196 169 187Z"
+              fill="url(#epLaptop)"/>
+        <circle cx="308" cy="37" r="2" fill="__LIGHT__" opacity=".76"/>
+        <path d="M148 211H439L454 223Q454 230 443 231H128Q116 229 122 223Z"
+              fill="url(#epBase)" stroke="#D3A5A0" stroke-width="2"/>
+        <path d="M255 213H337L330 219H261Z" fill="#C88F90" opacity=".65"/>
+        <path d="M181 174H404M181 144H408M184 113H412" stroke="__INK__" stroke-width="1"
+              stroke-opacity=".12" stroke-dasharray="4 6"/>
+        <path d="M189 183C226 176 251 168 277 153S340 105 389 71"
+              fill="none" stroke="#E6A8A0" stroke-width="3" stroke-linecap="round" opacity=".82"/>
+        <!-- Nến -->
+        <g stroke-width="2.4" stroke-linecap="round">
+          <path d="M208 159V123M242 158V108M276 142V100M310 129V86M344 114V70M378 96V54"
+                stroke="__INK__" stroke-opacity=".55"/>
+        </g>
+        <g>
+          <rect x="203" y="135" width="10" height="17" rx="2" fill="#EBA8A0"/>
+          <rect x="237" y="120" width="10" height="24" rx="2" fill="__MINT__"/>
+          <rect x="271" y="113" width="10" height="20" rx="2" fill="#EBA8A0"/>
+          <rect x="305" y="99" width="10" height="21" rx="2" fill="__MINT__"/>
+          <rect x="339" y="84" width="10" height="22" rx="2" fill="__MINT__"/>
+          <rect x="373" y="67" width="10" height="23" rx="2" fill="#EBA8A0"/>
+        </g>
+      </g>
+      <!-- Tiền thanh khoản -->
+      <g filter="url(#epShadow)">
+        <ellipse cx="72" cy="202" rx="31" ry="10" fill="#D99590"/>
+        <rect x="41" y="180" width="62" height="22" fill="#F0B3A6"/>
+        <ellipse cx="72" cy="180" rx="31" ry="9" fill="#FFDCD1" stroke="#DA9A96" stroke-width="2"/>
+        <path d="M43 190Q72 207 101 190" fill="none" stroke="#CB8988" stroke-width="2"/>
+        <ellipse cx="131" cy="215" rx="25" ry="8" fill="#D99590"/>
+        <rect x="106" y="190" width="50" height="25" fill="#E4A29A"/>
+        <ellipse cx="131" cy="190" rx="25" ry="8" fill="#FFDCD1" stroke="#D79B97" stroke-width="2"/>
+        <path d="M108 203Q131 214 154 203" fill="none" stroke="#C98986" stroke-width="2"/>
+      </g>
+      <!-- Phân bổ danh mục -->
+      <g transform="translate(119 166)" filter="url(#epShadow)">
+        <circle r="41" fill="#F8D6CD" stroke="#FFEFEB" stroke-width="3"/>
+        <path d="M0 0V-40A40 40 0 0 1 38 12Z" fill="#E7A79E"/>
+        <path d="M0 0 38 12A40 40 0 0 1 -6 39Z" fill="#B9D8CF"/>
+        <path d="M0 0 -6 39A40 40 0 0 1 0 -40Z" fill="#F0BDB3"/>
+        <circle r="13" fill="__INNER__"/>
+      </g>
+      <!-- Checklist chiến lược bán -->
+      <g transform="translate(381 124) rotate(5 54 58)" filter="url(#epShadow)">
+        <rect width="119" height="98" rx="16" fill="__LIGHT__" stroke="__PALE__" stroke-width="3"/>
+        <rect x="14" y="19" width="21" height="21" rx="6" fill="#F9DED6"/>
+        <path d="m19 28 5 5 8-10" fill="none" stroke="#A66E79" stroke-width="3" stroke-linecap="round"/>
+        <rect x="46" y="24" width="55" height="9" rx="4.5" fill="__PALE__" opacity=".8"/>
+        <rect x="14" y="54" width="21" height="21" rx="6" fill="#F9DED6"/>
+        <path d="m19 63 5 5 8-10" fill="none" stroke="#A66E79" stroke-width="3" stroke-linecap="round"/>
+        <rect x="46" y="59" width="44" height="9" rx="4.5" fill="__PALE__" opacity=".8"/>
+      </g>
+      <!-- Điểm nhấn lá mềm -->
+      <g transform="translate(464 24)" fill="#EDB4A8" opacity=".83">
+        <path d="M1 75C6 47 17 26 27 8" fill="none" stroke="#CE9394" stroke-width="2.5"/>
+        <ellipse cx="29" cy="10" rx="8" ry="17" transform="rotate(23 29 10)"/>
+        <ellipse cx="15" cy="35" rx="7" ry="15" transform="rotate(-32 15 35)"/>
+        <ellipse cx="36" cy="43" rx="8" ry="15" transform="rotate(55 36 43)"/>
+        <ellipse cx="3" cy="63" rx="7" ry="13" transform="rotate(-35 3 63)"/>
+      </g>
+    </svg>"""
+    for key,value in {
+        '__SCREEN__':screen,'__INNER__':inner,'__FRAME__':frame,
+        '__INK__':ink,'__PALE__':pale,'__MINT__':mint,'__LIGHT__':light
+    }.items():
+        template=template.replace(key,value)
+    return template
