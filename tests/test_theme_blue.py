@@ -141,27 +141,34 @@ def test_sidebar_no_collapse_chevron_on_desktop_but_has_recovery():
         assert '[data-testid="stAppDeployButton"]' in css
 
 
-def test_theme_switch_is_below_brand_and_has_one_stateful_control():
+def test_theme_switch_is_below_brand_and_uses_native_toggle():
     from pathlib import Path
     source=(Path(__file__).resolve().parents[1]/'src/app/app.py').read_text(encoding='utf-8')
     assert "initial_sidebar_state='expanded'" in source
     subtitle=source.index("st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')")
-    switch=source.index("key='ep_theme_toggle'")
+    switch=source.index("dark_mode=st.toggle(")
     navigation=source.index("for nav_key,nav_label in NAV.items():")
     assert subtitle < switch < navigation
     assert "'Chế độ tối' if current_dark else 'Chế độ sáng'" in source
-    assert "st.session_state['ep_dark_mode']=not current_dark" in source
-    assert 'st.toggle(' not in source
+    assert "key='ep_dark_mode'" in source
+    assert "mode='Tối' if dark_mode else 'Sáng'" in source
+    assert "key='ep_theme_toggle'" not in source
 
 
-def test_sun_and_moon_icons_are_monochrome_svg_inside_button():
+def test_sun_and_moon_are_in_sliding_switch_thumb():
     light_css=theme_css("Sáng")
     dark_css=theme_css("Tối")
     for css in (light_css,dark_css):
-        assert '.st-key-ep_theme_toggle button::after' in css
+        assert '.st-key-ep_dark_mode [data-testid="stToggle"]::before' in css
+        assert '.st-key-ep_dark_mode [data-testid="stToggle"]::after' in css
         assert 'background-image:url("data:image/svg+xml,' in css
-        assert 'background-size:20px 20px' in css
+        assert 'background-size:19px 19px' in css
+        assert 'transition:right .22s ease' in css
         assert '__THEME_ICON_URI__' not in css
-    assert '%3Ccircle' in light_css  # line-art sun
-    assert '%3Ccircle' not in dark_css  # crescent moon
-    assert light_css != dark_css
+        assert '__THEME_THUMB_RIGHT__' not in css
+    assert 'right:47px !important' in light_css   # sun, left end of track
+    assert 'right:15px !important' in dark_css    # moon, right end of track
+    assert '%3Ccircle' in light_css
+    assert '%3Ccircle' not in dark_css
+
+
