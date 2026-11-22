@@ -12,19 +12,20 @@ def _rotate(hex_color,delta=0.1):
     return '#'+''.join(f'{round(c*255):02x}' for c in (r,g,b))
 
 def apply_palette(mode,accent):
-    p=palette(mode,accent)
-    p.update(secondary=_rotate(accent,.18),tertiary=_rotate(accent,-.15))
+    p=palette(mode)
+    p.update(secondary='#B8A4CF' if mode=='Tối' else '#A38ABB',tertiary='#82B4A6' if mode=='Tối' else '#75A99A')
     return p
 
 def layout(fig,t,height=360,title=None,legend=True):
     fig.update_layout(height=height,margin=dict(l=12,r=14,t=55 if title else 35,b=20),
-                      paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
+                      paper_bgcolor=t['surface'],plot_bgcolor=t['plot'],
                       separators=',.',font=dict(family='Be Vietnam Pro, sans-serif',size=12,color=t['text']),
                       showlegend=legend,legend=dict(orientation='h',y=1.03,x=0),
-                      hoverlabel=dict(bgcolor=t['surface'],font_color=t['text']))
+                      hoverlabel=dict(bgcolor=t['surface'],font_color=t['text'],bordercolor=t['border']),
+                      xaxis=dict(tickfont=dict(color=t['text'])),yaxis=dict(tickfont=dict(color=t['text'])))
     if title:fig.update_layout(title=dict(text=title,x=0,font=dict(size=15)))
-    fig.update_xaxes(showgrid=False,zeroline=False,automargin=True,linecolor=t['border'])
-    fig.update_yaxes(showgrid=True,gridcolor=t['border'],zeroline=False,automargin=True)
+    fig.update_xaxes(showgrid=False,zeroline=False,automargin=True,linecolor=t['border'],tickfont=dict(color=t['text']))
+    fig.update_yaxes(showgrid=True,gridcolor=t['border'],zeroline=False,automargin=True,tickfont=dict(color=t['text']))
     return fig
 
 def png_config(name):
@@ -89,7 +90,7 @@ def depth_fig(quotes,t):
 def time_fig(df,t,normalize=False):
     """Vẽ chuỗi từ file. normalize=True chỉ chuẩn hóa HIỂN THỊ, không đổi dữ liệu gốc."""
     fig=go.Figure()
-    colors=[t['accent'],t['secondary'],t['tertiary'],'#E5A86E','#B48AD6','#4BA9BC']
+    colors=[t['accent'],t['secondary'],t['tertiary'],'#D8AB78','#C38FA8','#8CA6C0']
     for idx,(sym,g) in enumerate(df.groupby('symbol')):
         g=g.sort_values('ts_vn').dropna(subset=['closePrice'])
         if g.empty:continue
