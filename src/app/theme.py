@@ -485,6 +485,61 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
 [data-baseweb="menu"] [aria-selected="true"]{
     background-color:#294765 !important;color:#FFFFFF !important;
 }
+/* BaseWeb renders dropdown menus in a body-level portal, not inside stSelectbox.
+   Style the portal root and actual UL/LI layers; older rules missed this layer. */
+body [data-baseweb="popover"],
+body [data-baseweb="popover"] > div,
+body [data-baseweb="popover"] [data-baseweb="menu"],
+body [data-baseweb="popover"] [role="listbox"],
+body [data-baseweb="popover"] ul,
+body [data-testid="stSelectboxVirtualDropdown"],
+body [data-testid="stSelectboxVirtualDropdown"] > div,
+body [data-testid="stSelectboxVirtualDropdown"] ul,
+body [data-testid="stVirtualDropdown"],
+body ul[role="listbox"]{
+    background-color:#192B43 !important;color:#EAF3FF !important;
+    border-color:#344A67 !important;
+}
+body [data-baseweb="popover"] li,
+body [data-baseweb="popover"] [role="option"],
+body [data-baseweb="menu"] li,
+body [data-testid="stSelectboxVirtualDropdown"] li,
+body [data-testid="stSelectboxVirtualDropdown"] [role="option"],
+body ul[role="listbox"] li,
+body ul[role="listbox"] [role="option"]{
+    background-color:#192B43 !important;color:#EAF3FF !important;
+    -webkit-text-fill-color:#EAF3FF !important;
+}
+body [data-baseweb="popover"] li *,
+body [data-baseweb="popover"] [role="option"] *,
+body [data-testid="stSelectboxVirtualDropdown"] li *,
+body ul[role="listbox"] li *{
+    color:#EAF3FF !important;
+    -webkit-text-fill-color:#EAF3FF !important;
+}
+body [data-baseweb="popover"] li:hover,
+body [data-baseweb="popover"] [role="option"]:hover,
+body [data-baseweb="popover"] [aria-selected="true"],
+body [data-baseweb="menu"] li:hover,
+body [data-testid="stSelectboxVirtualDropdown"] li:hover,
+body [data-testid="stSelectboxVirtualDropdown"] [aria-selected="true"],
+body ul[role="listbox"] li:hover,
+body ul[role="listbox"] [aria-selected="true"]{
+    background-color:#294765 !important;color:#FFFFFF !important;
+}
+/* The visible selected value can live in a span/div rather than an input. */
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div{
+    background-color:#192B43 !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] div,
+[data-testid="stSelectbox"] [data-baseweb="select"] span,
+[data-testid="stSelectbox"] [data-baseweb="select"] p,
+[data-testid="stMultiSelect"] [data-baseweb="select"] input{
+    color:#EAF3FF !important;
+    -webkit-text-fill-color:#EAF3FF !important;
+}
+
 /* Streamlit st.code / Prism syntax-highlighter, copy button and code frame. */
 [data-testid="stCodeBlock"],
 [data-testid="stCodeBlock"] > div,
