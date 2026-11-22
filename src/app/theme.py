@@ -218,7 +218,7 @@ header[data-testid="stHeader"] {background:transparent !important;box-shadow:non
     }
     for key,value in theme_values.items():
         extra_css=extra_css.replace(key,value)
-    css=css.replace('</style>', extra_css+'\\n'.join(nav_icons)+'</style>')
+    css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
     return css
 
