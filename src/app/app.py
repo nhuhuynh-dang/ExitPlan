@@ -7,10 +7,32 @@ import streamlit as st
 from src.app.theme import BLUE_ACCENT, theme_css, palette
 from src.app.pages import render_page, NAV, PAGE_HELP
 
-st.set_page_config(page_title='ExitPlan | Dashboard',page_icon='📊',layout='wide',initial_sidebar_state='expanded')
+st.set_page_config(page_title='ExitPlan | Dashboard',page_icon=None,layout='wide',initial_sidebar_state='expanded')
 
 with st.sidebar:
-    st.markdown('<div class="ep-brand"><div class="ep-brand-mark">E</div><div><div class="ep-brand-title">ExitPlan</div><div class="ep-brand-sub">SMART PORTFOLIO EXIT</div></div></div>', unsafe_allow_html=True)
+    # Logo SVG nhỏ: danh mục (3 thanh) và mũi tên thoát vị thế.
+    # Khác với favicon: tab trình duyệt dùng logo Streamlit mặc định.
+    st.markdown(
+        """
+        <div class="ep-brand">
+          <span class="ep-brand-mark" role="img" aria-label="Biểu tượng ExitPlan - danh mục và kế hoạch thanh lý">
+            <svg viewBox="0 0 32 32" width="29" height="29" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 25V18M11 25V12M17 25V16" />
+              <path d="M7 7h18v11" />
+              <path d="m19 13 6 5 5-5" />
+              <path d="M4 28h24" stroke-opacity=".75" />
+            </svg>
+          </span>
+          <div>
+            <div class="ep-brand-title">ExitPlan</div>
+            <div class="ep-brand-sub">SMART PORTFOLIO EXIT</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.caption('SMART PORTFOLIO EXIT · VIỆT NAM')
     # Dùng nút điều hướng thay radio: không còn chấm tròn, mỗi mục có icon SVG riêng.
     if st.session_state.get('ep_navigation') not in NAV:
