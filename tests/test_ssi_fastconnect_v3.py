@@ -129,3 +129,31 @@ def test_ohlc_preserves_detailed_error_code():
         _client(session).ohlc_daily("HPG", date(2026, 11, 1),
                                     date(2026, 11, 20), wait=0)
     assert len(session.calls) == 2
+
+
+@pytest.mark.parametrize("http", [200,404])
+def test_explicit_missing_symbol_error(http):
+    from src.ingest.ssi_fastconnect_v3 import SSISymbolNotFound
+    class MissingSession(FakeSession):
+        def get(self,url,**kwargs):
+            return FakeResponse(http,{"code":"404","ErrCode":404204})
+    with pytest.raises(SSISymbolNotFound,match="HPG, page 1:.*404204"):
+        _client(MissingSession()).ohlc_daily("HPG",date(2026,11,1),date(2026,11,20),wait=0)
+
+
+def test_http_200_business_error_safe_diagnostic():
+    class ErrorSession(FakeSession):
+        def get(self,url,**kwargs):
+            return FakeResponse(200,{"code":"400","ErrCode":400213,"message":"private diagnostic"})
+    with pytest.raises(SSIResponseError,match="HPG, page 1:.*400213") as exc:
+        _client(ErrorSession()).ohlc_daily("HPG",date(2026,11,1),date(2026,11,20),wait=0)
+    assert "private diagnostic" not in str(exc.value)
+
+
+def test_string_200_success():
+    class StringCodeSession(FakeSession):
+        def get(self,url,**kwargs):
+            resp=super().get(url,**kwargs)
+            resp.payload["code"]="200"
+            return resp
+    assert len(_client(StringCodeSession()).ohlc_daily("HPG",date(2026,11,1),date(2026,11,20),wait=0))==1
