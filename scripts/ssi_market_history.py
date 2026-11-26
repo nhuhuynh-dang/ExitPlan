@@ -18,7 +18,9 @@ from src.analytics.ssi_history_stats import asof_history_stats
 def select_catalog(catalog,boards,stock_types=None):
     if not {"symbol","board","source"}.issubset(catalog.columns) or set(catalog.source)!={"ssi_fastconnect_v3"}:
         raise ValueError("Catalog must come from official SSI V3")
-    d=catalog[catalog.board.isin(boards)].copy()
+    from src.data.equity_universe import equity_catalog
+    d=equity_catalog(catalog)
+    d=d[d.board.isin(boards)].copy()
     if stock_types:
         if "stockType" not in d:raise ValueError("Refresh catalog with --catalog first")
         d=d[d.stockType.astype(str).isin(stock_types)]
@@ -38,7 +40,7 @@ def main():
     catalog=pd.read_parquet(ROOT/"data/processed/ssi_securities.parquet")
     symbols=select_catalog(catalog,a.boards,a.stock_types)
     if not symbols:p.error("No matching securities")
-    print(f"Catalog candidates: {len(symbols)}; not all are active common shares.",flush=True)
+    print(f"Stock candidates: {len(symbols)}; common-stock scope, not a verified active trading list.",flush=True)
     cache=ROOT/"data/processed/ssi_market_cache"/f"{a.from_date}_{a.to_date}"
     cache.mkdir(parents=True,exist_ok=True)
     fail_path=cache/"skipped.json"
