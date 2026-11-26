@@ -229,3 +229,14 @@ py scripts/import_ssi_ws.py --all-market --quote-price-factor 1000 --trade-price
 ```
 
 Các hệ số trên chỉ minh họa. Import toàn thị trường mặc định dùng file ghi gần nhất, tối đa 128 MiB đầu vào, lấy nhóm đánh giá cách tối thiểu 30 giây và cho phép từng nhóm thiếu mã. Có thể chỉ định `--input` và `--interval-seconds`. Dùng khung giờ chung bảo thủ 09:15–11:30, 13:00–14:30, không mô phỏng phiên đấu giá. Dashboard chọn tối đa 12 cổ phiếu phổ thông lô 100 có cùng snapshot hợp lệ, không cần toàn bộ thị trường đồng thời có báo giá. Chưa kiểm thử whole-board live hoặc xác minh mã stockType; không sử dụng cho công cụ khác loại/khác lô. File SSI cũ được sao lưu trước khi thay thế. Dữ liệu nguồn không bị xóa. 
+
+
+## Lập danh mục cá nhân từ danh sách thị trường
+
+Trang **Lập phương án** có thanh tìm kiếm theo mã hoặc tên doanh nghiệp (có dấu/không dấu), bộ lọc HOSE/HNX/UPCOM và nút Thêm mã. Danh mục SSI được đọc từ `data/processed/ssi_securities.parquet`; cập nhật bằng `py scripts/ssi_v3_sync.py --catalog` khi cần. Có thể tra cứu ngay cả khi chưa có sổ lệnh. Mã trùng nhiều sàn không được tự suy đoán danh tính; mã chỉ có trong file sổ lệnh được ghi sàn chưa rõ.
+
+Người dùng tự thêm tối đa 12 mã, nhập số cổ phiếu đang nắm giữ, xóa mã hoặc xóa danh mục. Bản nháp được lưu trong phiên Streamlit, không đọc tài khoản và không ghi thông tin cá nhân vào kho mã. Cập nhật dữ liệu không làm mất bản nháp; thay đổi số lượng/mục tiêu/phí/thuế sẽ xóa kết quả cũ.
+
+Mỗi mã có trạng thái sổ lệnh và số phiên OHLCV SSI đã lưu. Chỉ bật nút Tính phương án khi số lượng dương, không có mã thiếu sổ lệnh, có thời điểm chung hợp lệ và không có mã được biết có lô khác 100. Người dùng chỉ chọn cổ phiếu phổ thông; catalog có thể chứa chứng khoán khác loại, metadata loại chứng khoán chưa được xác minh toàn diện. Nếu nguồn sổ lệnh là synthetic, phải chọn rõ ô cho phép tính thử. Dữ liệu OHLCV không được dùng thay thế sổ lệnh, không tự gọi API từ dashboard.
+
+Kiểm thử tìm kiếm: `py -m pytest -q tests/test_stock_search.py`.
