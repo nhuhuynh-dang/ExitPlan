@@ -36,7 +36,9 @@ Các file trong `data/` và `outputs/` được **sinh riêng bởi script**. Sc
 
 ## Các trang
 
-Tổng quan · Lập phương án · So sánh phương án · Thanh khoản các mã · Dữ liệu & kết nối · Kiểm chứng · Phương pháp & giới hạn · Tải dữ liệu.
+Menu chính dành cho nhà đầu tư: Tổng quan · Lập phương án · Kết quả & so sánh · Rủi ro thanh khoản · Lịch sử giá.
+
+Mục thu gọn **Thông tin & hỗ trợ** giữ Dữ liệu & kết nối, Kiểm chứng, Phương pháp & giới hạn để phục vụ kiểm chứng và minh bạch phương pháp. CSV kết quả được tải ngay tại trang Kết quả & so sánh; CSV thanh khoản và lịch sử được tải ở các trang tương ứng. Không còn mục Tải dữ liệu riêng trên sidebar.
 
 ## Danh sách đầu vào cần có
 
