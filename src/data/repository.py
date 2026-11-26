@@ -66,3 +66,22 @@ def available_symbols(df):
         if valid and pd.notna(r['closePrice']) and r['closePrice']>0:
             result.append(s)
     return sorted(result)
+
+
+def portfolio_snapshot(books, symbols):
+    """Latest recorded evaluation with all chosen symbols; no cross-time fill."""
+    syms=set(symbols)
+    if not syms or len(syms)>12:
+        raise ValueError("Chọn từ 1 đến 12 mã cho mỗi danh mục")
+    rows=books[books.symbol.isin(syms)].copy()
+    if rows.empty:
+        raise ValueError("Chưa có dữ liệu cho danh mục")
+    count=rows.groupby("ts_vn")["symbol"].nunique()
+    valid=count[count==len(syms)]
+    if valid.empty:
+        raise ValueError("Chưa có thời điểm chung đủ các mã; cần thu thêm dữ liệu")
+    stamp=valid.index.max()
+    batch=rows[rows.ts_vn==stamp].drop_duplicates("symbol",keep="last")
+    if set(available_symbols(batch))!=syms:
+        raise ValueError("Snapshot chung có mã thiếu bid hợp lệ")
+    return batch
