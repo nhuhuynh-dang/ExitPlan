@@ -9,7 +9,8 @@ from src.data.repository import normalize_book
 from src.analytics.validation import replay_plans,replay_summary
 if __name__=='__main__':
     p=argparse.ArgumentParser()
-    p.add_argument('--input',default='data/processed/book_snapshots.parquet')
+    p.add_argument('--input',default=None)
+    p.add_argument('--interval-seconds',type=int,default=60)
     p.add_argument('--holdings',nargs='+',required=True)
     p.add_argument('--target',type=float,required=True)
     p.add_argument('--lambda-weight',type=float,default=.5)
@@ -19,11 +20,28 @@ if __name__=='__main__':
     holdings={}
     for item in a.holdings:
         name,qty=item.split(':',1);holdings[name.upper()]=int(qty)
-    data=normalize_book(pd.read_parquet(ROOT/a.input))
-    df,reasons=replay_plans(data,holdings,a.target,a.lambda_weight,a.fee,a.tax)
-    path=ROOT/'outputs/tables/validation_replay.csv';path.parent.mkdir(parents=True,exist_ok=True)
+    if a.interval_seconds < 1:p.error('--interval-seconds must be positive')
+    ssi=ROOT/'data/processed/ssi_book_snapshots.parquet'
+    input_path=ROOT/a.input if a.input else (ssi if ssi.is_file() else ROOT/'data/processed/book_snapshots.parquet')
+    data=normalize_book(pd.read_parquet(input_path))
+    if data.empty or data['data_kind'].nunique()!=1:
+        p.error('Thiếu dữ liệu hoặc trộn loại dữ liệu')
+    is_ssi='source' in data and set(data['source'])=={'ssi_fastconnect_v3_ws'}
+    # Use the earliest actual aligned snapshot per interval, not a fabricated timestamp.
+    selected=data[['ts_vn']].drop_duplicates().sort_values('ts_vn')
+    selected=selected.groupby(selected['ts_vn'].dt.floor(f'{a.interval_seconds}s')).first()
+    sample=data[data['ts_vn'].isin(selected['ts_vn'])]
+    df,reasons=replay_plans(sample,holdings,a.target,a.lambda_weight,a.fee,a.tax)
+    if df.empty:
+        print('Không có kết quả replay hợp lệ. Giữ nguyên kết quả cũ.')
+        sys.exit(1)
+    suffix='_ssi' if is_ssi else ''
+    df['source']='ssi_fastconnect_v3_ws' if is_ssi else 'saved_book'
+    df['target_net']=a.target;df['fee_rate']=a.fee;df['tax_rate']=a.tax
+    df['lambda_weight']=a.lambda_weight;df['interval_seconds']=a.interval_seconds
+    path=ROOT/f'outputs/tables/validation_replay{suffix}.csv';path.parent.mkdir(parents=True,exist_ok=True)
     df.to_csv(path,index=False,encoding='utf-8-sig')
-    summary={'statistics':replay_summary(df),'skipped':reasons,
-             'source_kinds':sorted(data['data_kind'].unique().tolist())}
-    (ROOT/'outputs/tables/validation_replay_summary.json').write_text(json.dumps(summary,indent=2,ensure_ascii=False),encoding='utf-8')
+    summary={'statistics':replay_summary(df),'skipped':reasons,'sample_interval_seconds':a.interval_seconds,
+             'source_kinds':sorted(data['data_kind'].unique().tolist()),'input':str(input_path.name)}
+    (ROOT/f'outputs/tables/validation_replay{suffix}_summary.json').write_text(json.dumps(summary,indent=2,ensure_ascii=False),encoding='utf-8')
     print(json.dumps(summary,ensure_ascii=False,indent=2))
