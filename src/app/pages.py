@@ -16,15 +16,15 @@ from src.data.equity_universe import equity_catalog,equity_symbols
 from src.analytics.planner import calculate,summaries,frontier
 
 NAV={
- 'overview':'🏠  Tổng quan',
- 'planner':'🧮  Lập phương án',
- 'compare':'⚖️  Kết quả & so sánh',
- 'liquidity':'📊  Rủi ro thanh khoản',
- 'data':'🗄️  Dữ liệu & kết nối',
- 'ssi_history':'📈  Lịch sử giá',
- 'validation':'✅  Kiểm chứng',
- 'methods':'📖  Phương pháp & giới hạn',
- 'downloads':'📥  Tải dữ liệu',
+ 'overview':'Tổng quan',
+ 'planner':'Lập phương án',
+ 'compare':'Kết quả & so sánh',
+ 'liquidity':'Rủi ro thanh khoản',
+ 'data':'Dữ liệu & kết nối',
+ 'ssi_history':'Lịch sử giá',
+ 'validation':'Kiểm chứng',
+ 'methods':'Phương pháp & giới hạn',
+ 'downloads':'Tải dữ liệu',
 }
 PAGE_HELP={
  'overview':'Toàn cảnh và tình trạng dữ liệu đã ghi.',
@@ -313,7 +313,7 @@ def planner(root,data,t):
     if 'ep_draft_holdings' not in st.session_state:
         st.session_state['ep_draft_holdings']={}
     draft=st.session_state['ep_draft_holdings']
-    with st.container(border=True,key='ep_planner_step1'):
+    with st.container(border=False,key='ep_planner_step1'):
         _planner_step(1,'Tìm kiếm cổ phiếu','search')
         search_col,board_col=st.columns([3,1],gap='medium')
         with board_col:
@@ -332,13 +332,13 @@ def planner(root,data,t):
     meta=catalog.set_index('symbol').to_dict('index')
     nonstandard=known_nonstandard_lots(catalog,draft)
     unknown=set(draft)-set(meta)
-    with st.container(border=True,key='ep_planner_step2'):
+    with st.container(border=False,key='ep_planner_step2'):
         _planner_step(2,'Danh mục của tôi','account_balance_wallet',f'{len(draft)}/12 mã')
         if not draft:
             st.markdown('<div class="ep-planner-empty"><span class="material-symbols-rounded" aria-hidden="true">account_balance_wallet</span><strong>Danh mục đang trống</strong><span>Tìm và thêm cổ phiếu ở bước 1.</span></div>',unsafe_allow_html=True)
         else:
             widths=[1.15,.85,2.1,2.7,.7]
-            with st.container(key='ep_compact_portfolio',gap='small'):
+            with st.container(key='ep_compact_portfolio'):
                 with st.container(key='ep_portfolio_head'):
                     header=st.columns(widths,vertical_alignment='center')
                     for col,label in zip(header,['Mã','Sàn','Nắm giữ (CP)','Dữ liệu','']):
@@ -385,7 +385,7 @@ def planner(root,data,t):
                                 for sym in draft:st.session_state.pop('ep_qty_'+sym,None)
                                 _clear_plan()
                                 st.rerun()
-    with st.container(border=True,key='ep_planner_step3'):
+    with st.container(border=False,key='ep_planner_step3'):
         _planner_step(3,'Mục tiêu và điều kiện thanh lý','tune')
         settings=st.session_state.setdefault('ep_draft_settings',dict(target=100.,lamb=.5,fee=0.,tax=0.))
         c1,c2=st.columns(2,gap='large')
@@ -420,7 +420,7 @@ def planner(root,data,t):
                     # Validate quote structure before enabling calculation.
                     for _,row in batch.iterrows():quote_from_row(row)
                     stamp=batch['ts_vn'].max()
-                    st.caption('Snapshot chung gần nhất của danh mục: '+stamp.strftime('%d/%m/%Y %H:%M:%S')+' · UTC+7 (dữ liệu đã ghi, không phải báo giá trực tiếp).')
+                    st.caption('Sổ lệnh đồng bộ: '+stamp.strftime('%d/%m/%Y %H:%M:%S')+' (UTC+7) · dữ liệu đã ghi.')
                 except (ValueError,RuntimeError,KeyError,TypeError) as ex:
                     batch=None
                     st.warning('Chưa có sổ lệnh đồng bộ, hợp lệ cho danh mục.',icon=':material/warning:')
