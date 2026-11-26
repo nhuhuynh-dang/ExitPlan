@@ -10,13 +10,16 @@ def search_key(value):
     return " ".join("".join(c for c in unicodedata.normalize("NFKD",value)
                             if not unicodedata.combining(c)).split())
 
-def stock_catalog(catalog=None, books=None):
+def stock_catalog(catalog=None, books=None, equity_only=False):
     """Prefer official catalog. Book-only tickers remain clearly labelled."""
     cols=["symbol","name","board","lotSize","stockType","catalog_source"]
     rows=[]
     if catalog is not None:
         if not {"symbol","board","source"}.issubset(catalog.columns) or set(catalog.source)!={CATALOG_SOURCE}:
             raise ValueError("Danh sách mã không đúng nguồn SSI FastConnect V3")
+        if equity_only:
+            from src.data.equity_universe import equity_catalog
+            catalog=equity_catalog(catalog)
         for r in catalog.to_dict("records"):
             sym=str(r.get("symbol","")).strip().upper()
             if not re.fullmatch(r"[A-Z0-9]{1,12}",sym):continue
@@ -30,7 +33,7 @@ def stock_catalog(catalog=None, books=None):
         ambiguous=set(d.loc[d.symbol.duplicated(keep=False),"symbol"])
         d=d[~d.symbol.isin(ambiguous)]
     else:ambiguous=set()
-    if books is not None and "symbol" in books:
+    if books is not None and "symbol" in books and not equity_only:
         extra=set(books.symbol.dropna().astype(str))-set(d.symbol)-ambiguous
         if extra:
             fallback=pd.DataFrame([dict(symbol=s,name="",board="Chưa rõ",
