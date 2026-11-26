@@ -1,4 +1,4 @@
-"""Convert captured SSI V3 quote/trade events to synchronized HOSE snapshots.
+"""Convert captured SSI V3 quote/trade events to bounded-time snapshots.
 Documented fields: quote.bids/asks [price, qty], trade.p/v, exchange time t.
 No inferred units, no invented depth, no carry across sessions, no look-ahead.
 """
@@ -50,15 +50,15 @@ def depth(values, factor, volume_factor, reverse):
     return result
 
 def build_snapshots(events, symbols, *, quote_price_factor, trade_price_factor,
-                    volume_factor, quote_age=5, trade_age=60, interval=5):
+                    volume_factor, quote_age=5, trade_age=60, interval=5, require_all=True):
     """Replay received events in order; require all selected symbols within bounded age.
-    HOSE continuous-session MVP only. Price/volume factors must be verified by operator.
+    Conservative common continuous window 09:15–11:30 / 13:00–14:30.\n    Market mode emits available symbols independently at each evaluation; portfolio\n    mode requires all selected symbols. Units must be verified by operator.
     Each evaluation timestamp is actual receive time, not exchange execution time.
     Invalid updates invalidate the prior state rather than silently carrying it forward.
     """
     symbols = set(symbols)
-    if not symbols or len(symbols) > 12:
-        raise ValueError("choose 1-12 symbols")
+    if not symbols or (require_all and len(symbols) > 12):
+        raise ValueError("choose 1-12 symbols for portfolio mode")
     if any(not math.isfinite(x) or x <= 0 for x in (quote_price_factor, trade_price_factor, volume_factor, quote_age, trade_age, interval)):
         raise ValueError("invalid scale or age")
     stats = Counter()
@@ -66,8 +66,11 @@ def build_snapshots(events, symbols, *, quote_price_factor, trade_price_factor,
     for row in events:
         stats["input"] += 1
         try:
-            if row["source"] != SOURCE or row["symbol"] not in symbols or row["event"] not in ("quote", "trade"):
-                raise ValueError("unexpected source/symbol/event")
+            if row["source"] != SOURCE or row["event"] not in ("quote", "trade"):
+                raise ValueError("unexpected source/event")
+            if row["symbol"] not in symbols:
+                stats["outside_scope"] += 1
+                continue
             recv = timestamp(row["received_at"])
             ordered.append((recv, row))
         except (KeyError, TypeError, ValueError):
@@ -118,24 +121,27 @@ def build_snapshots(events, symbols, *, quote_price_factor, trade_price_factor,
         for s in sorted(symbols):
             q, t = state.get((s,"quote")), state.get((s,"trade"))
             if not q or not t:
-                break
+                if require_all: break
+                continue
             if any(session(x[0]) != session(recv) or session(x[1]) != session(recv)
                    or not -1 <= (recv-x[0]).total_seconds() <= age
                    or not 0 <= (recv-x[1]).total_seconds() <= age
                    for x,age in ((q,quote_age),(t,trade_age))):
-                break
+                if require_all: break
+                continue
             # Reject thousand-fold price scaling mistakes; no automatic conversion.
             ratio = q[2]["bidPrice1"]/t[2]["closePrice"]
             if not .8 <= ratio <= 1.2:
                 stats["price_scale_or_stale"] += 1
-                break
+                if require_all: break
+                continue
             batch.append(dict(ts_vn=recv, symbol=s, data_kind="live", source=SOURCE,
                               quote_ts=q[0], trade_ts=t[0], quote_received_at=q[1],
                               trade_received_at=t[1], price_unit="VND", volume_unit="shares",
                               quote_age_seconds=(recv-q[0]).total_seconds(),
                               trade_age_seconds=(recv-t[0]).total_seconds(),
                               **q[2], **t[2]))
-        if len(batch) == len(symbols):
+        if batch and (not require_all or len(batch) == len(symbols)):
             output.extend(batch)
             last_eval = recv
             stats["aligned_snapshots"] += 1
