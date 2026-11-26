@@ -61,9 +61,12 @@ with st.sidebar:
     def _navigate(key):
         st.session_state['ep_navigation']=key
 
+    nav_icons={'overview':'home','planner':'calculate','compare':'balance','liquidity':'bar_chart','ssi_history':'show_chart','data':'database','validation':'verified','methods':'menu_book','downloads':'download'}
+
     def _nav_button(nav_key,nav_label):
         st.button(
             nav_label.split('  ',1)[-1],
+            icon=':material/'+nav_icons[nav_key]+':',
             key='ep_nav_'+nav_key,
             type='primary' if st.session_state['ep_navigation']==nav_key else 'secondary',
             use_container_width=True,
