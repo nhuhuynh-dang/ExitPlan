@@ -278,3 +278,14 @@ def test_planner_ui_keeps_calculation_and_existing_state_contract():
     assert "SMART EXIT PLANNER" not in source
     app=(root/'src/app/app.py').read_text(encoding='utf-8')
     assert "icon=':material/'+nav_icons[nav_key]+':'" in app
+
+
+def test_planner_warning_and_popover_colors():
+    for mode,warning in (("Sáng","#92400E"),("Tối","#FCD34D")):
+        css=theme_css(mode)
+        assert '.ep-planner-notice.warning' in css
+        assert 'color:'+warning+' !important' in css
+        assert '.ep-planner-notice span' in css
+        assert 'button[data-testid="stPopoverButton"]' in css
+        assert '[data-testid="stNumberInputContainer"]' in css
+        assert '__WARN_EDGE__' not in css
