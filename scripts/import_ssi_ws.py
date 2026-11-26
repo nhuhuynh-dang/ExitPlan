@@ -36,6 +36,12 @@ def main():
         symbols=select_catalog(catalog,a.boards or ["HOSE","HNX","UPCOM"],a.stock_types)
     else:
         symbols=sorted(set(s.strip().upper() for s in a.symbols))
+    from src.data.equity_universe import equity_symbols
+    catalog_path=ROOT/"data/processed/ssi_securities.parquet"
+    if not catalog_path.exists():p.error("Run ssi_v3_sync.py --catalog first")
+    catalog=pd.read_parquet(catalog_path)
+    excluded=set(symbols)-set(equity_symbols(catalog))
+    if excluded:p.error("Outside stock scope: "+", ".join(sorted(excluded)))
     interval=a.interval_seconds or (30 if market else 5)
     if interval<1:p.error("Invalid interval")
     paths=[Path(x) for x in a.input] if a.input else sorted((ROOT/"data/raw/ssi_ws").glob("*.jsonl"))
