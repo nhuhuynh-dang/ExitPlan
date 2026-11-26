@@ -101,7 +101,10 @@ def main():
                 chunks.insert(0,prior)
             combined=pd.concat(chunks,ignore_index=True).drop_duplicates(["symbol","tradingDate"],keep="last").sort_values(["symbol","tradingDate"])
             _save_parquet(combined,old)
-            _save_parquet(asof_history_stats(combined),ROOT/"outputs/tables/ssi_liquidity_stats.parquet")
+            from src.data.equity_universe import equity_symbols
+            equity_history=combined[combined.symbol.isin(equity_symbols(catalog))]
+            if not equity_history.empty:
+                _save_parquet(asof_history_stats(equity_history),ROOT/"outputs/tables/ssi_liquidity_stats.parquet")
             _save_csv(combined,ROOT/"data/raw/ssi_fastconnect_v3_ohlcv.csv")
         report={"requested":len(symbols),"completed":completed,"attempted_this_run":attempted,"failures_this_run":failed,"remaining":len(symbols)-completed,"skipped_without_success":sum(s in skipped and not (cache/f"{s}.parquet").is_file() for s in symbols),"stopped":stopped,"stop_reason":stop_reason}
         (cache/"progress.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
