@@ -181,17 +181,32 @@ def load(root):
     return dict(use_ssi=use_ssi,allowed_equities=allowed,books=books,err=err,liquidity=liquidity,liquidity_err=liquidity_err,
                 saved_plans=saved_plans,saved_frontier=saved_frontier,quality=quality,overrides=overrides)
 
+def planner_notice(message,kind='info'):
+    """Single theme-aware message surface; no BaseWeb notification layers."""
+    icons={'info':'info','warning':'warning','error':'error','success':'check_circle'}
+    if kind not in icons:kind='info'
+    role='alert' if kind in ('warning','error') else 'status'
+    st.markdown(
+        '<div class="ep-planner-notice '+kind+'" role="'+role+'">'
+        '<span class="material-symbols-rounded" aria-hidden="true">'+icons[kind]+'</span>'
+        '<span>'+escape(str(message))+'</span></div>',unsafe_allow_html=True)
+
+
 def source_labels(data,compact=False):
     books=data['books']
     if books is None or books.empty:
-        st.warning('Dữ liệu thị trường chưa sẵn sàng.' if compact else (data['err'] or f'Chưa có dữ liệu: cần file {SNAPSHOT}'),icon=':material/info:')
+        if compact:planner_notice('Dữ liệu thị trường chưa sẵn sàng.','warning')
+        else:st.warning(data['err'] or f'Chưa có dữ liệu: cần file {SNAPSHOT}',icon=':material/info:')
         return False
     kinds=sorted(set(books['data_kind']))
     if len(kinds)>1:
-        st.error('Nguồn dữ liệu không đồng nhất. Vui lòng kiểm tra trong Thông tin & hỗ trợ.' if compact else 'Tồn tại dữ liệu trộn nguồn live/lịch sử/giả lập. Chọn một nguồn riêng trước khi tính; hệ thống không tự trộn.',icon=':material/error:')
+        if compact:planner_notice('Nguồn dữ liệu không đồng nhất. Vui lòng kiểm tra trong Thông tin & hỗ trợ.','error')
+        else:st.error('Tồn tại dữ liệu trộn nguồn live/lịch sử/giả lập. Chọn một nguồn riêng trước khi tính; hệ thống không tự trộn.',icon=':material/error:')
         return False
     kind=kinds[0]
-    if kind=='synthetic':st.warning('Dữ liệu giả lập — không phải báo giá thị trường thật.',icon=':material/warning:')
+    if kind=='synthetic':
+        if compact:planner_notice('Dữ liệu giả lập — không phải báo giá thị trường thật.','warning')
+        else:st.warning('Dữ liệu giả lập — không phải báo giá thị trường thật.',icon=':material/warning:')
     last=books['ts_vn'].max()
     label='SSI FastConnect V3 · snapshot đã ghi' if data.get('use_ssi') else KIND_LABELS.get(kind,kind)
     if compact:
@@ -298,10 +313,10 @@ def planner(root,data,t):
     try:
         catalog=stock_catalog(raw,books,equity_only=raw is not None or data.get('use_ssi',False))
     except ValueError as ex:
-        st.warning('Danh mục cổ phiếu chưa hợp lệ. Kiểm tra Thông tin & hỗ trợ.',icon=':material/warning:')
+        planner_notice('Danh mục cổ phiếu chưa hợp lệ. Kiểm tra Thông tin & hỗ trợ.','warning')
         catalog=stock_catalog(None,books,equity_only=True)
     if raw is None:
-        st.info('Danh mục cổ phiếu SSI chưa sẵn sàng.',icon=':material/info:')
+        planner_notice('Danh mục cổ phiếu SSI chưa sẵn sàng.','info')
     valid_symbols=set(available_symbols(books)) if books is not None else set()
     kind=str(books['data_kind'].iloc[0]) if books is not None else ''
     # Real daily bars are displayed only as independent history coverage, never as depth.
@@ -326,9 +341,9 @@ def planner(root,data,t):
                 key='ep_stock_autocomplete',on_change=_add_selected_stock,
                 args=(tuple(names),),disabled=not names or len(draft)>=12)
         if len(draft)>=12:
-            st.info('Đã đủ 12 mã. Xóa một mã để thêm mã khác.',icon=':material/info:')
+            planner_notice('Đã đủ 12 mã. Xóa một mã để thêm mã khác.','info')
         elif not names:
-            st.info('Không còn mã phù hợp.',icon=':material/info:')
+            planner_notice('Không còn mã phù hợp.','info')
     meta=catalog.set_index('symbol').to_dict('index')
     nonstandard=known_nonstandard_lots(catalog,draft)
     unknown=set(draft)-set(meta)
@@ -408,10 +423,10 @@ def planner(root,data,t):
         batch=None
         if not draft:st.caption('Thêm cổ phiếu để bắt đầu.')
         if draft:
-            if missing:st.warning('Thiếu sổ lệnh: '+', '.join(missing)+'.',icon=':material/warning:')
-            if zeros:st.info('Nhập số lượng cho: '+', '.join(zeros),icon=':material/info:')
-            if nonstandard:st.warning('Không hỗ trợ lô giao dịch khác 100: '+', '.join(nonstandard))
-            if unknown:st.warning('Mã không còn trong danh sách tra cứu: '+', '.join(sorted(unknown)))
+            if missing:planner_notice('Thiếu sổ lệnh: '+', '.join(missing)+'.','warning')
+            if zeros:planner_notice('Nhập số lượng cho: '+', '.join(zeros),'info')
+            if nonstandard:planner_notice('Không hỗ trợ lô giao dịch khác 100: '+', '.join(nonstandard),'warning')
+            if unknown:planner_notice('Mã không còn trong danh sách tra cứu: '+', '.join(sorted(unknown)),'warning')
             if not missing and not nonstandard and not unknown:
                 try:
                     batch=portfolio_snapshot(books,draft)
@@ -423,7 +438,7 @@ def planner(root,data,t):
                     st.caption('Sổ lệnh đồng bộ: '+stamp.strftime('%d/%m/%Y %H:%M:%S')+' (UTC+7) · dữ liệu đã ghi.')
                 except (ValueError,RuntimeError,KeyError,TypeError) as ex:
                     batch=None
-                    st.warning('Chưa có sổ lệnh đồng bộ, hợp lệ cho danh mục.',icon=':material/warning:')
+                    planner_notice('Chưa có sổ lệnh đồng bộ, hợp lệ cho danh mục.','warning')
         demo_ok=True
         if kind=='synthetic':
             demo_ok=st.checkbox('Cho phép tính thử bằng dữ liệu GIẢ LẬP',key='ep_demo_opt_in',on_change=_clear_plan)
@@ -444,10 +459,10 @@ def planner(root,data,t):
                 st.session_state['ep_plan_quotes']=quotes
                 st.session_state['ep_params']=dict(target=target*1e6,lamb=lamb,fee=fee/100,tax=tax/100,
                      snapshot_at=str(batch['ts_vn'].max()),data_kind=kind)
-                st.success('Đã tính 4 phương án. Xem Kết quả & so sánh.',icon=':material/check_circle:')
+                planner_notice('Đã tính 4 phương án. Xem Kết quả & so sánh.','success')
             except Exception as ex:
                 _clear_plan()
-                st.error('Không thể tính phương án. Vui lòng kiểm tra dữ liệu và thử lại.',icon=':material/error:')
+                planner_notice('Không thể tính phương án. Vui lòng kiểm tra dữ liệu và thử lại.','error')
     plans=st.session_state.get('ep_plans')
     if plans:
         p=plans['B']; st.markdown(cards_html([
