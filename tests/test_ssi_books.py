@@ -97,6 +97,6 @@ def test_catalog_three_board_selection():
     from scripts.ssi_market_history import select_catalog
     catalog=pd.DataFrame({"symbol":["HPG","ACB","VGI","CW123"],
          "board":["HOSE","HOSE","UPCOM","HOSE"],
-         "source":["ssi_fastconnect_v3"]*4,"stockType":["example-stock"]*3+["example-other"]})
-    assert select_catalog(catalog,["HOSE","UPCOM"])==["ACB","CW123","HPG","VGI"]
+         "name":["Hoa Phat","ACB","Viettel Global","Covered warrant"],"source":["ssi_fastconnect_v3"]*4,"stockType":["example-stock"]*3+["example-other"]})
+    assert select_catalog(catalog,["HOSE","UPCOM"])==["ACB","HPG","VGI"]
     assert select_catalog(catalog,["HOSE"],["example-stock"])==["ACB","HPG"]
