@@ -92,16 +92,51 @@ def load(root):
             for relative in [SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY]:
                 value=st.text_input(relative,value=str(Path(root)/relative),key='path_'+relative)
                 overrides[relative]=value
-    raw,err=read_parquet(root,SNAPSHOT,overrides)
+    ssi_path='data/processed/ssi_book_snapshots.parquet'
+    use_ssi=SNAPSHOT not in overrides and (Path(root)/ssi_path).is_file()
+    raw,err=read_parquet(root,ssi_path if use_ssi else SNAPSHOT,overrides)
     books=None
     if raw is not None:
-        try:books=normalize_book(raw)
-        except Exception as exc:err=f'Dữ liệu không hợp lệ: {exc}'
+        try:
+            books=normalize_book(raw)
+            if use_ssi and (books.empty or 'source' not in books or
+                set(books['source'])!={'ssi_fastconnect_v3_ws'} or set(books['data_kind'])!={'live'}):
+                raise ValueError('File SSI không đúng nguồn hoặc trống')
+        except Exception as exc:
+            books=None
+            err=f'Dữ liệu không hợp lệ: {exc}'
     liquidity,liquidity_err=read_parquet(root,LIQUIDITY,overrides)
     saved_plans,_=read_parquet(root,PLANS,overrides)
     saved_frontier,_=read_parquet(root,FRONTIER,overrides)
     quality,_=read_csv(root,QUALITY,overrides)
-    return dict(books=books,err=err,liquidity=liquidity,liquidity_err=liquidity_err,
+    if use_ssi:
+        # Never reuse synthetic quality or liquidity with actual SSI snapshots.
+        quality=None
+        saved_plans=saved_frontier=None
+        liquidity=None
+        liquidity_err=None
+        if books is not None and not books.empty:
+            try:
+                from src.analytics.ssi_history_stats import asof_history_stats
+                history,herr=read_parquet(root,'data/processed/ssi_history.parquet')
+                if history is None:raise ValueError(herr)
+                factors=books['history_volume_factor'].dropna().unique()
+                if len(factors)!=1 or not 0<float(factors[0])<float('inf'):
+                    raise ValueError('Chưa xác nhận đơn vị volume lịch sử')
+                liquidity=asof_history_stats(history,books['ts_vn'].max().date())
+                liquidity['adv']*=float(factors[0])
+                liquidity['volume_note']='OHLCV SSI trước ngày snapshot · CP/ngày'
+            except Exception as ex:liquidity_err=str(ex)
+    # Clear computed plans when the source or latest input snapshot changes.
+    signature=(ssi_path if use_ssi else str(overrides.get(SNAPSHOT,SNAPSHOT)),
+               str(books['ts_vn'].max()) if books is not None and not books.empty else '',
+               tuple(sorted(books['data_kind'].unique())) if books is not None else (),
+               len(books) if books is not None else 0)
+    if st.session_state.get('ep_data_signature')!=signature:
+        for key in ('ep_plans','ep_frontier','ep_holdings','ep_plan_quotes','ep_params','ep_portfolio'):
+            st.session_state.pop(key,None)
+        st.session_state['ep_data_signature']=signature
+    return dict(use_ssi=use_ssi,books=books,err=err,liquidity=liquidity,liquidity_err=liquidity_err,
                 saved_plans=saved_plans,saved_frontier=saved_frontier,quality=quality,overrides=overrides)
 
 def source_labels(data):
@@ -116,13 +151,16 @@ def source_labels(data):
     kind=kinds[0]
     if kind=='synthetic':st.warning('⚠️ DỮ LIỆU GIẢ LẬP (synthetic) — Không phải báo giá thị trường thật.')
     last=books['ts_vn'].max()
-    label=KIND_LABELS.get(kind,kind)
+    label='SSI FastConnect V3 · snapshot đã ghi' if data.get('use_ssi') else KIND_LABELS.get(kind,kind)
     st.markdown(badge('Nguồn: '+label,kind)+badge('Cập nhật: '+last.strftime('%d/%m/%Y %H:%M:%S')+' · UTC+7')+
                 badge('File đã ghi · không kết nối API trong dashboard'),unsafe_allow_html=True)
     return True
 
 def quote_map(data):
-    return {s:quote_from_row(row) for s,row in latest_books(data['books']).iterrows() if s in available_symbols(data['books'])}
+    books=data['books']
+    # Do not combine quotes recorded at different evaluation timestamps.
+    aligned=books[books['ts_vn']==books['ts_vn'].max()]
+    return {s:quote_from_row(row) for s,row in latest_books(aligned).iterrows() if s in available_symbols(aligned)}
 
 def plot(fig,code):st.plotly_chart(fig,use_container_width=True,config=charts.png_config(code))
 
@@ -173,7 +211,7 @@ def overview(root,data,t):
 
 def planner(root,data,t):
     if not source_labels(data):return
-    syms=available_symbols(data['books'])
+    syms=sorted(quote_map(data))
     if not syms:
         st.error('Không có mã có sổ lệnh bid hợp lệ. Không thể tính phương án.');return
     st.subheader('Danh mục tự nhập · không đọc tài khoản')
@@ -218,6 +256,8 @@ def planner(root,data,t):
             st.session_state['ep_portfolio']=frame
             st.success('Đã tính 4 phương án: A, B, C và mốc tỷ trọng. Xem trang So sánh phương án.')
         except Exception as ex:
+            for key in ('ep_plans','ep_frontier','ep_holdings','ep_plan_quotes','ep_params'):
+                st.session_state.pop(key,None)
             st.error(f'Không thể tính phương án: {type(ex).__name__}: {ex}')
     plans=st.session_state.get('ep_plans')
     if plans:
@@ -285,10 +325,23 @@ def compare(root,data,t):
 
 
 def liquidity(root,data,t):
-    if not source_labels(data):return
+    if not source_labels(data):
+        history,_=read_parquet(root,'data/processed/ssi_history.parquet')
+        if history is not None:
+            from src.analytics.ssi_history_stats import asof_history_stats
+            stats=asof_history_stats(history)
+            st.caption('ADV20 lịch sử SSI (đơn vị volume gốc; chưa xác minh quy đổi CP). Chưa có sổ lệnh để tính tỷ lệ tham gia.')
+            st.dataframe(stats[['symbol','adv','sigma','n_sessions','asof_date']],hide_index=True,use_container_width=True)
+        return
     quotes=quote_map(data)
     if not quotes:st.error('Không có dữ liệu sổ lệnh hợp lệ.');return
     qstats=data['liquidity']
+    if data.get('use_ssi'):
+        st.caption('ADV20 lấy từ 20 phiên SSI trước ngày snapshot; không dùng volume trong phiên hiện tại.')
+        if qstats is None:st.warning(data.get('liquidity_err') or 'Chưa có ADV20 hợp lệ.')
+    elif qstats is not None and ('data_kind' not in qstats or set(qstats['data_kind'])!=set(data['books']['data_kind'])):
+        qstats=None
+        st.warning('Bỏ ADV không cùng loại dữ liệu với sổ lệnh.')
     part_threshold=st.slider('Ngưỡng cảnh báo tham gia so với ADV (%)',1,100,10,1)
     holdings=st.session_state.get('ep_holdings',{})
     p=st.session_state.get('ep_plans',{}).get('B')
@@ -319,6 +372,7 @@ def liquidity(root,data,t):
     st.caption('Cận bi quan: chỉ thu tiền từ độ sâu hiện thấy; cận lạc quan: giả định phần thiếu được bán ở giá gần nhất. Đây là giả định minh họa, không phải dự báo.')
     range_rows=[]
     for s,held in holdings.items():
+        if s not in quotes:continue
         z=sell_preview(quotes[s],held,0.,0.)
         if z['uncovered']:
             range_rows.append([s,fmt.shares(z['uncovered']),fmt.vnd(z['bound_low']),fmt.vnd(z['bound_high'])])
@@ -420,9 +474,23 @@ def data_page(root,data,t):
         ]),unsafe_allow_html=True)
 
     st.subheader('Chất lượng dữ liệu')
+    if data.get('use_ssi'):
+        report=Path(root)/'outputs/tables/ssi_ws_quality.json'
+        if report.is_file():
+            qa=json.loads(report.read_text(encoding='utf-8'))
+            st.markdown(cards_html([
+              {'label':'Bản tin đầu vào','value':fmt.num(qa.get('input'))},
+              {'label':'Nhóm đồng bộ','value':fmt.num(qa.get('aligned_snapshots'))},
+              {'label':'Quote lỗi','value':fmt.num(qa.get('invalid_quote',0))},
+              {'label':'Trade lỗi','value':fmt.num(qa.get('invalid_trade',0))}
+            ]),unsafe_allow_html=True)
+            st.caption('Thống kê thực tế của importer SSI; thiếu nhóm đồng bộ không phải lệnh không khớp.')
+            with st.expander('Chi tiết kiểm tra SSI'):
+                st.json(qa)
+        else:st.info('Chưa có báo cáo chất lượng SSI.')
     quality=data['quality']
     if quality is None or quality.empty:
-        st.info('Chưa có file chất lượng dữ liệu. Vui lòng chạy pipeline trước.')
+        if not data.get('use_ssi'):st.info('Chưa có file chất lượng dữ liệu. Vui lòng chạy pipeline trước.')
     else:
         source=', '.join(sorted(map(str,quality['data_kind'].dropna().unique()))) if 'data_kind' in quality.columns else 'Chưa xác định'
         count_col=next((c for c in ('records','rows','n_records','total_records','count') if c in quality.columns),None)
@@ -468,7 +536,7 @@ def data_page(root,data,t):
             st.dataframe(quality,hide_index=True,use_container_width=True)
 
     st.subheader('Trạng thái kết nối dữ liệu')
-    status_file=Path(root)/'outputs/tables/recorder_status.json'
+    status_file=Path(root)/'outputs/tables/ssi_recorder_status.json' if data.get('use_ssi') else Path(root)/'outputs/tables/recorder_status.json'
     if status_file.exists():
         try:
             status=json.loads(status_file.read_text(encoding='utf-8'))
@@ -635,7 +703,7 @@ def methods(root,data,t):
             '</div>',
             unsafe_allow_html=True
         )
-        st.info('Nguồn SSI hiện ở giai đoạn thử nghiệm. Chưa xác nhận kết nối FastConnect hoặc nhận dữ liệu sổ lệnh SSI trực tiếp; kết quả giả lập phải được gắn nhãn riêng.')
+        st.info('SSI REST đã được kiểm tra trên tài khoản người dùng; kết quả sổ lệnh chỉ dùng file SSI được chuẩn hóa. Dữ liệu đã ghi không đồng nghĩa đang kết nối trực tuyến.')
     else:
         st.info('Chưa có thông số để hiển thị. Kiểm tra file config.json.')
 
@@ -647,11 +715,14 @@ def downloads(root,data,t):
     plans=st.session_state.get('ep_plans')
     if plans:
         summary=summaries(plans)
+        params=st.session_state.get('ep_params',{})
+        meta={'data_kind':params.get('data_kind'),'snapshot_at':params.get('snapshot_at'),'source':'ssi_fastconnect_v3_ws' if data.get('use_ssi') else 'saved_book','target_net':params.get('target'),'fee_rate':params.get('fee'),'tax_rate':params.get('tax'),'lambda_weight':params.get('lamb')}
+        summary=summary.assign(**meta)
         st.download_button('⬇️ Tải bảng so sánh phương án',fmt.csv_bom(summary),'ExitPlan_plans.csv','text/csv',use_container_width=True)
-        details=pd.DataFrame([dict(plan=k,**d) for k,p in plans.items() for d in p['details']])
+        details=pd.DataFrame([dict(plan=k,**d) for k,p in plans.items() for d in p['details']]).assign(**meta)
         st.download_button('⬇️ Tải chi tiết lượng bán',fmt.csv_bom(details),'ExitPlan_plan_details.csv','text/csv',use_container_width=True)
         fr=st.session_state.get('ep_frontier')
-        if fr is not None:st.download_button('⬇️ Tải đường đánh đổi',fmt.csv_bom(fr),'ExitPlan_frontier.csv','text/csv',use_container_width=True)
+        if fr is not None:st.download_button('⬇️ Tải đường đánh đổi',fmt.csv_bom(fr.assign(**meta)),'ExitPlan_frontier.csv','text/csv',use_container_width=True)
     else:st.info('Chưa có bảng phương án hiện tại. Bấm “Tính phương án” để tạo.')
     if data['liquidity'] is not None:
         st.download_button('⬇️ Tải bảng thanh khoản đã lưu',fmt.csv_bom(data['liquidity']),'ExitPlan_liquidity.csv','text/csv',use_container_width=True)
