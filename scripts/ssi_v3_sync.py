@@ -107,6 +107,8 @@ def main(argv=None):
                         "name": item.get("symbolNameVi") or item.get("symboNameVi") or "",
                         "lotSize": item.get("lotSize"),
                         "stockType": item.get("stockType"),
+                        **{k: item.get(k) for k in ("maturityDate","cwUnderlyingSymbol","cwExercisePrice","cwExecutionRatio","iNav","openInterest","settlementPrice","icbCode","icbName")},
+                        "nameEn": item.get("symbolNameEn"),
                         "firstTradingDate": item.get("firstTradingDate"),
                         "lastTradingDate": item.get("lastTradingDate"),
                         "source": "ssi_fastconnect_v3",
@@ -114,11 +116,19 @@ def main(argv=None):
                 print(f"{board}: {len(items)} mã")
             df = pd.DataFrame(all_rows).drop_duplicates(["symbol", "board"])
             _save_parquet(df, ROOT / "data/processed/ssi_securities.parquet")
-            print(f"Đã lưu danh sách {len(df)} mã (nguồn SSI V3 thật).")
+            from src.data.equity_universe import equity_catalog
+            eligible=equity_catalog(df)
+            print(f"Đã lưu {len(df)} bản ghi SSI; {len(eligible)} mã ứng viên cổ phiếu phổ thông.")
+            print(eligible.groupby(["board","equity_class"]).size().to_string())
             return 0
 
         records = []
         symbols = sorted(set(str(sym).strip().upper() for sym in args.symbols))
+        from src.data.equity_universe import equity_symbols
+        catalog_path=ROOT/"data/processed/ssi_securities.parquet"
+        if not catalog_path.exists():raise ValueError("Chạy --catalog trước khi tải OHLCV")
+        unsupported=set(symbols)-set(equity_symbols(pd.read_parquet(catalog_path)))
+        if unsupported:raise ValueError("Mã ngoài phạm vi cổ phiếu: "+", ".join(sorted(unsupported)))
         for sym in symbols:
             candles = client.ohlc_daily(sym, args.from_date, args.to_date,
                                         max_pages=args.pages)
