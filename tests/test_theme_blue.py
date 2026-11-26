@@ -179,3 +179,26 @@ def test_compact_pill_svg_is_on_clickable_button_not_native_track():
     assert 'left:60px !important' in dark
     assert '%3Ccircle' in light
     assert '%3Ccircle' not in dark
+
+
+def test_inactive_navigation_hover_has_no_filled_background():
+    for mode in ("Sáng","Tối"):
+        css=theme_css(mode)
+        assert 'button[kind="secondary"]:hover,' in css
+        assert 'button[kind="secondary"]:focus {' in css
+        assert 'background:transparent !important;box-shadow:none !important;' in css
+        assert 'button[kind="primary"] {' in css
+        assert 'button:focus-visible {' in css
+        assert 'background:rgba(72,151,235,.19) !important;' not in css
+
+def test_investor_navigation_keeps_technical_pages_and_embedded_export():
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[1]
+    app=(root/'src/app/app.py').read_text(encoding='utf-8')
+    pages=(root/'src/app/pages.py').read_text(encoding='utf-8')
+    assert "primary_nav=('overview','planner','compare','liquidity','ssi_history')" in app
+    assert "advanced_nav=('data','validation','methods')" in app
+    assert "st.expander('Thông tin & hỗ trợ'" in app
+    assert "on_click=_navigate,args=(nav_key,)" in app
+    assert "st.expander('Xuất kết quả CSV'" in pages
+    assert "downloads(root,data,t,show_source=False,include_liquidity=False)" in pages
