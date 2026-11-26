@@ -27,6 +27,12 @@ if __name__=='__main__':
     if data.empty or data['data_kind'].nunique()!=1:
         p.error('Thiếu dữ liệu hoặc trộn loại dữ liệu')
     is_ssi='source' in data and set(data['source'])=={'ssi_fastconnect_v3_ws'}
+    if is_ssi:
+        from src.data.equity_universe import equity_symbols
+        allowed=set(equity_symbols(pd.read_parquet(ROOT/'data/processed/ssi_securities.parquet')))
+        unsupported=set(holdings)-allowed
+        if unsupported:p.error('Mã ngoài phạm vi cổ phiếu: '+', '.join(sorted(unsupported)))
+        data=data[data.symbol.isin(allowed)]
     # Use the earliest actual aligned snapshot per interval, not a fabricated timestamp.
     selected=data[['ts_vn']].drop_duplicates().sort_values('ts_vn')
     selected=selected.groupby(selected['ts_vn'].dt.floor(f'{a.interval_seconds}s')).first()
