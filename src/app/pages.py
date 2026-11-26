@@ -9,7 +9,7 @@ from src.app import fmt, charts
 from src.app.theme import hero_svg
 from src.app.components import badge,cards_html,verdict,guide,html_table
 from src.data.schema import SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY,VALIDATION_GLOB,KIND_LABELS
-from src.data.repository import read_parquet,read_csv,normalize_book,latest_books,available_symbols,resolve_path
+from src.data.repository import read_parquet,read_csv,normalize_book,latest_books,available_symbols,resolve_path,portfolio_snapshot
 from src.finance.engine import quote_from_row,sell_preview,hhi
 from src.analytics.planner import calculate,summaries,frontier
 
@@ -197,7 +197,8 @@ def overview(root,data,t):
     a,c=st.columns([1.65,1])
     with a:
         st.subheader('Diễn biến giá chuẩn hóa (gốc = 100)')
-        plot(charts.time_fig(b,t,normalize=True),'EP01_price')
+        shown=st.multiselect('Mã hiển thị',symbols,default=symbols[:5],max_selections=12,key='ep_overview_symbols')
+        if shown:plot(charts.time_fig(b[b.symbol.isin(shown)],t,normalize=True),'EP01_price')
         st.markdown(guide('Mỗi mã được quy về 100 ở quan sát đầu tiên để dễ so sánh biến động tương đối.',
             'Dữ liệu chỉ phản ánh các bản ghi đã lưu, không phải lịch sử giá được API cấp tự động.'),unsafe_allow_html=True)
     with c:
@@ -211,10 +212,11 @@ def overview(root,data,t):
 
 def planner(root,data,t):
     if not source_labels(data):return
-    syms=sorted(quote_map(data))
+    syms=available_symbols(data['books'])
     if not syms:
         st.error('Không có mã có sổ lệnh bid hợp lệ. Không thể tính phương án.');return
     st.subheader('Danh mục tự nhập · không đọc tài khoản')
+    st.caption(f'{len(syms)} mã có sổ lệnh đã ghi. Chọn bất kỳ cổ phiếu nào trong danh sách, tối đa 12 mã/danh mục. Chỉ chọn cổ phiếu phổ thông lô 100; mã khác loại không thuộc phạm vi mô hình.')
     default=[{'Mã':s,'Số lượng':5000 if i==0 else (4000 if i==1 else 3000)} for i,s in enumerate(syms[:3])]
     if 'ep_portfolio' not in st.session_state:st.session_state['ep_portfolio']=pd.DataFrame(default)
     with st.form('form_exitplan'):
@@ -242,7 +244,10 @@ def planner(root,data,t):
                 holdings[s]=holdings.get(s,0)+int(v)
             holdings={k:v for k,v in holdings.items() if v>0}
             if not holdings:raise ValueError('Danh mục phải có ít nhất một mã số lượng dương')
-            quotes=quote_map(data)
+            batch=portfolio_snapshot(data['books'],holdings)
+            if 'lotSize' in batch and (pd.to_numeric(batch['lotSize'],errors='coerce').dropna()!=100).any():
+                raise ValueError('Danh mục chứa mã có lô giao dịch khác 100')
+            quotes={r['symbol']:quote_from_row(r) for _,r in batch.iterrows()}
             with st.spinner('Đang giải mô hình tối ưu MILP...'):
                 plans=calculate(holdings,quotes,target*1e6,lamb,fee/100,tax/100)
                 fr=frontier(holdings,quotes,target*1e6,fee/100,tax/100)
@@ -251,7 +256,7 @@ def planner(root,data,t):
             st.session_state['ep_holdings']=holdings
             st.session_state['ep_plan_quotes']={s:quotes[s] for s in holdings}
             st.session_state['ep_params']=dict(target=target*1e6,lamb=lamb,fee=fee/100,tax=tax/100,
-                                                  snapshot_at=str(data['books']['ts_vn'].max()),
+                                                  snapshot_at=str(batch['ts_vn'].max()),
                                                   data_kind=str(data['books']['data_kind'].iloc[0]))
             st.session_state['ep_portfolio']=frame
             st.success('Đã tính 4 phương án: A, B, C và mốc tỷ trọng. Xem trang So sánh phương án.')
@@ -282,7 +287,7 @@ def compare(root,data,t):
         return
     params=st.session_state['ep_params']
     if str(data['books']['ts_vn'].max())!=params['snapshot_at']:
-        st.warning('Ảnh chụp trong file đã thay đổi so với lần tính gần nhất. Kết quả dưới đây là kết quả cũ; hãy tính lại phương án.')
+        st.caption('Đang dùng ảnh chụp chung gần nhất của danh mục, có thể sớm hơn bản ghi mới nhất toàn thị trường.')
     st.caption('Nguồn kết quả: '+KIND_LABELS.get(params['data_kind'],params['data_kind'])+
                ' · snapshot '+params['snapshot_at']+' · phương án từ bộ tối ưu bên ngoài giao diện.')
     rows=[]
@@ -333,9 +338,22 @@ def liquidity(root,data,t):
             st.caption('ADV20 lịch sử SSI (đơn vị volume gốc; chưa xác minh quy đổi CP). Chưa có sổ lệnh để tính tỷ lệ tham gia.')
             st.dataframe(stats[['symbol','adv','sigma','n_sessions','asof_date']],hide_index=True,use_container_width=True)
         return
-    quotes=quote_map(data)
+    quotes=st.session_state.get('ep_plan_quotes') or quote_map(data)
     if not quotes:st.error('Không có dữ liệu sổ lệnh hợp lệ.');return
+    if not st.session_state.get('ep_plan_quotes') and len(quotes)>12:
+        selected=st.multiselect('Mã xem thanh khoản',sorted(quotes),default=sorted(quotes)[:5],max_selections=12)
+        quotes={s:quotes[s] for s in selected}
     qstats=data['liquidity']
+    if data.get('use_ssi') and st.session_state.get('ep_params'):
+        try:
+            from src.analytics.ssi_history_stats import asof_history_stats
+            history,_=read_parquet(root,'data/processed/ssi_history.parquet')
+            factor=float(data['books']['history_volume_factor'].iloc[0])
+            qstats=asof_history_stats(history,pd.Timestamp(st.session_state['ep_params']['snapshot_at']).date())
+            qstats['adv']*=factor
+        except Exception as ex:
+            qstats=None
+            st.warning('Không tính được ADV theo thời điểm danh mục: '+str(ex))
     if data.get('use_ssi'):
         st.caption('ADV20 lấy từ 20 phiên SSI trước ngày snapshot; không dùng volume trong phiên hiện tại.')
         if qstats is None:st.warning(data.get('liquidity_err') or 'Chưa có ADV20 hợp lệ.')
@@ -410,7 +428,10 @@ def ssi_history(root,data,t):
                     shown=catalog.loc[matched]
                 else:
                     shown=catalog
-                st.caption(f'Tìm thấy {len(shown)} / {len(catalog)} mã đã lưu · dữ liệu danh mục không phải báo giá tức thời.')
+                boards=st.multiselect('Sàn',sorted(catalog.board.dropna().unique()),default=sorted(catalog.board.dropna().unique()),key='ep_catalog_boards')
+                shown=shown[shown.board.isin(boards)]
+                st.caption(f'Tìm thấy {len(shown)} / {len(catalog)} mã đã lưu · không phải toàn bộ đều là cổ phiếu phổ thông đang giao dịch.')
+                st.download_button('Tải danh sách đã lọc',fmt.csv_bom(shown),'ExitPlan_catalog.csv','text/csv')
                 st.markdown(frame_table(shown,max_rows=60),unsafe_allow_html=True)
             except (OSError,ValueError,KeyError) as exc:
                 st.warning(f'File danh sách mã SSI không đọc được: {exc}')
@@ -432,7 +453,8 @@ def ssi_history(root,data,t):
         st.caption('Nguồn file lưu cục bộ không chứng minh kết nối API đang hoạt động ở thời điểm xem dashboard.')
         h['tradingDate']=pd.to_datetime(h['tradingDate'],errors='coerce')
         names=sorted(h['symbol'].dropna().unique().tolist())
-        selected=st.multiselect('Mã cổ phiếu',names,default=names)
+        selected=st.multiselect('Mã cổ phiếu',names,default=names[:5],max_selections=12)
+        st.caption(f'Kho lịch sử có {len(names)} mã; biểu đồ hiển thị tối đa 12 mã để dễ đọc.')
         view=h[h['symbol'].isin(selected)].copy().sort_values(['symbol','tradingDate'])
         if view.empty:return st.info('Chọn ít nhất một mã để xem dữ liệu SSI.')
         from plotly import graph_objects as go
