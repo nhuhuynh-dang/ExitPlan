@@ -22,7 +22,9 @@ def test_dark_sidebar_remains_navy_and_brand_contrast():
     css = theme_css("Tối")
     assert colors["sidebar"] == "#091A31"
     assert "#F5FAFF" in css
-    assert "#ECF5FF" in css
+    # Navigation SVGs are URL-encoded: the stroke color uses %23 for #.
+    assert "stroke%3D%27%23ECF5FF%27" in css
+    assert "color:#EDF6FF !important" in css
     assert '__NAVTEXT__' not in css
     assert '__NAVACTIVE__' not in css
 
