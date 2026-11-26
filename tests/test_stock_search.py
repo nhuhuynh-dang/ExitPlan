@@ -57,3 +57,27 @@ def test_lot_constraints_and_empty_data(catalog):
     assert empty.empty
     assert search_stocks(empty,"HPG").empty
     assert known_nonstandard_lots(empty,["HPG"])==[]
+
+
+def test_equity_universe_filters_warrants_funds_and_bonds(catalog):
+    extra=pd.DataFrame([
+      dict(symbol="CVNM2622",name="Chứng quyền VNM",board="HOSE"),
+      dict(symbol="FUEVFVND",name="Quỹ ETF",board="HOSE"),
+      dict(symbol="XYZ",name="Trái phiếu XYZ",board="HNX"),
+      dict(symbol="ABC",name="Công ty ABC",board="HOSE",cwUnderlyingSymbol="VNM"),
+      dict(symbol="A32",name="Công ty cổ phần A32",board="UPCOM",lotSize=100),
+      dict(symbol="QQQ",name="Công ty QQQ",board="HOSE",maturityDate="2027-01-01"),
+    ]).assign(source="ssi_fastconnect_v3")
+    raw=pd.concat([catalog,extra],ignore_index=True)
+    d=stock_catalog(raw,pd.DataFrame({"symbol":["CVNM2622","XYZ","OTHER","TEST"]}),equity_only=True)
+    assert set(d.symbol)=={"A32","HPG","FPT","SHS","ACV"}
+    assert search_stocks(d,"chung quyen").empty
+    assert len(raw)==11
+
+def test_equity_type_evidence_is_labelled(catalog):
+    from src.data.equity_universe import equity_catalog
+    catalog["stockType"]=None
+    catalog.loc[catalog.symbol=="HPG","stockType"]="Common Stock"
+    d=equity_catalog(catalog).set_index("symbol")
+    assert d.loc["HPG","equity_class"]=="common_stock_explicit"
+    assert d.loc["FPT","equity_class"]=="stock_candidate"
