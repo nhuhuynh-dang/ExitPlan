@@ -785,6 +785,93 @@ body ul[role="listbox"] [aria-selected="true"]{
     background-color:#192B43 !important;
 }
 """
+    # Paint the actual editable input, not just its parent: the static light
+    # Streamlit theme can otherwise bleed through a transparent input.
+    # Round and clip the control frame itself, never the entire widget/label.
+    controls_css+="""
+/* ExitPlan shared input shell: one continuous surface, no white end caps. */
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] > div,
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] > div,
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] > div,
+.stApp [data-testid="stTextInput"][data-testid="stTextInput"] > div,
+.stApp [data-testid="stDateInput"][data-testid="stDateInput"] > div {
+    background:__FIELD_BG__ !important;
+    border-radius:10px !important;
+    border-color:__BORDER__ !important;
+}
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"],
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"],
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="input"],
+.stApp [data-testid="stTextInput"][data-testid="stTextInput"] [data-baseweb="input"],
+.stApp [data-testid="stDateInput"][data-testid="stDateInput"] [data-baseweb="input"] {
+    background:__FIELD_BG__ !important;
+    border-radius:10px !important;
+    border-color:__BORDER__ !important;
+    overflow:hidden !important;
+}
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] > div,
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="input"] > div,
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="base-input"],
+.stApp [data-testid="stTextInput"][data-testid="stTextInput"] [data-baseweb="input"] > div,
+.stApp [data-testid="stTextInput"][data-testid="stTextInput"] [data-baseweb="base-input"],
+.stApp [data-testid="stDateInput"][data-testid="stDateInput"] [data-baseweb="base-input"] {
+    background:__FIELD_BG__ !important;
+    color:__TEXT__ !important;
+    border-color:__BORDER__ !important;
+    box-shadow:none !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] input,
+.stApp [data-testid="stTextInput"][data-testid="stTextInput"] input,
+.stApp [data-testid="stDateInput"][data-testid="stDateInput"] input {
+    background:__FIELD_BG__ !important;
+    color:__TEXT__ !important;
+    -webkit-text-fill-color:__TEXT__ !important;
+    caret-color:__TEXT__ !important;
+    opacity:1 !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] input:disabled,
+.stApp [data-testid="stTextInput"][data-testid="stTextInput"] input:disabled {
+    color:__MUTED__ !important;-webkit-text-fill-color:__MUTED__ !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] button {
+    background:__FIELD_BG__ !important;color:__TEXT__ !important;
+    border-color:__BORDER__ !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] button:hover {
+    background:__FIELD_HOVER__ !important;
+}
+/* Keep the clear/dropdown area and selected tags in one rounded frame. */
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+    border-radius:10px !important;overflow:hidden !important;
+}
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] div:not([data-baseweb="tag"]):not([data-baseweb="tag"] *){
+    background-color:__FIELD_BG__ !important;
+}
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] div {
+    background-color:__FIELD_BG__ !important;
+}
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] input,
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] input{
+    background:__FIELD_BG__ !important;color:__TEXT__ !important;
+    -webkit-text-fill-color:__TEXT__ !important;caret-color:__TEXT__ !important;
+}
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="tag"] {
+    background:#2E83E6 !important;color:#FFFFFF !important;
+}
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="tag"] * {
+    color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;
+}
+/* A visible focus ring without exposing the light parent background. */
+.stApp [data-testid="stSelectbox"] [data-baseweb="select"]:focus-within,
+.stApp [data-testid="stMultiSelect"] [data-baseweb="select"]:focus-within,
+.stApp [data-testid="stNumberInput"] [data-baseweb="input"]:focus-within,
+.stApp [data-testid="stTextInput"] [data-baseweb="input"]:focus-within {
+    outline:1px solid __ACCENT__ !important;outline-offset:0 !important;
+}
+"""
+    controls_css=controls_css.replace('__FIELD_BG__', '#192B43' if mode=='Tối' else '#EAF3FC')
+    controls_css=controls_css.replace('__FIELD_HOVER__', '#294765' if mode=='Tối' else '#DCEBFC')
     extra_css+=controls_css
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
