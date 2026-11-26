@@ -1,66 +1,128 @@
-"""Capture only public SSI V3 market quote/trade events using official SDK.
-
-Raw observations are NOT planner snapshots. Do not mix with synthetic data.
-No OTP, account queries, private key, or trading subscriptions.
+"""SSI V3 direct read-only DATA stream using existing Market Data token.
+Only quote/trade topics; no OTP, client ID, private key or account subscription.
+Raw captures are separate from planner snapshots and historical OHLCV.
 """
+from __future__ import annotations
 import argparse
+import asyncio
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 import json
 import math
-import os
 from pathlib import Path
 import re
 import sys
-import threading
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from src.ingest.ssi_fastconnect_v3 import SSIReadOnlyClient, SSIAuthError
+from websockets.asyncio.client import connect
+
+URL = "wss://stream.ssi.com.vn/ws/v3"
 VN = timezone(timedelta(hours=7))
+SENSITIVE = ("token", "secret", "password", "authorization", "privatekey",
+             "apikey", "account", "username", "clientid", "otp")
 
 
-def safe_number(value):
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        n = float(value)
-    except (TypeError, ValueError, OverflowError):
-        return None
-    return n if math.isfinite(n) else None
+def redact(value):
+    if isinstance(value, dict):
+        return {k: redact(v) for k, v in value.items()
+                if not any(word in re.sub(r"[^a-z]", "", k.lower()) for word in SENSITIVE)}
+    if isinstance(value, list):
+        return [redact(v) for v in value]
+    return value
 
 
-def levels(values):
-    if not isinstance(values, (list, tuple)):
+def market_rows(frame, symbols):
+    """Capture DATA quote/trade payloads without inventing a normalized schema."""
+    if not isinstance(frame, dict):
         return []
-    return [safe_number(value) for value in values[:3]]
+    if str(frame.get("channel", "")).upper() != "DATA":
+        return []
+    topic = str(frame.get("topic", "")).lower()
+    event = topic.split(".", 1)[0]
+    if event not in ("quote", "trade"):
+        return []
+    payload = frame.get("data")
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except ValueError:
+            return []
+    items = payload if isinstance(payload, list) else [payload]
+    rows = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        sym = str(item.get("s") or item.get("symbol") or "").upper()
+        if sym not in symbols:
+            continue
+        rows.append({"source": "ssi_fastconnect_v3_ws",
+                     "received_at": datetime.now(VN).isoformat(timespec="milliseconds"),
+                     "event": event, "symbol": sym, "topic": topic,
+                     "data": redact(item)})
+    return rows
 
 
-def market_record(msg, symbols, quote_type, trade_type):
-    symbol = str(getattr(msg, "symbol", "")).strip().upper()
-    if symbol not in symbols:
-        return None
-    row = {"source": "ssi_fastconnect_v3_ws",
-           "received_at": datetime.now(VN).isoformat(timespec="milliseconds"),
-           "trading_time": str(getattr(msg, "trading_time", "")),
-           "symbol": symbol}
-    if isinstance(msg, quote_type):
-        row["event"] = "quote"
-        for name in ("bid_prices", "bid_volumes", "ask_prices", "ask_volumes"):
-            row[name] = levels(getattr(msg, name, None))
-        if not all(len(row[k]) == 3 for k in ("bid_prices", "bid_volumes")):
-            return None
-        return row
-    if isinstance(msg, trade_type):
-        row["event"] = "trade"
-        for name in ("price", "quantity", "total_volume"):
-            row[name] = safe_number(getattr(msg, name, None))
-        if row["price"] is None or row["price"] <= 0:
-            return None
-        return row
-    return None
+async def capture(token, symbols, minutes):
+    topics = [f"{kind}.{sym}" for sym in symbols for kind in ("quote", "trade")]
+    folder = ROOT / "data/raw/ssi_ws"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / (datetime.now(VN).strftime("%Y%m%d_%H%M%S_%f") + ".jsonl")
+    counts = Counter()
+    try:
+        async with connect(URL, additional_headers={"Authorization": "Bearer " + token},
+                           open_timeout=15, ping_interval=20, max_size=2**20) as ws:
+            print("WebSocket transport connected; waiting for subscription/data.", flush=True)
+            await ws.send(json.dumps({"method": "SUBSCRIBE", "channel": "DATA", "topics": topics}))
+            deadline = time.monotonic() + minutes * 60
+            next_ping = time.monotonic() + 30
+            with path.open("x", encoding="utf-8") as out:
+                while time.monotonic() < deadline:
+                    now = time.monotonic()
+                    if now >= next_ping:
+                        await ws.send(json.dumps({"method": "ping_pong"}))
+                        next_ping = now + 30
+                    try:
+                        raw = await asyncio.wait_for(ws.recv(), timeout=min(5, max(.1, deadline-now)))
+                    except asyncio.TimeoutError:
+                        continue
+                    try:
+                        frame = json.loads(raw)
+                    except (ValueError, TypeError):
+                        continue
+                    if isinstance(frame, dict):
+                        code = str(frame.get("code", frame.get("status", "")))
+                        if re.fullmatch(r"[45][0-9]{2,5}", code):
+                            print("Server error code:", code, flush=True)
+                            return 1
+                        method = str(frame.get("method", "")).lower()
+                        if method == "subscribe":
+                            print("Subscription response received; actual data still required.", flush=True)
+                    for row in market_rows(frame, symbols):
+                        out.write(json.dumps(row, ensure_ascii=False) + "\n")
+                        counts[(row["symbol"], row["event"])] += 1
+                        if counts[(row["symbol"], row["event"])] == 1:
+                            print(f"Received {row['event']}: {row['symbol']}", flush=True)
+                    out.flush()
+    finally:
+        for sym in symbols:
+            print(f"{sym}: quote={counts[(sym, 'quote')]} trade={counts[(sym, 'trade')]}")
+        if path.exists():
+            if path.stat().st_size:
+                print("Raw file:", path.relative_to(ROOT))
+            else:
+                path.unlink()
+    if not all(counts[(s, "quote")] and counts[(s, "trade")] for s in symbols):
+        print("Incomplete quote/trade capture. Try during market hours; check scope/schema.")
+        return 1
+    print("Quote and trade events received for all symbols. Verify schema and units before import.")
+    return 0
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SSI market-data WebSocket read-only capture")
+    parser = argparse.ArgumentParser(description="SSI V3 direct market data streaming")
     parser.add_argument("--symbols", nargs="+", default=["HPG", "VPB", "ACB"])
     parser.add_argument("--minutes", type=float, default=5)
     args = parser.parse_args()
@@ -69,79 +131,28 @@ def main():
         parser.error("Choose 1-12 valid symbols")
     if not math.isfinite(args.minutes) or not 0 < args.minutes <= 360:
         parser.error("--minutes must be between 0 and 360")
-    key, secret = os.getenv("SSI_API_KEY"), os.getenv("SSI_API_SECRET")
-    client_id = os.getenv("SSI_CLIENT_ID")
-    if not key or not secret or not client_id:
-        print("Can SSI_API_KEY, SSI_API_SECRET va SSI_CLIENT_ID do SSI cung cap.")
-        return 2
     try:
-        from ssi_sdk import Auth, Config, Stream
-        from ssi_sdk.models.streaming import QuoteMessage, TradeMessage
-    except ImportError:
-        print("Cai SDK chinh thuc: py -m pip install ssi-sdk")
-        return 2
-
-    folder = ROOT / "data/raw/ssi_ws"
-    folder.mkdir(parents=True, exist_ok=True)
-    path = folder / (datetime.now(VN).strftime("%Y%m%d_%H%M%S_%f") + ".jsonl")
-    counts = Counter()
-    lock = threading.Lock()
-    stop = threading.Event()
-    try:
-        config = Config(client_id=client_id, api_key=key, api_secret=secret)
-        with path.open("x", encoding="utf-8") as out:
-            def on_data(msg):
-                row = market_record(msg, symbols, QuoteMessage, TradeMessage)
-                if row is None or stop.is_set():
-                    return
-                with lock:
-                    if stop.is_set():
-                        return
-                    out.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
-                    out.flush()
-                    counts[(row["symbol"], row["event"])] += 1
-                    if counts[(row["symbol"], row["event"])] == 1:
-                        print(f"Received {row['event']}: {row['symbol']}", flush=True)
-
-            def on_connection(ev):
-                state = str(getattr(ev, "state", ""))
-                if state.lower() in ("connected", "reconnected", "disconnected", "failed"):
-                    print("WebSocket:", state, flush=True)
-
-            with Auth(config) as auth:
-                auth.authenticate()
-                with Stream(auth) as stream:
-                    ws = stream.streaming
-                    ws.on_data = on_data
-                    ws.on_connection = on_connection
-                    try:
-                        ws.connect()
-                        ws.subscribe_symbol_quote(symbols)
-                        ws.subscribe_symbol_trade(symbols)
-                        print("Subscribed request sent; waiting for actual quote/trade events.", flush=True)
-                        ws.wait(timeout_ms=int(args.minutes * 60000))
-                    finally:
-                        with lock:
-                            stop.set()
+        client = SSIReadOnlyClient()
+        client.authenticate()
+        print("SSI Market Data token received. No OTP or Client ID.", flush=True)
+        return asyncio.run(capture(client._token, symbols, args.minutes))
     except KeyboardInterrupt:
         print("Stopped by user.")
+        return 130
+    except SSIAuthError as exc:
+        print(str(exc))
+        return 1
     except Exception as exc:
-        # No raw SDK error or response dump: may contain credential data.
-        print(f"SSI stream not verified: {type(exc).__name__}. Check DATA streaming scope and SDK requirements.")
+        # Never print handshake headers or raw exception payloads.
+        print("Stream not verified:", type(exc).__name__)
+        response = getattr(exc, "response", None)
+        code = getattr(response, "status_code", None)
+        if isinstance(code, int):
+            print("Handshake HTTP:", code)
         return 1
     finally:
-        print("Recorded counts:")
-        for sym in symbols:
-            print(f"{sym}: quote={counts[(sym, 'quote')]} trade={counts[(sym, 'trade')]}")
-        if sum(counts.values()):
-            print("Raw file:", path.relative_to(ROOT))
-        elif path.exists() and path.stat().st_size == 0:
-            path.unlink()
-    if not all(counts[(s, "quote")] and counts[(s, "trade")] for s in symbols):
-        print("Not enough quote/trade events for all symbols. Try during continuous trading; verify permissions.")
-        return 1
-    print("Quote/trade received for all requested symbols. Verify units and time alignment before planner import.")
-    return 0
+        if "client" in locals():
+            client.session.close()
 
 
 if __name__ == "__main__":
