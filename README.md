@@ -2,7 +2,7 @@
 
 Giao diện Streamlit thuần **chỉ đọc file**, không gọi API, không truy cập tài khoản, không gửi lệnh. `src/analytics/planner.py` là bộ tính MILP thuần được giao diện gọi **chỉ khi nhấn “Tính phương án”**. Người dùng nhập thủ công mã và số lượng; dashboard dùng ảnh chụp ba mức giá mua đã lưu.
 
-## SSI FastConnect V3 — nguồn dữ liệu chính thức (đang chờ cấp quyền)
+## SSI FastConnect V3 — nguồn dữ liệu chính thức
 
 Khi SSI phê duyệt Market Data **read-only**, ExitPlan có sẵn script chuẩn:
 `scripts/ssi_v3_sync.py`. Script hỗ trợ kiểm tra token, lấy danh sách toàn bộ mã HOSE/HNX/UPCOM,
@@ -184,3 +184,30 @@ Mở trang **SSI · Dữ liệu lịch sử** để xem giá đóng cửa và AD
 Tệp `book_snapshots.parquet` **không** bị ghi đè, nhằm bảo toàn ranh giới giữa OHLCV và sổ lệnh. Nếu muốn trình diễn các trang tối ưu khi chưa có bid/ask thực, chạy `py scripts/generate_synthetic.py` **trước** để tạo dữ liệu demo có nhãn synthetic. Lệnh synthetic có thể ghi đè dữ liệu sổ lệnh đang lưu, không chạy nó trên bản đã ghi thị trường thật.
 
 **Giới hạn:** Chỉ có giá/volume theo ngày, không có WebSocket hay độ sâu bid 3 tầng. Dữ liệu SSI được gắn `source=ssi_iboard_community_doc`, `data_kind=historical`. Không được trình bày phần tối ưu dùng demo là kết quả ứng dụng sổ lệnh thật. Nếu API trả lỗi HTTP 400, lỗi từ máy chủ có thể do tham số, quyền hoặc thay đổi API; chương trình không suy đoán nguyên nhân và không ghi đè lịch sử cũ khi tất cả yêu cầu thất bại.
+
+## SSI V3 — quy trình sổ lệnh mới (HOSE, dữ liệu chỉ đọc)
+
+REST đã được người dùng kiểm tra: 2226 mã và 177 nến ngày. WebSocket SUBSCRIBE OK nhưng chưa nhận quote/trade thật ngoài giờ giao dịch. Không coi đăng ký là bằng chứng dữ liệu live.
+
+1. Giữ biến môi trường API Key/Secret trên máy cá nhân. Chạy trong khớp lệnh liên tục:
+
+```powershell
+py scripts/record_ssi_v3_ws.py --symbols HPG VPB ACB --minutes 5
+```
+
+2. Kiểm tra dòng Market sample, so sánh bid/ask và trade với bảng giá SSI, xác nhận đơn vị CP của khối lượng ngày và tick. Tài liệu SSI ví dụ quote 45.45 nhưng trade 45500; không tự suy ra đơn vị của bản tin thật. Lệnh sau CHỈ là ví dụ khi xác nhận đúng các hệ số:
+
+```powershell
+py scripts/import_ssi_ws.py --symbols HPG VPB ACB --quote-price-factor 1000 --trade-price-factor 1 --volume-factor 1 --history-volume-factor 1
+```
+
+Importer chỉ nhận full book 3 bid/ask hợp lệ, ghép dữ liệu theo thời điểm nhận trong cùng phiên liên tục HOSE (quote tối đa 5 giây, trade tối đa 60 giây), không nội suy hoặc nhìn trước. Tần suất đánh giá tối thiểu 5 giây giữa các nhóm. Từ chối dữ liệu lệch đơn vị lớn; không có nhóm hợp lệ thì không ghi đè. Lưu riêng data/processed/ssi_book_snapshots.parquet và outputs/tables/ssi_ws_quality.json. Không chạy generate_synthetic.py trên dữ liệu thật. Không coi thời điểm nhận dữ liệu là thời điểm khớp thực tế.
+
+3. Dashboard tự ưu tiên file SSI nếu tồn tại; file lỗi không tự fallback sang demo. ADV20 tính từ 20 phiên OHLCV trước ngày snapshot và độ lệch chuẩn của 20 lợi suất (21 giá). Dữ liệu lịch sử riêng ở trang SSI. Kiểm chứng theo snapshot đã ghi, không kiểm chứng khớp lệnh thật:
+
+```powershell
+py scripts/validate_recorded.py --holdings HPG:5000 VPB:4000 ACB:3000 --target 100000000 --fee 0.0015 --tax 0.001 --interval-seconds 60
+py -m streamlit run src/app/app.py
+```
+
+Mức phí/thuế là giả định ví dụ, cần xác minh. Kết quả SSI lưu riêng validation_replay_ssi.csv. Phương án C vẫn tối ưu proxy tập trung, không phải tối ưu HHI trực tiếp. Chưa xác minh schema/đơn vị thật, chưa kiểm thử end-to-end với dữ liệu live. Tài liệu: https://developers.ssi.com.vn/en/docs/api-reference/subscribeUnsubscribeMarketData
