@@ -240,3 +240,19 @@ Người dùng tự thêm tối đa 12 mã, nhập số cổ phiếu đang nắm
 Mỗi mã có trạng thái sổ lệnh và số phiên OHLCV SSI đã lưu. Chỉ bật nút Tính phương án khi số lượng dương, không có mã thiếu sổ lệnh, có thời điểm chung hợp lệ và không có mã được biết có lô khác 100. Người dùng chỉ chọn cổ phiếu phổ thông; catalog có thể chứa chứng khoán khác loại, metadata loại chứng khoán chưa được xác minh toàn diện. Nếu nguồn sổ lệnh là synthetic, phải chọn rõ ô cho phép tính thử. Dữ liệu OHLCV không được dùng thay thế sổ lệnh, không tự gọi API từ dashboard.
 
 Kiểm thử tìm kiếm: `py -m pytest -q tests/test_stock_search.py`.
+
+
+## Phạm vi cổ phiếu phổ thông (lọc chung toàn dự án)
+
+Chạy `py scripts/ssi_v3_sync.py --catalog` để bổ sung metadata chính thức (stockType, maturityDate, cwUnderlyingSymbol, cwExercisePrice, cwExecutionRatio, iNav, tên tiếng Anh...). File danh mục gốc và checkpoint OHLCV vẫn được bảo toàn. Bộ lọc dùng chung tại `src/data/equity_universe.py` loại mã có dấu hiệu chứng quyền, quỹ/ETF, trái phiếu, phái sinh, cổ phiếu ưu đãi, lô khác 100, mã không theo quy ước ba ký tự hoặc trùng nhiều sàn. Nếu SSI không cung cấp loại cổ phiếu phổ thông rõ ràng, mã phù hợp được gắn nhãn stock_candidate; không coi đây là xác nhận tuyệt đối loại chứng khoán hoặc trạng thái đang giao dịch. Quy tắc có thể bỏ sót mã ngoài quy ước và cần đối chiếu metadata thực tế.
+
+Bộ tải OHLCV, WebSocket, importer, thống kê ADV, replay SSI và dashboard dùng phạm vi này. Đăng ký WebSocket theo sàn có thể nhận bản tin các loại chứng khoán khác; bộ ghi chỉ lưu các mã trong danh sách đã lọc. OHLCV cũ của mã ngoài phạm vi vẫn nằm trong kho gốc, nhưng không đưa vào phân tích SSI. Nếu bộ tải đang chạy phiên bản cũ, dừng bằng Ctrl+C để lưu tiến độ trước khi cập nhật; chạy lại cùng khoảng ngày để dùng checkpoint cũ. Không chạy hai bộ tải ghi cùng file.
+
+```powershell
+git pull origin main
+py -m pytest -q
+py scripts/ssi_v3_sync.py --catalog
+py scripts/ssi_market_history.py --from-date 01/10/2026 --to-date 25/11/2026 --delay 2
+```
+
+Tài liệu SSI: https://developers.ssi.com.vn/en/docs/api-reference/data-securitiesByBoard và https://developers.ssi.com.vn/en/docs/sdk/python/utilities .
