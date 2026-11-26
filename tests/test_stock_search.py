@@ -81,3 +81,28 @@ def test_equity_type_evidence_is_labelled(catalog):
     d=equity_catalog(catalog).set_index("symbol")
     assert d.loc["HPG","equity_class"]=="common_stock_explicit"
     assert d.loc["FPT","equity_class"]=="stock_candidate"
+
+
+def test_autocomplete_adds_selected_ticker_and_resets(monkeypatch):
+    from types import SimpleNamespace
+    from src.app import pages
+    state={"ep_stock_autocomplete":"ACB","ep_draft_holdings":{"HPG":135},
+           "ep_plans":{"old":True}}
+    monkeypatch.setattr(pages,"st",SimpleNamespace(session_state=state))
+    pages._add_selected_stock(("ACB","FPT"))
+    assert state["ep_draft_holdings"]=={"HPG":135,"ACB":0}
+    assert state["ep_stock_autocomplete"] is None
+    assert "ep_plans" not in state
+    state["ep_stock_autocomplete"]="ACB"
+    state["ep_draft_holdings"]["ACB"]=157
+    pages._add_selected_stock(("ACB",))
+    assert state["ep_draft_holdings"]["ACB"]==157
+
+def test_quantity_callback_accepts_non_round_lot(monkeypatch):
+    from types import SimpleNamespace
+    from src.app import pages
+    state={"ep_draft_holdings":{"ACB":0},"ep_qty_ACB":1257,"ep_plans":{"old":True}}
+    monkeypatch.setattr(pages,"st",SimpleNamespace(session_state=state))
+    pages._change_quantity("ACB")
+    assert state["ep_draft_holdings"]["ACB"]==1257
+    assert "ep_plans" not in state
