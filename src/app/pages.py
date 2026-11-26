@@ -226,6 +226,18 @@ def _clear_plan():
         st.session_state.pop(key,None)
 
 
+def _add_selected_stock(allowed):
+    symbol=st.session_state.get('ep_stock_autocomplete')
+    draft=dict(st.session_state.get('ep_draft_holdings',{}))
+    if symbol in allowed and symbol not in draft and len(draft)<12:
+        draft[symbol]=0
+        st.session_state['ep_draft_holdings']=draft
+        st.session_state.pop('ep_qty_'+symbol,None)
+        _clear_plan()
+    # Callback runs before widgets render; reset the picker for the next search.
+    st.session_state['ep_stock_autocomplete']=None
+
+
 def _change_quantity(symbol):
     draft=dict(st.session_state.get('ep_draft_holdings',{}))
     draft[symbol]=int(st.session_state['ep_qty_'+symbol])
@@ -265,32 +277,26 @@ def planner(root,data,t):
     st.subheader('1. Tìm kiếm cổ phiếu')
     st.caption(f'{len(catalog):,} mã tra cứu · {len(valid_symbols):,} mã có sổ lệnh trong nguồn đang chọn. Đã lọc chứng quyền, quỹ và các mã ngoài phạm vi cổ phiếu; loại chưa có mã phân loại rõ được xem là ứng viên.')
     search_col,board_col=st.columns([3,1])
-    with search_col:
-        query=st.text_input('Tìm theo mã hoặc tên doanh nghiệp',placeholder='Ví dụ: HPG, Hòa Phát, ngân hàng…',key='ep_stock_query')
+    # Render board first so the search options are filtered in this same run.
     with board_col:
         board=st.selectbox('Sàn giao dịch',['Tất cả']+sorted(catalog.board.unique()),key='ep_stock_board')
-    matches=search_stocks(catalog,query,board,exclude=draft,limit=30)
-    if matches.empty:
-        st.info('Không có mã phù hợp chưa được thêm. Thử tên/mã khác hoặc đổi sàn.')
+    matches=search_stocks(catalog,board=board,exclude=draft,limit=len(catalog))
+    names={r.symbol:f"{r.symbol} · {r.name or 'Chưa có tên'} · {r.board}" for r in matches.itertuples()}
+    with search_col:
+        st.selectbox('Tìm theo mã hoặc tên doanh nghiệp',list(names),index=None,
+            format_func=names.get,placeholder='Nhập mã hoặc tên công ty…',
+            key='ep_stock_autocomplete',on_change=_add_selected_stock,
+            args=(tuple(names),),disabled=not names or len(draft)>=12,
+            help='Gõ ngay trong ô này để lọc gợi ý. Chọn mã hoặc nhấn Enter trên gợi ý để thêm vào danh mục.')
+    if len(draft)>=12:
+        st.info('Đã đủ 12 mã. Xóa một mã nếu muốn thêm mã khác.')
+    elif not names:
+        st.info('Không còn mã phù hợp trong sàn đang chọn.')
     else:
-        names={r.symbol:f"{r.symbol} · {r.name or 'Chưa có tên'} · {r.board}" for r in matches.itertuples()}
-        pick_col,add_col=st.columns([4,1])
-        with pick_col:
-            selected=st.selectbox('Kết quả tìm kiếm',list(names),index=None,
-                 format_func=names.get,placeholder='Chọn mã cần thêm',key='ep_stock_pick')
-        with add_col:
-            st.caption('Thêm vào danh mục')
-            add=st.button('Thêm mã',key='ep_stock_add',icon=':material/add:',
-                          use_container_width=True,disabled=selected is None or len(draft)>=12)
-        if add and selected not in draft and len(draft)<12:
-            st.session_state['ep_draft_holdings']={**draft,selected:0}
-            st.session_state.pop('ep_qty_'+selected,None)
-            _clear_plan()
-            st.rerun()
-        st.caption('Hiển thị tối đa 30 kết quả; nhập mã/tên cụ thể để tìm nhanh. Tìm kiếm không phụ thuộc việc mã đã có sổ lệnh.')
+        st.caption('Gõ mã hoặc tên ngay trong ô tìm kiếm, chọn gợi ý để thêm trực tiếp. Không cần bấm nút Thêm mã.')
     st.divider()
     st.subheader(f'2. Danh mục của tôi · {len(draft)}/12 mã')
-    st.caption('Nhập số lượng cổ phiếu thực tế đang nắm giữ. Chỉ mô phỏng cổ phiếu phổ thông lô 100; không đọc tài khoản và không đặt lệnh.')
+    st.caption('Gõ trực tiếp số cổ phiếu đang nắm giữ (ví dụ 135 hoặc 1.257 CP). Mô hình chỉ bán theo lô 100; phần lẻ được giữ lại. Không đọc tài khoản và không đặt lệnh.')
     if not draft:
         st.info('Danh mục đang trống. Hãy tìm và thêm cổ phiếu ở phía trên.')
     meta=catalog.set_index('symbol').to_dict('index')
@@ -307,7 +313,7 @@ def planner(root,data,t):
                 st.markdown('**'+escape(sym)+'**')
                 st.caption((info.get('name') or 'Chưa có tên')+' · '+(info.get('board') or 'Chưa rõ sàn'))
             with b:
-                st.number_input('Số lượng '+sym,min_value=0,value=int(qty),step=100,
+                st.number_input('Số lượng '+sym,min_value=0,value=int(qty),step=1,format='%d',
                     key='ep_qty_'+sym,label_visibility='collapsed',on_change=_change_quantity,args=(sym,))
             with d:
                 if sym in nonstandard:
