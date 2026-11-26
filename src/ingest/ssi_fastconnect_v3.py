@@ -34,6 +34,10 @@ class SSIResponseError(RuntimeError):
     """Malformed/missing data or market API error (without secret payloads)."""
 
 
+class SSIBadRequest(SSIResponseError):
+    """HTTP 400; request parameters may need correction."""
+
+
 def _validate_symbol(symbol: str) -> str:
     val = str(symbol).strip().upper()
     if not _SYMBOL.fullmatch(val):
@@ -44,7 +48,7 @@ def _validate_symbol(symbol: str) -> str:
 def _format_date(value: date) -> str:
     if not isinstance(value, date):
         raise TypeError("Ngày phải có kiểu datetime.date")
-    return value.strftime("%Y/%m/%d")
+    return value.strftime("%Y-%m-%d")
 
 
 class SSIReadOnlyClient:
@@ -99,7 +103,7 @@ class SSIReadOnlyClient:
             resp = self.session.get(
                 self.base_url + endpoint,
                 params=params,
-                headers={"Accept": "application/json", "Authorization": "Bearer " + self._token},
+                headers={"Accept": "application/json", "Content-Type": "application/json", "Authorization": "Bearer " + self._token},
                 timeout=self.timeout,
             )
         except requests.RequestException as exc:
@@ -110,6 +114,8 @@ class SSIReadOnlyClient:
             raise SSIAuthError("SSI chưa cấp quyền đọc Market Data (403).")
         if resp.status_code == 429:
             raise SSIResponseError("SSI giới hạn tần suất (429). Không tự động gửi dồn request.")
+        if resp.status_code == 400:
+            raise SSIBadRequest("SSI Market Data trả lỗi HTTP 400 (%s)." % endpoint)
         if resp.status_code != 200:
             raise SSIResponseError("SSI Market Data trả lỗi HTTP %d (%s)." % (resp.status_code, endpoint))
         try:
@@ -131,7 +137,7 @@ class SSIReadOnlyClient:
         return [row for row in records if isinstance(row, dict) and _SYMBOL.fullmatch(str(row.get("symbol", "")).upper())]
 
     def ohlc_daily(self, symbol: str, start: date, end: date,
-                   *, page_size=200, max_pages=30, wait=0.25) -> list[dict]:
+                   *, page_size=10, max_pages=30, wait=0.25) -> list[dict]:
         sym = _validate_symbol(symbol)
         if start > end:
             raise ValueError("Ngày bắt đầu không được sau ngày kết thúc.")
@@ -139,11 +145,28 @@ class SSIReadOnlyClient:
             raise ValueError("Giới hạn phân trang không hợp lệ.")
         rows = []
         last_page_fingerprint = None
+        date_from, date_to = _format_date(start), _format_date(end)
         for page in range(1, max_pages + 1):
-            body = self._get("/api/v3/data/ohlc", {
-                "symbol": sym, "from": _format_date(start), "to": _format_date(end),
+            params = {
+                "symbol": sym, "from": date_from, "to": date_to,
                 "timeFrame": "1d", "pageIndex": page, "pageSize": page_size,
-            })
+            }
+            try:
+                body = self._get("/api/v3/data/ohlc", params)
+            except SSIBadRequest:
+                if page != 1:
+                    raise
+                # Quick Start uses ISO dates; API reference specifies slash dates.
+                # Retry exactly once, only on HTTP 400, not auth/rate-limit errors.
+                date_from, date_to = start.strftime("%Y/%m/%d"), end.strftime("%Y/%m/%d")
+                params = dict(params, **{"from": date_from, "to": date_to})
+                try:
+                    body = self._get("/api/v3/data/ohlc", params)
+                except SSIBadRequest as exc:
+                    raise SSIBadRequest(
+                        f"{sym}: SSI OHLC HTTP 400 với cả hai định dạng ngày; "
+                        f"timeFrame=1d, pageSize={page_size}. Kiểm tra quyền OHLCV hoặc tham số với SSI."
+                    ) from exc
             part = body.get("data") if isinstance(body, dict) else None
             if not isinstance(part, list):
                 raise SSIResponseError("SSI OHLC không chứa danh sách data.")
@@ -161,11 +184,13 @@ class SSIReadOnlyClient:
                     raise SSIResponseError("Dữ liệu nến SSI có dòng không phải object.")
                 # Keep raw API fields, do not fabricate missing values.
                 rows.append(dict(entry, symbol=sym))
-            count = body.get("pagesCount")
+            count = body.get("pageCount", body.get("pagesCount"))
             if isinstance(count, int) and count > 0 and page >= count:
                 break
-            if len(part) < page_size:
+            if not isinstance(count, int) and len(part) < page_size:
                 break
+            if page == max_pages:
+                raise SSIResponseError("Đã tới giới hạn phân trang OHLCV; tăng --pages để tránh thiếu lịch sử.")
             if page < max_pages:
                 time.sleep(wait)
         return rows
