@@ -224,3 +224,19 @@ def test_investor_tables_do_not_use_light_canvas_or_technical_catalog():
     assert 'cwUnderlyingSymbol' not in history
     assert "paged_table(shown.rename(columns=columns)" in history
     assert "history_stats_table(view,'ep_liq_hist_page')" in source
+
+
+def test_input_shell_and_number_value_use_same_theme_surface():
+    for mode,bg in (("Sáng","#EAF3FC"),("Tối","#192B43")):
+        css=theme_css(mode)
+        shell=css.split("/* ExitPlan shared input shell:",1)[1]
+        assert '__FIELD_BG__' not in shell
+        assert '__FIELD_HOVER__' not in shell
+        assert 'background:'+bg+' !important' in shell
+        assert '[data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="base-input"]' in shell
+        assert '[data-testid="stNumberInput"][data-testid="stNumberInput"] input,' in shell
+        assert '-webkit-text-fill-color:'+palette(mode)['text']+' !important' in shell
+        assert 'border-radius:10px !important;overflow:hidden !important;' in shell
+        assert '[data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] > div' in shell
+        assert '[data-baseweb="tag"] *' in shell
+        assert 'outline:1px solid '+palette(mode)['accent']+' !important' in shell
