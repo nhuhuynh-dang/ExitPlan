@@ -12,6 +12,7 @@ from src.data.schema import SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY,VALIDATION
 from src.data.repository import read_parquet,read_csv,normalize_book,latest_books,available_symbols,resolve_path,portfolio_snapshot
 from src.finance.engine import quote_from_row,sell_preview,hhi
 from src.data.stock_search import stock_catalog,search_stocks,known_nonstandard_lots
+from src.data.equity_universe import equity_catalog,equity_symbols
 from src.analytics.planner import calculate,summaries,frontier
 
 NAV={
@@ -95,6 +96,11 @@ def load(root):
                 overrides[relative]=value
     ssi_path='data/processed/ssi_book_snapshots.parquet'
     use_ssi=SNAPSHOT not in overrides and (Path(root)/ssi_path).is_file()
+    catalog_raw,catalog_error=read_parquet(root,'data/processed/ssi_securities.parquet')
+    allowed=None
+    if catalog_raw is not None:
+        try:allowed=set(equity_symbols(catalog_raw))
+        except ValueError as ex:catalog_error=str(ex)
     raw,err=read_parquet(root,ssi_path if use_ssi else SNAPSHOT,overrides)
     books=None
     if raw is not None:
@@ -103,6 +109,9 @@ def load(root):
             if use_ssi and (books.empty or 'source' not in books or
                 set(books['source'])!={'ssi_fastconnect_v3_ws'} or set(books['data_kind'])!={'live'}):
                 raise ValueError('File SSI không đúng nguồn hoặc trống')
+            if use_ssi:
+                if allowed is None:raise ValueError('Cần danh mục SSI hợp lệ để lọc cổ phiếu')
+                books=books[books.symbol.isin(allowed)].copy()
         except Exception as exc:
             books=None
             err=f'Dữ liệu không hợp lệ: {exc}'
@@ -124,6 +133,7 @@ def load(root):
                 factors=books['history_volume_factor'].dropna().unique()
                 if len(factors)!=1 or not 0<float(factors[0])<float('inf'):
                     raise ValueError('Chưa xác nhận đơn vị volume lịch sử')
+                history=history[history.symbol.isin(allowed)]
                 liquidity=asof_history_stats(history,books['ts_vn'].max().date())
                 liquidity['adv']*=float(factors[0])
                 liquidity['volume_note']='OHLCV SSI trước ngày snapshot · CP/ngày'
@@ -137,7 +147,7 @@ def load(root):
         for key in ('ep_plans','ep_frontier','ep_holdings','ep_plan_quotes','ep_params'):
             st.session_state.pop(key,None)
         st.session_state['ep_data_signature']=signature
-    return dict(use_ssi=use_ssi,books=books,err=err,liquidity=liquidity,liquidity_err=liquidity_err,
+    return dict(use_ssi=use_ssi,allowed_equities=allowed,books=books,err=err,liquidity=liquidity,liquidity_err=liquidity_err,
                 saved_plans=saved_plans,saved_frontier=saved_frontier,quality=quality,overrides=overrides)
 
 def source_labels(data):
@@ -235,10 +245,10 @@ def planner(root,data,t):
     books=data['books'] if valid_source else None
     raw,catalog_err=read_parquet(root,'data/processed/ssi_securities.parquet')
     try:
-        catalog=stock_catalog(raw,books)
+        catalog=stock_catalog(raw,books,equity_only=raw is not None or data.get('use_ssi',False))
     except ValueError as ex:
         st.warning(str(ex))
-        catalog=stock_catalog(None,books)
+        catalog=stock_catalog(None,books,equity_only=True)
     if raw is None:
         st.caption('Chưa có danh mục SSI đã lưu; hiện chỉ tra cứu mã trong file sổ lệnh. '+str(catalog_err or ''))
     valid_symbols=set(available_symbols(books)) if books is not None else set()
@@ -253,7 +263,7 @@ def planner(root,data,t):
         st.session_state['ep_draft_holdings']={}
     draft=st.session_state['ep_draft_holdings']
     st.subheader('1. Tìm kiếm cổ phiếu')
-    st.caption(f'{len(catalog):,} mã tra cứu · {len(valid_symbols):,} mã có sổ lệnh trong nguồn đang chọn. Danh sách SSI có thể gồm chứng khoán khác cổ phiếu phổ thông.')
+    st.caption(f'{len(catalog):,} mã tra cứu · {len(valid_symbols):,} mã có sổ lệnh trong nguồn đang chọn. Đã lọc chứng quyền, quỹ và các mã ngoài phạm vi cổ phiếu; loại chưa có mã phân loại rõ được xem là ứng viên.')
     search_col,board_col=st.columns([3,1])
     with search_col:
         query=st.text_input('Tìm theo mã hoặc tên doanh nghiệp',placeholder='Ví dụ: HPG, Hòa Phát, ngân hàng…',key='ep_stock_query')
@@ -449,6 +459,10 @@ def liquidity(root,data,t):
         history,_=read_parquet(root,'data/processed/ssi_history.parquet')
         if history is not None:
             from src.analytics.ssi_history_stats import asof_history_stats
+            allowed=data.get('allowed_equities')
+            if allowed is None:return st.info('Cần danh mục SSI hợp lệ để lọc cổ phiếu.')
+            history=history[history.symbol.isin(allowed)]
+            if history.empty:return st.info('Chưa có lịch sử cổ phiếu hợp lệ.')
             stats=asof_history_stats(history)
             st.caption('ADV20 lịch sử SSI (đơn vị volume gốc; chưa xác minh quy đổi CP). Chưa có sổ lệnh để tính tỷ lệ tham gia.')
             st.dataframe(stats[['symbol','adv','sigma','n_sessions','asof_date']],hide_index=True,use_container_width=True)
@@ -535,7 +549,8 @@ def ssi_history(root,data,t):
                     raise ValueError('Thiếu symbol, board hoặc source')
                 if set(catalog['source'])!={'ssi_fastconnect_v3'}:
                     raise ValueError('Không đúng nguồn SSI FastConnect V3')
-                query=st.text_input('Tìm theo mã / tên chứng khoán',key='ep_ssi_search').strip()
+                catalog=equity_catalog(catalog)
+                query=st.text_input('Tìm theo mã / tên cổ phiếu',key='ep_ssi_search').strip()
                 if query:
                     matched=catalog['symbol'].astype(str).str.contains(query,case=False,regex=False)
                     if 'name' in catalog.columns:
@@ -545,7 +560,7 @@ def ssi_history(root,data,t):
                     shown=catalog
                 boards=st.multiselect('Sàn',sorted(catalog.board.dropna().unique()),default=sorted(catalog.board.dropna().unique()),key='ep_catalog_boards')
                 shown=shown[shown.board.isin(boards)]
-                st.caption(f'Tìm thấy {len(shown)} / {len(catalog)} mã đã lưu · không phải toàn bộ đều là cổ phiếu phổ thông đang giao dịch.')
+                st.caption(f'Tìm thấy {len(shown)} / {len(catalog)} mã đã lưu · phạm vi ứng viên cổ phiếu phổ thông, không xác nhận mọi mã đang giao dịch.')
                 st.download_button('Tải danh sách đã lọc',fmt.csv_bom(shown),'ExitPlan_catalog.csv','text/csv')
                 st.markdown(frame_table(shown,max_rows=60),unsafe_allow_html=True)
             except (OSError,ValueError,KeyError) as exc:
@@ -567,6 +582,11 @@ def ssi_history(root,data,t):
                        'Nguồn ghi trong file: '+', '.join(sorted(origins or {'không xác định'})))
         st.caption('Nguồn file lưu cục bộ không chứng minh kết nối API đang hoạt động ở thời điểm xem dashboard.')
         h['tradingDate']=pd.to_datetime(h['tradingDate'],errors='coerce')
+        allowed=data.get('allowed_equities')
+        if allowed is None:
+            st.warning('Cần cập nhật danh mục SSI để xác định phạm vi cổ phiếu.');return
+        h=h[h.symbol.isin(allowed)]
+        if h.empty:return st.info('Chưa có lịch sử cho mã cổ phiếu trong phạm vi đã lọc.')
         names=sorted(h['symbol'].dropna().unique().tolist())
         selected=st.multiselect('Mã cổ phiếu',names,default=names[:5],max_selections=12)
         st.caption(f'Kho lịch sử có {len(names)} mã; biểu đồ hiển thị tối đa 12 mã để dễ đọc.')
