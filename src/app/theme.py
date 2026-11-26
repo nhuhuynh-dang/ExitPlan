@@ -719,6 +719,73 @@ body ul[role="listbox"] [aria-selected="true"]{
     extra_css+=pill_css
     for key,value in theme_values.items():
         extra_css=extra_css.replace(key,value)
+    # Last-layer override for native input surfaces. Cover both old BaseWeb
+    # wrappers and newer Streamlit test IDs, rather than just the outer frame.
+    controls_css="""
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] > div,
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] > div,
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"],
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"],
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] > div,
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-testid="stSelectboxInput"],
+.stApp [data-testid="stTextInput"] [data-baseweb="input"],
+.stApp [data-testid="stNumberInput"] [data-baseweb="input"],
+.stApp [data-testid="stDateInput"] [data-baseweb="input"],
+.stApp [data-testid="stNumberInput"] button{
+    background:__SURFACE__ !important;color:__TEXT__ !important;
+    border-color:__BORDER__ !important;
+}
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] div,
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] span,
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [role="combobox"],
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] input,
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] input,
+.stApp [data-testid="stTextInput"] input,
+.stApp [data-testid="stNumberInput"] input,
+.stApp [data-testid="stDateInput"] input {
+    color:__TEXT__ !important;-webkit-text-fill-color:__TEXT__ !important;
+    caret-color:__TEXT__ !important;background-color:transparent !important;
+}
+.stApp [data-testid="stSelectbox"] input::placeholder,
+.stApp [data-testid="stMultiSelect"] input::placeholder,
+.stApp [data-testid="stTextInput"] input::placeholder,
+.stApp [data-testid="stNumberInput"] input::placeholder {
+    color:__MUTED__ !important;-webkit-text-fill-color:__MUTED__ !important;opacity:1 !important;
+}
+.stApp [data-testid="stSelectbox"] svg,
+.stApp [data-testid="stMultiSelect"] [data-baseweb="select"] > div > svg,
+.stApp [data-testid="stNumberInput"] button svg {
+    color:__TEXT__ !important;fill:currentColor !important;
+}
+.ep-table-wrap.ep-paged {max-height:620px;overflow:auto;}
+.ep-table-wrap.ep-paged .ep-table th {position:sticky;top:0;z-index:1;}
+.ep-table-wrap .ep-table td {overflow-wrap:normal;word-break:normal;}
+"""
+    # The select control's visible inner frame can inherit a light BaseWeb
+    # background from the static Streamlit config. Override every nested layer
+    # in dark mode, except multiselect chips, which retain their blue palette.
+    if mode=='Tối':
+        controls_css+="""
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] div,
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] > div {
+    background-color:#192B43 !important;color:#EAF3FF !important;
+}
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] input,
+.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [role="combobox"]{
+    background-color:#192B43 !important;color:#EAF3FF !important;
+    -webkit-text-fill-color:#EAF3FF !important;caret-color:#EAF3FF !important;
+}
+.stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] div:not([data-baseweb="tag"]):not([data-baseweb="tag"] *){
+    background-color:#192B43 !important;color:#EAF3FF !important;
+}
+.stApp [data-testid="stNumberInput"] [data-baseweb="input"] > div,
+.stApp [data-testid="stTextInput"] [data-baseweb="input"] > div,
+.stApp [data-testid="stDateInput"] [data-baseweb="input"] > div {
+    background-color:#192B43 !important;
+}
+"""
+    extra_css+=controls_css
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
     return css
