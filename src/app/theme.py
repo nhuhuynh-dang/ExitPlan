@@ -1,7 +1,7 @@
 """Giao diện glass pastel lấy cảm hứng tổ chức code dashboard mẫu; không dùng hình ảnh ngoài."""
 from html import escape
 
-BLUE_ACCENT='#2E83E6'
+BLUE_ACCENT='#2563EB'
 FONT_FAMILY="'Be Vietnam Pro',sans-serif"
 
 def hex_rgb(h): return tuple(int(h[i:i+2],16) for i in (1,3,5))
@@ -12,16 +12,16 @@ def palette(mode, accent=BLUE_ACCENT):
     """Bảng màu xanh dương chuyên nghiệp, dịu ở chế độ sáng và rõ ở tối."""
     dark=mode=='Tối'
     return {
-        'bg': '#0C192C' if dark else '#F0F6FD',
-        'surface': '#192B43' if dark else '#FFFFFF',
+        'bg': '#0F172A' if dark else '#F4F7FC',
+        'surface': '#1E293B' if dark else '#FFFFFF',
         'sidebar': '#091A31' if dark else '#EAF3FC',
-        'text': '#EAF3FF' if dark else '#16304F',
-        'muted': '#ACBFDA' if dark else '#607A9D',
-        'border': '#344A67' if dark else '#D6E4F2',
-        'accent': '#69B2FF' if dark else BLUE_ACCENT,
+        'text': '#F1F5F9' if dark else '#0F172A',
+        'muted': '#94A3B8' if dark else '#64748B',
+        'border': '#334155' if dark else '#E2E8F0',
+        'accent': '#60A5FA' if dark else BLUE_ACCENT,
         'positive': '#71D5B6' if dark else '#1FA587',
         'negative': '#FF98A3' if dark else '#CE6775',
-        'plot': '#192B43' if dark else '#FFFFFF',
+        'plot': '#1E293B' if dark else '#FFFFFF',
     }
 
 def theme_css(mode,accent=BLUE_ACCENT,font=None,size_pt=12):
@@ -218,13 +218,13 @@ header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
 [data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(46,131,230,.12) !important;}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
     background:rgba(46,131,230,.22) !important;
-    border-color:#2E83E6 !important;
-    box-shadow:inset 3px 0 0 #2E83E6;
+    border-color:#2563EB !important;
+    box-shadow:inset 3px 0 0 #2563EB;
 }
 [data-testid="stSidebar"] [role="radiogroup"] label p {font-weight:600 !important;font-size:.91rem;}
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:__SIDEACTIVE__ !important;font-weight:750 !important;}
 [data-testid="stSidebar"] [data-testid="stToggle"] {padding:10px 11px;border:1px solid __BORDER__;border-radius:13px;background:__TOGGLEBG__;}
-[data-testid="stSidebar"] .ep-brand-mark {background:#2E83E6;color:#FFFFFF;}
+[data-testid="stSidebar"] .ep-brand-mark {background:#2563EB;color:#FFFFFF;}
 /* Blue mode: đồng bộ ô thông báo và toggle. */
 [data-testid="stAlert"] {border-radius:14px;border-color:__BORDER__ !important;background:__ALERTBG__ !important;}
 [data-testid="stAlert"][data-baseweb] {color:__TEXT__ !important;}
@@ -481,10 +481,10 @@ header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
 [data-testid="stMain"] [data-testid="stWidgetLabel"] p {color:__TEXT__ !important;}
 """
     for old,new in {
-        '__CHIP_BLUE__': '#348BEB' if mode=='Tối' else '#2E83E6',
+        '__CHIP_BLUE__': '#348BEB' if mode=='Tối' else '#2563EB',
         '__CHIP_HOVER__': '#4D9CEE' if mode=='Tối' else '#1D70C9',
-        '__INPUT_BG__': '#192B43' if mode=='Tối' else '#FFFFFF',
-        '__HOVER_BG__': '#294765' if mode=='Tối' else '#E6F1FE',
+        '__INPUT_BG__': '#1E293B' if mode=='Tối' else '#FFFFFF',
+        '__HOVER_BG__': '#293B54' if mode=='Tối' else '#E6F1FE',
         '__TEXT__': p['text'], '__BORDER__': p['border'],
     }.items():
         native_css=native_css.replace(old,new)
@@ -505,9 +505,9 @@ header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
 [data-testid="stMultiSelect"] [data-baseweb="select"] [role="combobox"],
 [data-testid="stSelectbox"] [data-baseweb="select"] [aria-haspopup="listbox"],
 [data-testid="stMultiSelect"] [data-baseweb="select"] [aria-haspopup="listbox"] {
-    background-color:#192B43 !important;
-    color:#EAF3FF !important;
-    border-color:#344A67 !important;
+    background-color:#1E293B !important;
+    color:#F1F5F9 !important;
+    border-color:#334155 !important;
 }
 [data-testid="stSelectbox"] [data-baseweb="select"] input,
 [data-testid="stMultiSelect"] [data-baseweb="select"] input,
@@ -515,8 +515,8 @@ header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
 [data-testid="stMultiSelect"] [data-baseweb="select"] [role="combobox"] *,
 [data-testid="stSelectbox"] [data-baseweb="select"] [aria-selected],
 [data-testid="stMultiSelect"] [data-baseweb="select"] [aria-selected] {
-    color:#EAF3FF !important;
-    -webkit-text-fill-color:#EAF3FF !important;
+    color:#F1F5F9 !important;
+    -webkit-text-fill-color:#F1F5F9 !important;
 }
 [data-testid="stSelectbox"] [data-baseweb="select"] svg,
 [data-testid="stMultiSelect"] [data-baseweb="select"] svg {fill:#BBD2EF !important;color:#BBD2EF !important;}
@@ -535,13 +535,13 @@ header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
 [data-baseweb="popover"] [role="option"],
 [data-baseweb="menu"],
 [data-baseweb="menu"] [role="option"]{
-    background-color:#192B43 !important;color:#EAF3FF !important;
+    background-color:#1E293B !important;color:#F1F5F9 !important;
 }
 [data-baseweb="popover"] [role="option"]:hover,
 [data-baseweb="menu"] [role="option"]:hover,
 [data-baseweb="popover"] [aria-selected="true"],
 [data-baseweb="menu"] [aria-selected="true"]{
-    background-color:#294765 !important;color:#FFFFFF !important;
+    background-color:#293B54 !important;color:#FFFFFF !important;
 }
 /* BaseWeb renders dropdown menus in a body-level portal, not inside stSelectbox.
    Style the portal root and actual UL/LI layers; older rules missed this layer. */
@@ -555,8 +555,8 @@ body [data-testid="stSelectboxVirtualDropdown"] > div,
 body [data-testid="stSelectboxVirtualDropdown"] ul,
 body [data-testid="stVirtualDropdown"],
 body ul[role="listbox"]{
-    background-color:#192B43 !important;color:#EAF3FF !important;
-    border-color:#344A67 !important;
+    background-color:#1E293B !important;color:#F1F5F9 !important;
+    border-color:#334155 !important;
 }
 body [data-baseweb="popover"] li,
 body [data-baseweb="popover"] [role="option"],
@@ -565,15 +565,15 @@ body [data-testid="stSelectboxVirtualDropdown"] li,
 body [data-testid="stSelectboxVirtualDropdown"] [role="option"],
 body ul[role="listbox"] li,
 body ul[role="listbox"] [role="option"]{
-    background-color:#192B43 !important;color:#EAF3FF !important;
-    -webkit-text-fill-color:#EAF3FF !important;
+    background-color:#1E293B !important;color:#F1F5F9 !important;
+    -webkit-text-fill-color:#F1F5F9 !important;
 }
 body [data-baseweb="popover"] li *,
 body [data-baseweb="popover"] [role="option"] *,
 body [data-testid="stSelectboxVirtualDropdown"] li *,
 body ul[role="listbox"] li *{
-    color:#EAF3FF !important;
-    -webkit-text-fill-color:#EAF3FF !important;
+    color:#F1F5F9 !important;
+    -webkit-text-fill-color:#F1F5F9 !important;
 }
 body [data-baseweb="popover"] li:hover,
 body [data-baseweb="popover"] [role="option"]:hover,
@@ -583,19 +583,19 @@ body [data-testid="stSelectboxVirtualDropdown"] li:hover,
 body [data-testid="stSelectboxVirtualDropdown"] [aria-selected="true"],
 body ul[role="listbox"] li:hover,
 body ul[role="listbox"] [aria-selected="true"]{
-    background-color:#294765 !important;color:#FFFFFF !important;
+    background-color:#293B54 !important;color:#FFFFFF !important;
 }
 /* The visible selected value can live in a span/div rather than an input. */
 [data-testid="stSelectbox"] [data-baseweb="select"] > div,
 [data-testid="stMultiSelect"] [data-baseweb="select"] > div{
-    background-color:#192B43 !important;
+    background-color:#1E293B !important;
 }
 [data-testid="stSelectbox"] [data-baseweb="select"] div,
 [data-testid="stSelectbox"] [data-baseweb="select"] span,
 [data-testid="stSelectbox"] [data-baseweb="select"] p,
 [data-testid="stMultiSelect"] [data-baseweb="select"] input{
-    color:#EAF3FF !important;
-    -webkit-text-fill-color:#EAF3FF !important;
+    color:#F1F5F9 !important;
+    -webkit-text-fill-color:#F1F5F9 !important;
 }
 
 /* Streamlit st.code / Prism syntax-highlighter, copy button and code frame. */
@@ -607,20 +607,20 @@ body ul[role="listbox"] [aria-selected="true"]{
 .stCodeBlock,
 .stCodeBlock pre,
 .stCodeBlock code{
-    background:#192B43 !important;color:#EAF3FF !important;
-    border-color:#344A67 !important;
+    background:#1E293B !important;color:#F1F5F9 !important;
+    border-color:#334155 !important;
 }
 [data-testid="stCodeBlock"]{
-    border:1px solid #344A67 !important;border-radius:13px !important;overflow:hidden !important;
+    border:1px solid #334155 !important;border-radius:13px !important;overflow:hidden !important;
 }
 [data-testid="stCodeBlock"] pre{
     border:0 !important;box-shadow:none !important;
 }
 [data-testid="stCodeBlock"] button,
 [data-testid="stCodeBlock"] button:hover{
-    background:#294765 !important;color:#EAF3FF !important;border:1px solid #426286 !important;
+    background:#293B54 !important;color:#F1F5F9 !important;border:1px solid #426286 !important;
 }
-[data-testid="stCodeBlock"] button svg{color:#EAF3FF !important;fill:#EAF3FF !important;}
+[data-testid="stCodeBlock"] button svg{color:#F1F5F9 !important;fill:#F1F5F9 !important;}
 /* Command text must be readable even when Streamlit uses highlighted token spans. */
 [data-testid="stCodeBlock"] .token {color:#B7D8FF !important;}
 [data-testid="stCodeBlock"] .token.string,
@@ -630,10 +630,10 @@ body ul[role="listbox"] [aria-selected="true"]{
 [data-testid="stCodeBlock"] .token.number,
 [data-testid="stCodeBlock"] .token.operator {color:#FFD08A !important;}
 /* Alert body and heading in the same dark palette (no dark-blue text on blue). */
-[data-testid="stAlert"] {background:#1D3553 !important;border:1px solid #344A67 !important;}
+[data-testid="stAlert"] {background:#1D3553 !important;border:1px solid #334155 !important;}
 [data-testid="stAlert"] p,
 [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p{
-    color:#EAF3FF !important;-webkit-text-fill-color:#EAF3FF !important;
+    color:#F1F5F9 !important;-webkit-text-fill-color:#F1F5F9 !important;
 }
 """
         extra_css+=dark_native_css
@@ -708,7 +708,7 @@ body ul[role="listbox"] [aria-selected="true"]{
 """
     for old,new in {
         '__EP_TRACK_BG__':'#315A84' if mode=='Tối' else '#DDEBFF',
-        '__EP_TRACK_BORDER__':'#76B9FF' if mode=='Tối' else '#2E83E6',
+        '__EP_TRACK_BORDER__':'#76B9FF' if mode=='Tối' else '#2563EB',
         '__EP_TRACK_HOVER__':'#376997' if mode=='Tối' else '#CDE3FF',
         '__EP_TRACK_BORDER_HOVER__':'#A5D2FF' if mode=='Tối' else '#1E74D6',
         '__EP_THUMB_BG__':'#F8FBFF',
@@ -769,20 +769,20 @@ body ul[role="listbox"] [aria-selected="true"]{
         controls_css+="""
 .stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] div,
 .stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] > div {
-    background-color:#192B43 !important;color:#EAF3FF !important;
+    background-color:#1E293B !important;color:#F1F5F9 !important;
 }
 .stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] input,
 .stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [role="combobox"]{
-    background-color:#192B43 !important;color:#EAF3FF !important;
-    -webkit-text-fill-color:#EAF3FF !important;caret-color:#EAF3FF !important;
+    background-color:#1E293B !important;color:#F1F5F9 !important;
+    -webkit-text-fill-color:#F1F5F9 !important;caret-color:#F1F5F9 !important;
 }
 .stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="select"] div:not([data-baseweb="tag"]):not([data-baseweb="tag"] *){
-    background-color:#192B43 !important;color:#EAF3FF !important;
+    background-color:#1E293B !important;color:#F1F5F9 !important;
 }
 .stApp [data-testid="stNumberInput"] [data-baseweb="input"] > div,
 .stApp [data-testid="stTextInput"] [data-baseweb="input"] > div,
 .stApp [data-testid="stDateInput"] [data-baseweb="input"] > div {
-    background-color:#192B43 !important;
+    background-color:#1E293B !important;
 }
 """
     # Paint the actual editable input, not just its parent: the static light
@@ -857,7 +857,7 @@ body ul[role="listbox"] [aria-selected="true"]{
     -webkit-text-fill-color:__TEXT__ !important;caret-color:__TEXT__ !important;
 }
 .stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="tag"] {
-    background:#2E83E6 !important;color:#FFFFFF !important;
+    background:#2563EB !important;color:#FFFFFF !important;
 }
 .stApp [data-testid="stMultiSelect"][data-testid="stMultiSelect"] [data-baseweb="tag"] * {
     color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;
@@ -870,9 +870,158 @@ body ul[role="listbox"] [aria-selected="true"]{
     outline:1px solid __ACCENT__ !important;outline-offset:0 !important;
 }
 """
-    controls_css=controls_css.replace('__FIELD_BG__', '#192B43' if mode=='Tối' else '#EAF3FC')
-    controls_css=controls_css.replace('__FIELD_HOVER__', '#294765' if mode=='Tối' else '#DCEBFC')
-    extra_css+=controls_css
+    controls_css=controls_css.replace('__FIELD_BG__', '#1E293B' if mode=='Tối' else '#EAF3FC')
+    controls_css=controls_css.replace('__FIELD_HOVER__', '#293B54' if mode=='Tối' else '#DCEBFC')
+    # Final design tokens for the modern investor workflow. All controls retain
+    # their native Streamlit behavior. Scope layout rules to keyed planner cards.
+    modern_css="""
+/* Modern Fintech design tokens */
+.stApp {
+    --ep-bg:__BG__;--ep-card:__SURFACE__;--ep-ink:__TEXT__;
+    --ep-muted:__MUTED__;--ep-border:__BORDER__;--ep-primary:__ACCENT__;
+    --ep-field:__MODERN_FIELD__;--ep-field-hover:__MODERN_HOVER__;
+    --ep-shadow:__MODERN_SHADOW__;color-scheme:__MODERN_SCHEME__;
+}
+[data-testid="stAppViewContainer"] {background:__BG__ !important;color:__TEXT__ !important;}
+[data-testid="stMain"] {background:transparent !important;border:0 !important;box-shadow:none !important;}
+[data-testid="stMainBlockContainer"],.block-container {
+    max-width:1280px !important;padding:24px 24px 32px !important;
+    border:0 !important;box-shadow:none !important;
+}
+[data-testid="stMain"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stMain"] [data-testid="stWidgetLabel"] p {color:__TEXT__;}
+[data-testid="stMain"] [data-testid="stCaptionContainer"] p{color:__MUTED__ !important;}
+[data-testid="stHeadingWithActionElements"] a {opacity:0;}
+[data-testid="stHeadingWithActionElements"]:hover a,
+[data-testid="stHeadingWithActionElements"] a:focus-visible {opacity:1;}
+.ep-hero.ep-hero-planner {
+    min-height:132px !important;padding:20px 24px !important;margin:0 0 4px !important;
+    background:__SURFACE__ !important;border:1px solid __BORDER__ !important;
+    border-radius:16px !important;box-shadow:var(--ep-shadow);
+}
+.ep-hero-planner .ep-hero-heading{gap:12px;margin-bottom:8px;}
+.ep-hero-planner .ep-hero-icon{width:44px;height:44px;min-width:44px;border-radius:12px;}
+.ep-hero-planner .ep-hero-icon .material-symbols-rounded{font-size:25px;}
+.ep-hero-planner h1{font-size:clamp(1.45rem,2.2vw,1.9rem);margin:0;line-height:1.3;}
+.ep-hero-planner>p{font-size:.88rem;line-height:1.5;max-width:72%;}
+.ep-hero-planner .art{width:28%;right:16px;}
+/* The real card wrapper: keyed containers render on the block itself. */
+.stApp :is(.st-key-ep_planner_step1,.st-key-ep_planner_step2,.st-key-ep_planner_step3) {
+    background:__SURFACE__ !important;border:1px solid __BORDER__ !important;
+    border-radius:16px !important;padding:20px 24px !important;
+    box-shadow:var(--ep-shadow) !important;
+}
+.stApp :is(.st-key-ep_planner_step1,.st-key-ep_planner_step2,.st-key-ep_planner_step3) > [data-testid="stVerticalBlockBorderWrapper"],
+.stApp :is(.st-key-ep_planner_step1,.st-key-ep_planner_step2,.st-key-ep_planner_step3) > [data-testid="stVerticalBlock"] {
+    border:0 !important;background:transparent !important;box-shadow:none !important;padding:0 !important;
+}
+.ep-step-heading{display:flex;align-items:center;gap:12px;min-height:40px;margin:0 0 4px;}
+.ep-step-icon{display:grid;place-items:center;width:40px;height:40px;flex:0 0 40px;border-radius:12px;
+    background:__STEP_ICON_BG__;color:__ACCENT__;font-size:22px;}
+.ep-step-number{display:block;font-size:.72rem;line-height:1.2;font-weight:650;color:__MUTED__;letter-spacing:.02em;}
+.ep-step-heading h2{font-size:1.12rem !important;line-height:1.35;margin:2px 0 0 !important;padding:0 !important;
+    border:0 !important;color:__TEXT__ !important;font-weight:750;}
+.ep-step-count{margin-left:auto;white-space:nowrap;font-size:.8rem;font-weight:700;color:__ACCENT__;
+    border-radius:999px;padding:6px 10px;background:__STEP_ICON_BG__;}
+.ep-planner-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    padding:20px 12px;min-height:112px;border-radius:12px;background:__MODERN_FIELD__;
+    border:1px dashed __BORDER__;color:__MUTED__;text-align:center;font-size:.83rem;}
+.ep-planner-empty .material-symbols-rounded{font-size:30px;color:__ACCENT__;}
+.ep-planner-empty strong{font-size:.93rem;color:__TEXT__;}
+.ep-table-label{display:block;font-size:.78rem;font-weight:700;color:__MUTED__;}
+.ep-board-label{font-size:.83rem;color:__MUTED__;}
+.ep-holding-status{font-size:.82rem;color:__MUTED__;font-weight:500;line-height:1.45;}
+.ep-holding-status.ok{color:__STATUS_OK__;}
+.ep-holding-status.warn{color:__STATUS_WARN__;}
+.st-key-ep_portfolio_head{background:__MODERN_FIELD__;border-radius:10px;padding:10px 12px !important;}
+.stApp div[class*="st-key-ep_holding_"]{padding:6px 12px 10px !important;border-bottom:1px solid __BORDER__;}
+.stApp div[class*="st-key-ep_holding_"] .stNumberInput input{text-align:right;font-variant-numeric:tabular-nums;}
+.stApp div[class*="st-key-ep_remove_"] button{background:transparent !important;border:0 !important;
+    color:__MUTED__ !important;min-height:38px !important;box-shadow:none !important;}
+.stApp div[class*="st-key-ep_remove_"] button:hover{background:__MODERN_FIELD__ !important;color:__STATUS_WARN__ !important;}
+.ep-mobile-qty{display:none;}
+.stApp .st-key-ep_compact_portfolio [data-testid="stMarkdownContainer"]:has(.ep-mobile-qty){display:none;}
+.ep-form-heading{font-size:.92rem;font-weight:750;color:__TEXT__;margin-bottom:2px;}
+.stApp .st-key-ep_setting_target [data-testid="stWidgetLabel"] p{font-weight:750;color:__TEXT__ !important;}
+.stApp .st-key-ep_setting_target input{font-size:1.25rem !important;font-weight:750;min-height:48px;letter-spacing:-.015em;}
+.stApp .st-key-ep_setting_target [data-baseweb="input"]{border-color:__ACCENT__ !important;}
+.ep-priority-labels{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:.75rem;color:__MUTED__;margin-top:-9px;}
+.ep-priority-labels strong{color:__ACCENT__;font-weight:700;text-align:center;}
+.stApp .st-key-ep_setting_lamb [data-testid="stSlider"] [role="slider"]{background:__ACCENT__ !important;}
+.stApp .st-key-ep_calculate_plan button {
+    min-height:48px !important;border-radius:12px !important;border:1px solid transparent !important;
+    background:#2563EB !important;color:#FFFFFF !important;font-weight:750 !important;
+    box-shadow:0 3px 8px rgba(37,99,235,.15) !important;transition:background .15s,box-shadow .15s;
+}
+.stApp .st-key-ep_calculate_plan button p,.stApp .st-key-ep_calculate_plan button [data-testid="stIconMaterial"]{color:inherit !important;}
+.stApp .st-key-ep_calculate_plan button:not(:disabled):hover{background:#1D4ED8 !important;box-shadow:0 4px 12px rgba(37,99,235,.25) !important;}
+.stApp .st-key-ep_calculate_plan button:disabled{background:__DISABLED_BG__ !important;color:__MUTED__ !important;box-shadow:none !important;cursor:not-allowed;}
+.stApp :is(.st-key-ep_planner_step1,.st-key-ep_planner_step2,.st-key-ep_planner_step3) [data-testid="stAlert"]{padding:8px 12px !important;border-radius:10px;}
+/* Accessible state colors instead of the previous single-color alerts. */
+.stApp [data-testid="stAlert"] [data-baseweb="notification"]{background:transparent !important;color:inherit !important;}
+.stApp [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p{color:inherit !important;-webkit-text-fill-color:currentColor !important;}
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]),
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) [data-baseweb="notification"]{background:__WARNING_BG__ !important;color:__STATUS_WARN__ !important;}
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentError"]),
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentError"]) [data-baseweb="notification"]{background:__ERROR_BG__ !important;color:__STATUS_ERROR__ !important;}
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]),
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) [data-baseweb="notification"]{background:__SUCCESS_BG__ !important;color:__STATUS_OK__ !important;}
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentInfo"]){background:__STEP_ICON_BG__ !important;color:__TEXT__ !important;}
+/* Tooltip/popover layers are separate from the main DOM. */
+body [data-baseweb="tooltip"],body [data-baseweb="tooltip"] > div,
+body [role="tooltip"],body [role="tooltip"] > div {
+    background:__SURFACE__ !important;color:__TEXT__ !important;border-color:__BORDER__ !important;
+}
+body [role="tooltip"] *{color:__TEXT__ !important;-webkit-text-fill-color:__TEXT__ !important;}
+.stApp [data-testid="stExpander"]{border-radius:12px !important;box-shadow:none !important;}
+/* Native Material icons; the legacy pseudo-SVG layer is suppressed. */
+.stApp [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button{
+    display:flex !important;align-items:center !important;justify-content:flex-start !important;
+    gap:12px !important;min-height:44px !important;padding:9px 12px !important;border-radius:10px !important;
+}
+.stApp [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button::before{content:none !important;display:none !important;}
+.stApp [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button > div{width:auto !important;min-width:0;}
+.stApp [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button [data-testid="stIconMaterial"]{font-size:21px !important;color:inherit !important;flex:0 0 21px;}
+.stApp [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="primary"]{background:#2563EB !important;color:#FFFFFF !important;border-color:transparent !important;box-shadow:none !important;}
+.stApp [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="secondary"]:hover{background:transparent !important;}
+/* On narrow screens native columns can stack. Keep each holding a coherent row/card. */
+@media(max-width:760px){
+    [data-testid="stMainBlockContainer"],.block-container{padding:16px !important;}
+    .stApp :is(.st-key-ep_planner_step1,.st-key-ep_planner_step2,.st-key-ep_planner_step3){padding:16px !important;}
+    .ep-hero.ep-hero-planner{padding:16px !important;min-height:112px !important;}
+    .ep-hero-planner .art{width:30%;opacity:.35;}
+    .ep-hero-planner>p{max-width:100%;}
+    .st-key-ep_portfolio_head{display:none !important;}
+    .stApp div[class*="st-key-ep_holding_"]{border:1px solid __BORDER__;border-radius:12px;padding:12px !important;}
+    .stApp div[class*="st-key-ep_holding_"] [data-testid="stHorizontalBlock"]{display:grid !important;grid-template-columns:1fr 1fr 40px;gap:8px !important;}
+    .stApp div[class*="st-key-ep_holding_"] [data-testid="stColumn"]{width:auto !important;min-width:0 !important;flex:unset !important;}
+    .stApp div[class*="st-key-ep_holding_"] [data-testid="stColumn"]:nth-child(1){grid-column:1;grid-row:1;}
+    .stApp div[class*="st-key-ep_holding_"] [data-testid="stColumn"]:nth-child(2){grid-column:2;grid-row:1;}
+    .stApp div[class*="st-key-ep_holding_"] [data-testid="stColumn"]:nth-child(3){grid-column:1 / 3;grid-row:2;}
+    .stApp div[class*="st-key-ep_holding_"] [data-testid="stColumn"]:nth-child(4){grid-column:1 / 3;grid-row:3;}
+    .stApp div[class*="st-key-ep_holding_"] [data-testid="stColumn"]:nth-child(5){grid-column:3;grid-row:1;}
+    .stApp .st-key-ep_compact_portfolio [data-testid="stMarkdownContainer"]:has(.ep-mobile-qty){display:block;}
+    .ep-mobile-qty{display:block;font-size:.75rem;color:__MUTED__;}
+}
+@media(max-width:480px){.ep-hero-planner .art{display:none;}.ep-priority-labels{font-size:.68rem;}}
+"""
+    modern_tokens={
+        '__MODERN_FIELD__':'#27364A' if mode=='Tối' else '#F4F7FC',
+        '__MODERN_HOVER__':'#334155' if mode=='Tối' else '#E8EFFA',
+        '__MODERN_SHADOW__':'0 3px 14px rgba(0,0,0,.14)' if mode=='Tối' else '0 3px 16px rgba(15,23,42,.045)',
+        '__MODERN_SCHEME__':'dark' if mode=='Tối' else 'light',
+        '__STEP_ICON_BG__':'#293B54' if mode=='Tối' else '#E8F0FE',
+        '__STATUS_OK__':'#86EFAC' if mode=='Tối' else '#166534',
+        '__STATUS_WARN__':'#FCD34D' if mode=='Tối' else '#92400E',
+        '__STATUS_ERROR__':'#FDA4AF' if mode=='Tối' else '#991B1B',
+        '__WARNING_BG__':'#42351F' if mode=='Tối' else '#FFF7E0',
+        '__ERROR_BG__':'#492735' if mode=='Tối' else '#FEEFF1',
+        '__SUCCESS_BG__':'#203D35' if mode=='Tối' else '#EAF8EE',
+        '__DISABLED_BG__':'#29364B' if mode=='Tối' else '#E2E8F0',
+    }
+    for key,value in modern_tokens.items():modern_css=modern_css.replace(key,value)
+    # Last in cascade, after prior BaseWeb selectors.
+    extra_css+=controls_css+modern_css
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
     return css
