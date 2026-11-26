@@ -865,7 +865,6 @@ body ul[role="listbox"] [aria-selected="true"]{
 /* A visible focus ring without exposing the light parent background. */
 .stApp [data-testid="stSelectbox"] [data-baseweb="select"]:focus-within,
 .stApp [data-testid="stMultiSelect"] [data-baseweb="select"]:focus-within,
-.stApp [data-testid="stNumberInput"] [data-baseweb="input"]:focus-within,
 .stApp [data-testid="stTextInput"] [data-baseweb="input"]:focus-within {
     outline:1px solid __ACCENT__ !important;outline-offset:0 !important;
 }
@@ -944,8 +943,7 @@ body ul[role="listbox"] [aria-selected="true"]{
 .stApp .st-key-ep_compact_portfolio [data-testid="stMarkdownContainer"]:has(.ep-mobile-qty){display:none;}
 .ep-form-heading{font-size:.92rem;font-weight:750;color:__TEXT__;margin-bottom:2px;}
 .stApp .st-key-ep_setting_target [data-testid="stWidgetLabel"] p{font-weight:750;color:__TEXT__ !important;}
-.stApp .st-key-ep_setting_target input{font-size:1.25rem !important;font-weight:750;min-height:48px;letter-spacing:-.015em;}
-.stApp .st-key-ep_setting_target [data-baseweb="input"]{border-color:__ACCENT__ !important;}
+.stApp .st-key-ep_setting_target input{font-size:1.25rem !important;font-weight:750;letter-spacing:-.015em;}
 .ep-priority-labels{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:.75rem;color:__MUTED__;margin-top:-9px;}
 .ep-priority-labels strong{color:__ACCENT__;font-weight:700;text-align:center;}
 .stApp .st-key-ep_setting_lamb [role="slider"]{background:__ACCENT__ !important;outline-color:__ACCENT__ !important;}
@@ -958,7 +956,7 @@ body ul[role="listbox"] [aria-selected="true"]{
 }
 .stApp .st-key-ep_calculate_plan button p,.stApp .st-key-ep_calculate_plan button [data-testid="stIconMaterial"]{color:inherit !important;}
 .stApp .st-key-ep_calculate_plan button:not(:disabled):hover{background:#1D4ED8 !important;box-shadow:0 4px 12px rgba(37,99,235,.25) !important;}
-.stApp .st-key-ep_calculate_plan button:disabled{background:__DISABLED_BG__ !important;color:__MUTED__ !important;box-shadow:none !important;cursor:not-allowed;}
+.stApp .st-key-ep_calculate_plan button:disabled{background:__DISABLED_BG__ !important;color:__MUTED__ !important;box-shadow:none !important;cursor:not-allowed;opacity:1 !important;}
 .stApp :is(.st-key-ep_planner_step1,.st-key-ep_planner_step2,.st-key-ep_planner_step3) [data-testid="stAlert"]{padding:8px 12px !important;border-radius:10px;}
 /* Alerts use the unified final surface and foreground rules below. */
 /* Tooltip/popover layers are separate from the main DOM. */
@@ -1017,7 +1015,14 @@ body [data-testid="stPopoverBody"] button[kind="primary"] p{color:white !importa
         '__STATUS_OK__':'#86EFAC' if mode=='Tối' else '#166534',
         '__STATUS_WARN__':'#FCD34D' if mode=='Tối' else '#92400E',
         '__STATUS_ERROR__':'#FDA4AF' if mode=='Tối' else '#991B1B',
-        '__WARNING_BG__':'#42351F' if mode=='Tối' else '#FFF7E0',
+        '__WARNING_BG__':'#332B1C' if mode=='Tối' else '#FFF7E0',
+        '__NUMBER_BG__':'#1E293B' if mode=='Tối' else '#EAF3FC',
+        '__NUMBER_EDGE__':'#475569' if mode=='Tối' else '#CBD5E1',
+        '__NUMBER_HOVER__':'#293B54' if mode=='Tối' else '#DCEBFC',
+        '__DELETE_BG__':'#302530' if mode=='Tối' else '#FFF7F7',
+        '__DELETE_INK__':'#FDA4AF' if mode=='Tối' else '#B91C1C',
+        '__DELETE_EDGE__':'#80515C' if mode=='Tối' else '#F1B5B5',
+        '__DELETE_HOVER__':'#492735' if mode=='Tối' else '#FEE2E2',
         '__ERROR_BG__':'#492735' if mode=='Tối' else '#FEEFF1',
         '__SUCCESS_BG__':'#203D35' if mode=='Tối' else '#EAF8EE',
         '__DISABLED_BG__':'#29364B' if mode=='Tối' else '#E2E8F0',
@@ -1088,21 +1093,20 @@ body [data-testid="stPopoverBody"] button[kind="primary"] p{color:white !importa
     -webkit-text-fill-color:var(--ep-alert-ink) !important;
     opacity:1 !important;
 }
-/* A single subdued outline on the entire native field, not each sublayer. */
-.stApp :is([data-testid="stNumberInput"],[data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="input"] {
+/* Text/date/select fields own their own borders; number inputs use their native outer container below. */
+.stApp :is([data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="input"] {
     border:1px solid __BORDER__ !important;box-shadow:none !important;
     border-radius:10px !important;
 }
-.stApp :is([data-testid="stNumberInput"],[data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="base-input"],
-.stApp :is([data-testid="stNumberInput"],[data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="input"] input {
+.stApp :is([data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="base-input"],
+.stApp :is([data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="input"] input {
     border:0 !important;box-shadow:none !important;outline:0 !important;
 }
 .stApp :is([data-testid="stSelectbox"],[data-testid="stMultiSelect"]) [data-baseweb="select"] > div {
     border:1px solid __BORDER__ !important;box-shadow:none !important;
 }
-.stApp .st-key-ep_setting_target [data-baseweb="input"] {border-color:__ACCENT__ !important;}
 .stApp :is([data-testid="stSelectbox"],[data-testid="stMultiSelect"]) [data-baseweb="select"]:focus-within > div,
-.stApp :is([data-testid="stNumberInput"],[data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="input"]:focus-within {
+.stApp :is([data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="input"]:focus-within {
     border-color:__ACCENT__ !important;
 }
 """
@@ -1114,30 +1118,77 @@ body [data-testid="stPopoverBody"] button[kind="primary"] p{color:white !importa
     background:__STEP_ICON_BG__;color:__TEXT__ !important;
     font-size:.86rem;line-height:1.5;
 }
-.stApp .ep-planner-notice.warning {background:__WARNING_BG__;color:__STATUS_WARN__ !important;border-color:__WARN_EDGE__;}
+.stApp .ep-planner-notice.warning {background:__WARNING_BG__ !important;color:__STATUS_WARN__ !important;border-color:__WARN_EDGE__ !important;box-shadow:none !important;}
 .stApp .ep-planner-notice.error {background:__ERROR_BG__;color:__STATUS_ERROR__ !important;}
 .stApp .ep-planner-notice.success {background:__SUCCESS_BG__;color:__STATUS_OK__ !important;}
-.stApp .ep-planner-notice span {color:inherit !important;-webkit-text-fill-color:currentColor !important;opacity:1 !important;}
+.stApp .ep-planner-notice span {background:transparent !important;color:inherit !important;-webkit-text-fill-color:currentColor !important;opacity:1 !important;}
 .stApp .ep-planner-notice .material-symbols-rounded {font-size:20px;flex:none;}
-/* Match the actual native numeric frame across Streamlit releases. */
-.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"],
-.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="input"] {
-    border:1px solid __BORDER__ !important;box-shadow:none !important;border-radius:10px !important;
+/* NumberInput: Streamlit's native container wraps both BaseWeb input and
+   +/- controls. Only the outer container owns the frame and focus state. */
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"] {
+    background:__NUMBER_BG__ !important;color:__TEXT__ !important;
+    border:1px solid __NUMBER_EDGE__ !important;border-radius:8px !important;
+    box-shadow:none !important;outline:0 !important;overflow:hidden !important;
+    box-sizing:border-box !important;height:40px !important;min-height:40px !important;
+    align-items:stretch !important;
 }
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"] > div,
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="input"],
 .stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="base-input"],
 .stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] input,
 .stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] button {
-    border:0 !important;box-shadow:none !important;
+    border:0 !important;border-width:0 !important;border-radius:0 !important;
+    box-shadow:none !important;outline:0 !important;
+    background:__NUMBER_BG__ !important;color:__TEXT__ !important;
 }
-.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"] [data-baseweb="input"] {
-    border:0 !important;
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"] [data-baseweb="input"],
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"] [data-baseweb="base-input"] {
+    height:100% !important;min-height:0 !important;align-items:center !important;
 }
-.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"]:focus-within [data-testid="stNumberInputContainer"],
-.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="input"]:focus-within {
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] input {
+    height:100% !important;min-height:0 !important;box-sizing:border-box !important;
+    padding-top:0 !important;padding-bottom:0 !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] :is([data-testid="stNumberInputStepDown"],[data-testid="stNumberInputStepUp"]) {
+    height:100% !important;min-height:0 !important;
+    border-left:1px solid __NUMBER_EDGE__ !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] button:not(:disabled):hover {
+    background:__NUMBER_HOVER__ !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] button:disabled,
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] button:disabled svg {
+    color:__MUTED__ !important;cursor:not-allowed;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"]:focus-within,
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"].focused {
     border-color:__ACCENT__ !important;
 }
-.stApp .st-key-ep_setting_target [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="input"] {
-    border-color:__ACCENT__ !important;
+/* The portfolio's destructive trigger is deliberately distinct from generic popovers. */
+.stApp .st-key-ep_planner_step2 [data-testid="stPopover"] button[data-testid="stPopoverButton"],
+.stApp .st-key-ep_planner_step2 [data-testid="stPopover"] button[kind="secondary"] {
+    background:__DELETE_BG__ !important;color:__DELETE_INK__ !important;
+    border:1px solid __DELETE_EDGE__ !important;box-shadow:none !important;
+    opacity:1 !important;
+}
+.stApp .st-key-ep_planner_step2 [data-testid="stPopover"] button:not(:disabled):hover,
+.stApp .st-key-ep_planner_step2 [data-testid="stPopover"] button[aria-expanded="true"]:not(:disabled) {
+    background:__DELETE_HOVER__ !important;color:__DELETE_INK__ !important;
+    border-color:__DELETE_INK__ !important;
+}
+.stApp .st-key-ep_planner_step2 [data-testid="stPopover"] button:disabled {
+    background:__DISABLED_BG__ !important;color:__MUTED__ !important;
+    border-color:__BORDER__ !important;cursor:not-allowed;
+}
+.stApp .st-key-ep_planner_step2 [data-testid="stPopover"] button *,
+body [data-testid="stPopoverBody"] .st-key-ep_clear_draft button * {
+    color:inherit !important;-webkit-text-fill-color:currentColor !important;
+}
+body [data-testid="stPopoverBody"] .st-key-ep_clear_draft button[kind="primary"] {
+    background:#B91C1C !important;border-color:#B91C1C !important;color:#FFFFFF !important;
+}
+body [data-testid="stPopoverBody"] .st-key-ep_clear_draft button[kind="primary"]:not(:disabled):hover {
+    background:#991B1B !important;border-color:#991B1B !important;
 }
 body [data-testid="stPopoverBody"] button[kind="primary"] {
     background:#2563EB !important;color:#FFFFFF !important;

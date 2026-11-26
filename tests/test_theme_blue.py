@@ -289,3 +289,30 @@ def test_planner_warning_and_popover_colors():
         assert 'button[data-testid="stPopoverButton"]' in css
         assert '[data-testid="stNumberInputContainer"]' in css
         assert '__WARN_EDGE__' not in css
+
+
+def test_numeric_frame_has_single_border_and_theme_aware_states():
+    for mode, edge, bg in (("Sáng","#CBD5E1","#EAF3FC"),("Tối","#475569","#1E293B")):
+        css=theme_css(mode)
+        block=css.split("/* NumberInput: Streamlit's native container",1)[1].split("/* The portfolio's destructive trigger",1)[0]
+        assert 'border:1px solid '+edge+' !important;border-radius:8px' in block
+        assert 'background:'+bg+' !important' in block
+        assert 'border:0 !important;border-width:0 !important;border-radius:0' in block
+        assert 'box-shadow:none !important;outline:0 !important' in block
+        assert '[data-testid="stNumberInputContainer"]:focus-within' in block
+        assert 'border-color:'+palette(mode)['accent']+' !important' in block
+        assert '[data-testid="stNumberInputStepDown"]' in block
+        assert '[data-testid="stNumberInputStepUp"]' in block
+        assert '[data-testid="stNumberInput"] [data-baseweb="input"]:focus-within' not in css
+        assert '__NUMBER_' not in css
+
+
+def test_destructive_popover_and_warning_use_readable_theme_colors():
+    for mode, ink, bg, warning_bg in (("Sáng","#B91C1C","#FFF7F7","#FFF7E0"),("Tối","#FDA4AF","#302530","#332B1C")):
+        css=theme_css(mode)
+        block=css.split("/* The portfolio's destructive trigger",1)[1]
+        assert 'background:'+bg+' !important;color:'+ink+' !important' in block
+        assert '.st-key-ep_planner_step2 [data-testid="stPopover"] button:disabled' in block
+        assert '.st-key-ep_clear_draft button[kind="primary"]' in block
+        assert '.ep-planner-notice.warning {background:'+warning_bg+' !important' in css
+        assert '__DELETE_' not in css
