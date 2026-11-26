@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
 import streamlit as st
 from src.app.theme import BLUE_ACCENT, theme_css, palette
-from src.app.pages import render_page, NAV, PAGE_HELP
+from src.app.pages import render_page, NAV
 
 st.set_page_config(page_title='ExitPlan | Kế hoạch bán',page_icon=None,layout='wide',initial_sidebar_state='expanded')
 
@@ -50,27 +50,37 @@ with st.sidebar:
              else 'Nhấn để chuyển sang giao diện tối',
     )
     mode='Tối' if dark_mode else 'Sáng'
-    # Dùng nút điều hướng thay radio: không còn chấm tròn, mỗi mục có icon SVG riêng.
-    if st.session_state.get('ep_navigation') not in NAV:
+    # Main navigation follows the investor workflow; technical pages stay available.
+    primary_nav=('overview','planner','compare','liquidity','ssi_history')
+    advanced_nav=('data','validation','methods')
+    if st.session_state.get('ep_navigation')=='downloads':
+        st.session_state['ep_navigation']='compare'
+    if st.session_state.get('ep_navigation') not in primary_nav+advanced_nav:
         st.session_state['ep_navigation']='overview'
-    for nav_key,nav_label in NAV.items():
-        title=nav_label.split('  ',1)[-1]
-        active=st.session_state['ep_navigation']==nav_key
-        if st.button(
-            title,
+
+    def _navigate(key):
+        st.session_state['ep_navigation']=key
+
+    def _nav_button(nav_key,nav_label):
+        st.button(
+            nav_label.split('  ',1)[-1],
             key='ep_nav_'+nav_key,
-            type='primary' if active else 'secondary',
+            type='primary' if st.session_state['ep_navigation']==nav_key else 'secondary',
             use_container_width=True,
-        ):
-            st.session_state['ep_navigation']=nav_key
-            st.rerun()
+            on_click=_navigate,args=(nav_key,),
+        )
+
+    for nav_key,nav_label in NAV.items():
+        if nav_key in primary_nav:
+            _nav_button(nav_key,nav_label)
+    with st.expander('Thông tin & hỗ trợ',expanded=st.session_state['ep_navigation'] in advanced_nav):
+        for nav_key in advanced_nav:
+            _nav_button(nav_key,NAV[nav_key])
     page=st.session_state['ep_navigation']
-    st.caption(PAGE_HELP[page])
-    st.divider()
     accent=BLUE_ACCENT
     font='Be Vietnam Pro'
     size_pt=12
-    st.caption('Dữ liệu từ file đã lưu. Không đọc tài khoản hoặc gửi lệnh.')
+    st.caption('Dữ liệu đã lưu · Không đặt lệnh')
 
 st.markdown(theme_css(mode),unsafe_allow_html=True)
 config=dict(mode=mode,accent=accent,font=font,size_pt=size_pt,theme=palette(mode,accent))
