@@ -66,24 +66,23 @@ def market_rows(frame, symbols):
 
 
 async def capture(token, symbols, minutes):
-    topics = [f"{kind}.{sym}" for sym in symbols for kind in ("quote", "trade")]
+    topics = [f"{kind}.{sym}@tick" for sym in symbols for kind in ("quote", "trade")]
     folder = ROOT / "data/raw/ssi_ws"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / (datetime.now(VN).strftime("%Y%m%d_%H%M%S_%f") + ".jsonl")
     counts = Counter()
+    frames = Counter()
+    subscribed = False
     try:
         async with connect(URL, additional_headers={"Authorization": "Bearer " + token},
                            open_timeout=15, ping_interval=20, max_size=2**20) as ws:
             print("WebSocket transport connected; waiting for subscription/data.", flush=True)
             await ws.send(json.dumps({"method": "SUBSCRIBE", "channel": "DATA", "topics": topics}))
+            await ws.send(json.dumps({"method": "LIST_SUBSCRIPTION"}))
             deadline = time.monotonic() + minutes * 60
-            next_ping = time.monotonic() + 30
             with path.open("x", encoding="utf-8") as out:
                 while time.monotonic() < deadline:
                     now = time.monotonic()
-                    if now >= next_ping:
-                        await ws.send(json.dumps({"method": "ping_pong"}))
-                        next_ping = now + 30
                     try:
                         raw = await asyncio.wait_for(ws.recv(), timeout=min(5, max(.1, deadline-now)))
                     except asyncio.TimeoutError:
@@ -91,22 +90,56 @@ async def capture(token, symbols, minutes):
                     try:
                         frame = json.loads(raw)
                     except (ValueError, TypeError):
+                        frames["invalid_json"] += 1
                         continue
+                    frames["json"] += 1
                     if isinstance(frame, dict):
                         code = str(frame.get("code", frame.get("status", "")))
                         if re.fullmatch(r"[45][0-9]{2,5}", code):
                             print("Server error code:", code, flush=True)
                             return 1
                         method = str(frame.get("method", "")).lower()
+                        channel = str(frame.get("channel", "")).upper()
+                        if method == "ping" and channel == "HEARTBEAT":
+                            reply = {"method": "PONG", "channel": "HEARTBEAT"}
+                            if "time" in frame:
+                                reply["time"] = frame["time"]
+                            await ws.send(json.dumps(reply))
+                            frames["heartbeat"] += 1
+                            continue
                         if method == "subscribe":
-                            print("Subscription response received; actual data still required.", flush=True)
-                    for row in market_rows(frame, symbols):
+                            state = str(frame.get("status", "")).lower()
+                            subscribed = state in ("ok", "success", "200")
+                            print("SUBSCRIBE:", "OK" if subscribed else "ERROR" if state in ("error", "failed") else "UNCONFIRMED", flush=True)
+                            if state in ("error", "failed"):
+                                print("Subscription refused; check DATA streaming scope/topic with SSI.", flush=True)
+                                return 1
+                        if method == "list_subscription" or ("data" in frame and "trading" in frame and "topic" not in frame):
+                            scope = frame.get("data")
+                            if isinstance(scope, dict):
+                                scope = scope.get("data")
+                            if isinstance(scope, str):
+                                allowed = [x.strip() for x in scope.split(";")
+                                           if re.fullmatch(r"(quote|trade)\.[A-Za-z0-9*._@-]+", x.strip())]
+                                print("DATA quote/trade scope or subscriptions:", "; ".join(allowed) or "not listed", flush=True)
+                            else:
+                                print("LIST_SUBSCRIPTION response received (shape not verified).", flush=True)
+                        if channel == "DATA":
+                            frames["data"] += 1
+                    rows = market_rows(frame, symbols)
+                    if isinstance(frame, dict) and str(frame.get("channel", "")).upper() == "DATA" and not rows:
+                        frames["data_unmatched"] += 1
+                        if frames["data_unmatched"] <= 3:
+                            print("DATA frame did not match quote/trade parser; inspect schema locally.", flush=True)
+                    for row in rows:
                         out.write(json.dumps(row, ensure_ascii=False) + "\n")
                         counts[(row["symbol"], row["event"])] += 1
                         if counts[(row["symbol"], row["event"])] == 1:
                             print(f"Received {row['event']}: {row['symbol']}", flush=True)
                     out.flush()
     finally:
+        print("Subscription explicitly acknowledged:", "yes" if subscribed else "not verified")
+        print("Frame counts:", dict(frames))
         for sym in symbols:
             print(f"{sym}: quote={counts[(sym, 'quote')]} trade={counts[(sym, 'trade')]}")
         if path.exists():
