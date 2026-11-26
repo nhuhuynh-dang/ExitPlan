@@ -960,16 +960,7 @@ body ul[role="listbox"] [aria-selected="true"]{
 .stApp .st-key-ep_calculate_plan button:not(:disabled):hover{background:#1D4ED8 !important;box-shadow:0 4px 12px rgba(37,99,235,.25) !important;}
 .stApp .st-key-ep_calculate_plan button:disabled{background:__DISABLED_BG__ !important;color:__MUTED__ !important;box-shadow:none !important;cursor:not-allowed;}
 .stApp :is(.st-key-ep_planner_step1,.st-key-ep_planner_step2,.st-key-ep_planner_step3) [data-testid="stAlert"]{padding:8px 12px !important;border-radius:10px;}
-/* Accessible state colors instead of the previous single-color alerts. */
-.stApp [data-testid="stAlert"] [data-baseweb="notification"]{background:transparent !important;color:inherit !important;}
-.stApp [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p{color:inherit !important;-webkit-text-fill-color:currentColor !important;}
-.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]),
-.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) [data-baseweb="notification"]{background:__WARNING_BG__ !important;color:__STATUS_WARN__ !important;}
-.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentError"]),
-.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentError"]) [data-baseweb="notification"]{background:__ERROR_BG__ !important;color:__STATUS_ERROR__ !important;}
-.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]),
-.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) [data-baseweb="notification"]{background:__SUCCESS_BG__ !important;color:__STATUS_OK__ !important;}
-.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentInfo"]){background:__STEP_ICON_BG__ !important;color:__TEXT__ !important;}
+/* Alerts use the unified final surface and foreground rules below. */
 /* Tooltip/popover layers are separate from the main DOM. */
 body [data-baseweb="tooltip"],body [data-baseweb="tooltip"] > div,
 body [role="tooltip"],body [role="tooltip"] > div {
@@ -1031,6 +1022,91 @@ body [data-testid="stPopoverBody"] button[kind="primary"] p{color:white !importa
         '__SUCCESS_BG__':'#203D35' if mode=='Tối' else '#EAF8EE',
         '__DISABLED_BG__':'#29364B' if mode=='Tối' else '#E2E8F0',
     }
+    # Explicit foreground/background on actual native triggers and alert content.
+    # The static light theme otherwise leaks through the popover trigger and
+    # BaseWeb notification's nested layer, despite the outer dark wrapper.
+    modern_css+="""
+/* Consistent secondary popover trigger in all states. */
+.stApp [data-testid="stPopover"] button,
+.stApp button[data-testid="stPopoverButton"] {
+    background:__MODERN_FIELD__ !important;
+    color:__TEXT__ !important;
+    border:1px solid __BORDER__ !important;
+    border-radius:10px !important;
+    box-shadow:none !important;
+    min-height:40px;
+}
+.stApp [data-testid="stPopover"] button:not(:disabled):hover,
+.stApp button[data-testid="stPopoverButton"]:not(:disabled):hover,
+.stApp button[data-testid="stPopoverButton"][aria-expanded="true"] {
+    background:__MODERN_HOVER__ !important;
+    border-color:__ACCENT__ !important;
+    color:__TEXT__ !important;
+}
+.stApp [data-testid="stPopover"] button *,
+.stApp button[data-testid="stPopoverButton"] * {
+    color:inherit !important;-webkit-text-fill-color:currentColor !important;
+}
+.stApp [data-testid="stPopover"] button:focus-visible,
+.stApp button[data-testid="stPopoverButton"]:focus-visible {
+    outline:2px solid __ACCENT__ !important;outline-offset:2px;
+}
+.stApp [data-testid="stPopover"] button:disabled,
+.stApp button[data-testid="stPopoverButton"]:disabled {
+    background:__DISABLED_BG__ !important;color:__MUTED__ !important;
+}
+/* One alert surface. Do not stack a second opaque notification background. */
+.stApp [data-testid="stAlert"] {
+    --ep-alert-bg:__STEP_ICON_BG__;--ep-alert-ink:__TEXT__;
+    --ep-alert-border:__BORDER__;
+    background:var(--ep-alert-bg) !important;color:var(--ep-alert-ink) !important;
+    border:1px solid var(--ep-alert-border) !important;
+    border-radius:10px !important;padding:0 !important;box-shadow:none !important;
+}
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]),
+.stApp [data-testid="stAlert"]:has([data-baseweb="notification"][kind="warning"]) {
+    --ep-alert-bg:__WARNING_BG__;--ep-alert-ink:__STATUS_WARN__;--ep-alert-border:__WARN_EDGE__;
+}
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentError"]) {
+    --ep-alert-bg:__ERROR_BG__;--ep-alert-ink:__STATUS_ERROR__;
+}
+.stApp [data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) {
+    --ep-alert-bg:__SUCCESS_BG__;--ep-alert-ink:__STATUS_OK__;
+}
+.stApp [data-testid="stAlert"] [data-baseweb="notification"],
+.stApp [data-testid="stAlert"] [data-testid="stAlertContainer"],
+.stApp [data-testid="stAlert"] [data-testid^="stAlertContent"],
+.stApp [data-testid="stAlert"] > div {
+    background:transparent !important;color:var(--ep-alert-ink) !important;
+    box-shadow:none !important;border:0 !important;
+}
+.stApp [data-testid="stAlert"] [data-testid^="stAlertContent"] *,
+.stApp [data-testid="stAlert"] [data-testid="stMarkdownContainer"] *,
+.stApp [data-testid="stAlert"] p,
+.stApp [data-testid="stAlert"] [data-testid="stIconMaterial"] {
+    color:var(--ep-alert-ink) !important;
+    -webkit-text-fill-color:var(--ep-alert-ink) !important;
+    opacity:1 !important;
+}
+/* A single subdued outline on the entire native field, not each sublayer. */
+.stApp :is([data-testid="stNumberInput"],[data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="input"] {
+    border:1px solid __BORDER__ !important;box-shadow:none !important;
+    border-radius:10px !important;
+}
+.stApp :is([data-testid="stNumberInput"],[data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="base-input"],
+.stApp :is([data-testid="stNumberInput"],[data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="input"] input {
+    border:0 !important;box-shadow:none !important;outline:0 !important;
+}
+.stApp :is([data-testid="stSelectbox"],[data-testid="stMultiSelect"]) [data-baseweb="select"] > div {
+    border:1px solid __BORDER__ !important;box-shadow:none !important;
+}
+.stApp .st-key-ep_setting_target [data-baseweb="input"] {border-color:__ACCENT__ !important;}
+.stApp :is([data-testid="stSelectbox"],[data-testid="stMultiSelect"]) [data-baseweb="select"]:focus-within > div,
+.stApp :is([data-testid="stNumberInput"],[data-testid="stTextInput"],[data-testid="stDateInput"]) [data-baseweb="input"]:focus-within {
+    border-color:__ACCENT__ !important;
+}
+"""
+    modern_tokens['__WARN_EDGE__']='#6B5429' if mode=='Tối' else '#E7C775'
     for key,value in modern_tokens.items():modern_css=modern_css.replace(key,value)
     # Last in cascade, after prior BaseWeb selectors.
     extra_css+=controls_css+modern_css
