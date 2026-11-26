@@ -34,8 +34,8 @@ def test_planner_native_controls_without_market_data(test_catalog,mode):
     at=_app(test_catalog,mode)
     assert not at.exception
     assert at.button(key="ep_calculate_plan").disabled
-    assert any("Dữ liệu thị trường chưa sẵn sàng." in w.value for w in at.warning)
-    assert all("internal/path.parquet" not in w.value for w in at.warning)
+    assert any("Dữ liệu thị trường chưa sẵn sàng." in w.value and "ep-planner-notice warning" in w.value for w in at.markdown)
+    assert all("internal/path.parquet" not in w.value for w in at.markdown)
     at.selectbox(key="ep_stock_board").select("HOSE").run()
     assert not at.exception
     at.selectbox(key="ep_stock_autocomplete").select("ACB").run()
@@ -44,6 +44,7 @@ def test_planner_native_controls_without_market_data(test_catalog,mode):
     at.number_input(key="ep_qty_ACB").set_value(1257).run()
     assert not at.exception
     assert at.session_state["ep_draft_holdings"]["ACB"]==1257
+    assert any("Thiếu sổ lệnh: ACB." in w.value for w in at.markdown)
     at.number_input(key="ep_setting_target").set_value(50.0).run()
     at.number_input(key="ep_setting_fee").set_value(.15).run()
     at.number_input(key="ep_setting_tax").set_value(.10).run()
