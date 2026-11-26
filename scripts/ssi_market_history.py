@@ -12,7 +12,7 @@ import pandas as pd
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from scripts.ssi_v3_sync import parse_date,_save_parquet,_save_csv
-from src.ingest.ssi_fastconnect_v3 import SSIReadOnlyClient,SSIBadRequest,SSIResponseError,SSIAuthError,normalize_ohlc,ALLOWED_BOARDS
+from src.ingest.ssi_fastconnect_v3 import SSIReadOnlyClient,SSIBadRequest,SSISymbolNotFound,SSIResponseError,SSIAuthError,normalize_ohlc,ALLOWED_BOARDS
 from src.analytics.ssi_history_stats import asof_history_stats
 
 def select_catalog(catalog,boards,stock_types=None):
@@ -49,7 +49,7 @@ def main():
         tmp.write_text(json.dumps(skipped,ensure_ascii=False),encoding="utf-8")
         tmp.replace(fail_path)
     client=SSIReadOnlyClient()
-    attempted=0; failed=[]; stopped=False
+    attempted=0; failed=[]; stopped=False; stop_reason=None
     try:
         client.authenticate()
         for i,sym in enumerate(symbols,1):
@@ -68,14 +68,18 @@ def main():
                     else:
                         _save_parquet(df,part)
                         print(f"[{i}/{len(symbols)}] {sym}: {len(df)} candles",flush=True)
-            except SSIBadRequest:
+            except SSISymbolNotFound as exc:
+                failed.append({"symbol":sym,"reason":"404204"});mark_failed(sym,"404204")
+                print(f"[{i}/{len(symbols)}] {sym}: {exc}; bỏ qua mã này.",flush=True)
+            except SSIBadRequest as exc:
                 failed.append({"symbol":sym,"reason":"HTTP400"});mark_failed(sym,"HTTP400")
-                print(f"[{i}/{len(symbols)}] {sym}: HTTP400",flush=True)
+                print(f"[{i}/{len(symbols)}] {sym}: {exc}",flush=True)
                 if sum(f["reason"]=="HTTP400" for f in failed)>=10:
                     print("Repeated HTTP400 errors; stop and check SSI.")
                     stopped=True;break
             except (SSIResponseError,SSIAuthError) as exc:
-                print("Stopped:",str(exc),flush=True);stopped=True;break
+                stop_reason={"symbol":sym,"reason":str(exc)}
+                print(f"Stopped [{i}/{len(symbols)}] {sym}: {exc}",flush=True);stopped=True;break
             time.sleep(a.delay)
     except KeyboardInterrupt:
         print("Interrupted; saving progress.")
@@ -97,7 +101,7 @@ def main():
             _save_parquet(combined,old)
             _save_parquet(asof_history_stats(combined),ROOT/"outputs/tables/ssi_liquidity_stats.parquet")
             _save_csv(combined,ROOT/"data/raw/ssi_fastconnect_v3_ohlcv.csv")
-        report={"requested":len(symbols),"completed":completed,"attempted_this_run":attempted,"failures_this_run":failed,"remaining":len(symbols)-completed,"skipped_without_success":sum(s in skipped and not (cache/f"{s}.parquet").is_file() for s in symbols),"stopped":stopped}
+        report={"requested":len(symbols),"completed":completed,"attempted_this_run":attempted,"failures_this_run":failed,"remaining":len(symbols)-completed,"skipped_without_success":sum(s in skipped and not (cache/f"{s}.parquet").is_file() for s in symbols),"stopped":stopped,"stop_reason":stop_reason}
         (cache/"progress.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
         print(json.dumps({k:v for k,v in report.items() if k!="failures_this_run"},ensure_ascii=False))
     return 0 if completed==len(symbols) else 1
