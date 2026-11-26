@@ -12,3 +12,7 @@ token_cache.json
 data/raw/
 data/processed/ssi_*.parquet
 outputs/tables/ssi_*.parquet
+
+outputs/tables/ssi_*.json
+outputs/tables/validation_*_ssi.csv
+outputs/tables/validation_*_ssi_summary.json
