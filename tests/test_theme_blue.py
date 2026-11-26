@@ -202,3 +202,25 @@ def test_investor_navigation_keeps_technical_pages_and_embedded_export():
     assert "on_click=_navigate,args=(nav_key,)" in app
     assert "st.expander('Xuất kết quả CSV'" in pages
     assert "downloads(root,data,t,show_source=False,include_liquidity=False)" in pages
+
+
+def test_native_search_surface_and_text_contrast():
+    for mode in ("Sáng","Tối"):
+        css=theme_css(mode)
+        p=palette(mode)
+        assert 'caret-color:'+p['text']+' !important' in css
+        assert '-webkit-text-fill-color:'+p['text']+' !important' in css
+        assert 'input::placeholder' in css
+        assert '.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] div' in css
+        assert '.ep-table-wrap.ep-paged .ep-table th' in css
+    assert 'background-color:#192B43 !important;color:#EAF3FF !important' in theme_css("Tối")
+
+def test_investor_tables_do_not_use_light_canvas_or_technical_catalog():
+    from pathlib import Path
+    source=(Path(__file__).resolve().parents[1]/'src/app/pages.py').read_text(encoding='utf-8')
+    assert 'st.dataframe(' not in source
+    history=source[source.index('def ssi_history('):source.index('def data_page(')]
+    assert 'st.code(' not in history
+    assert 'cwUnderlyingSymbol' not in history
+    assert "paged_table(shown.rename(columns=columns)" in history
+    assert "history_stats_table(view,'ep_liq_hist_page')" in source
