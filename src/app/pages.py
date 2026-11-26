@@ -275,7 +275,6 @@ def planner(root,data,t):
         st.session_state['ep_draft_holdings']={}
     draft=st.session_state['ep_draft_holdings']
     st.subheader('1. Tìm kiếm cổ phiếu')
-    st.caption(f'{len(catalog):,} mã tra cứu · {len(valid_symbols):,} mã có sổ lệnh trong nguồn đang chọn. Đã lọc chứng quyền, quỹ và các mã ngoài phạm vi cổ phiếu; loại chưa có mã phân loại rõ được xem là ứng viên.')
     search_col,board_col=st.columns([3,1])
     # Render board first so the search options are filtered in this same run.
     with board_col:
@@ -287,56 +286,65 @@ def planner(root,data,t):
             format_func=names.get,placeholder='Nhập mã hoặc tên công ty…',
             key='ep_stock_autocomplete',on_change=_add_selected_stock,
             args=(tuple(names),),disabled=not names or len(draft)>=12,
-            help='Gõ ngay trong ô này để lọc gợi ý. Chọn mã hoặc nhấn Enter trên gợi ý để thêm vào danh mục.')
+            help=f'{len(catalog):,} mã trong phạm vi cổ phiếu. Chọn gợi ý để thêm trực tiếp.')
     if len(draft)>=12:
         st.info('Đã đủ 12 mã. Xóa một mã nếu muốn thêm mã khác.')
     elif not names:
         st.info('Không còn mã phù hợp trong sàn đang chọn.')
-    else:
-        st.caption('Gõ mã hoặc tên ngay trong ô tìm kiếm, chọn gợi ý để thêm trực tiếp. Không cần bấm nút Thêm mã.')
-    st.divider()
     st.subheader(f'2. Danh mục của tôi · {len(draft)}/12 mã')
-    st.caption('Gõ trực tiếp số cổ phiếu đang nắm giữ (ví dụ 135 hoặc 1.257 CP). Mô hình chỉ bán theo lô 100; phần lẻ được giữ lại. Không đọc tài khoản và không đặt lệnh.')
     if not draft:
         st.info('Danh mục đang trống. Hãy tìm và thêm cổ phiếu ở phía trên.')
     meta=catalog.set_index('symbol').to_dict('index')
     nonstandard=known_nonstandard_lots(catalog,draft)
     unknown=set(draft)-set(meta)
     if draft:
-        header=st.columns([3,2,3,1])
-        for col,label in zip(header,['Cổ phiếu','Nắm giữ (CP)','Dữ liệu đã lưu','Xóa']):
-            col.caption(label)
-        for sym,qty in list(draft.items()):
-            a,b,d,e=st.columns([3,2,3,1],vertical_alignment='center')
-            info=meta.get(sym,{})
-            with a:
-                st.markdown('**'+escape(sym)+'**')
-                st.caption((info.get('name') or 'Chưa có tên')+' · '+(info.get('board') or 'Chưa rõ sàn'))
-            with b:
-                st.number_input('Số lượng '+sym,min_value=0,value=int(qty),step=1,format='%d',
-                    key='ep_qty_'+sym,label_visibility='collapsed',on_change=_change_quantity,args=(sym,))
-            with d:
-                if sym in nonstandard:
-                    st.caption('Không hỗ trợ lô giao dịch khác 100')
-                elif sym in valid_symbols:
-                    st.caption('Có sổ lệnh giả lập' if kind=='synthetic' else 'Có sổ lệnh đã lưu')
-                else:
-                    st.caption('Chưa có sổ lệnh hợp lệ')
-                n=history_counts.get(sym,0)
-                st.caption(f'SSI OHLCV: {n} phiên đã lưu' if n else 'SSI OHLCV: chưa có')
-            with e:
-                if st.button('Xóa',key='ep_remove_'+sym,icon=':material/close:',
-                             help='Xóa '+sym,use_container_width=True):
-                    st.session_state['ep_draft_holdings']={s:v for s,v in draft.items() if s!=sym}
-                    st.session_state.pop('ep_qty_'+sym,None)
-                    _clear_plan()
-                    st.rerun()
-        if st.button('Xóa toàn bộ danh mục',key='ep_clear_draft'):
-            st.session_state['ep_draft_holdings']={}
-            for sym in draft:st.session_state.pop('ep_qty_'+sym,None)
-            _clear_plan()
-            st.rerun()
-    st.divider()
+        # Compact one-line rows: keep the company name in the search suggestion,
+        # preserve the exchange and distinguish real/synthetic/missing depth.
+        widths=[1.15,.9,2.3,2.7,.55]
+        with st.container(border=True,key='ep_compact_portfolio'):
+            header=st.columns(widths,vertical_alignment='center')
+            for col,label in zip(header,['Mã','Sàn','Nắm giữ (CP)','Dữ liệu','']):
+                if label:col.markdown('**'+label+'**')
+            for sym,qty in list(draft.items()):
+                a,b,n,d,e=st.columns(widths,vertical_alignment='center')
+                info=meta.get(sym,{})
+                with a:
+                    st.markdown('**'+escape(sym)+'**')
+                with b:
+                    st.write(info.get('board') or 'Chưa rõ')
+                with n:
+                    st.number_input('Số lượng '+sym,min_value=0,value=int(qty),step=1,format='%d',
+                        key='ep_qty_'+sym,label_visibility='collapsed',on_change=_change_quantity,args=(sym,),
+                        help='Nhập số nguyên bất kỳ. Mô hình bán theo lô 100, phần lẻ được giữ lại.')
+                with d:
+                    if sym in unknown:
+                        status='Ngoài danh mục'
+                    elif sym in nonstandard:
+                        status='Lô không hỗ trợ'
+                    elif sym in valid_symbols:
+                        status='Sổ lệnh giả lập' if kind=='synthetic' else 'Có sổ lệnh'
+                    elif history_counts.get(sym,0):
+                        status='Có lịch sử · thiếu sổ lệnh'
+                    else:
+                        status='Chưa có dữ liệu'
+                    st.write(status)
+                with e:
+                    if st.button('',key='ep_remove_'+sym,icon=':material/delete:',
+                                 help='Xóa '+sym,use_container_width=True):
+                        st.session_state['ep_draft_holdings']={s:v for s,v in draft.items() if s!=sym}
+                        st.session_state.pop('ep_qty_'+sym,None)
+                        _clear_plan()
+                        st.rerun()
+            if len(draft)>=2:
+                _,actions=st.columns([3,1])
+                with actions:
+                    with st.popover('Xóa toàn bộ',icon=':material/delete_sweep:',use_container_width=True):
+                        st.write(f'Xóa cả {len(draft)} mã khỏi danh mục?')
+                        if st.button('Xác nhận xóa',key='ep_clear_draft',type='primary',use_container_width=True):
+                            st.session_state['ep_draft_holdings']={}
+                            for sym in draft:st.session_state.pop('ep_qty_'+sym,None)
+                            _clear_plan()
+                            st.rerun()
     st.subheader('3. Mục tiêu và điều kiện thanh lý')
     settings=st.session_state.setdefault('ep_draft_settings',dict(target=100.,lamb=.5,fee=0.,tax=0.))
     c1,c2=st.columns(2)
@@ -350,12 +358,12 @@ def planner(root,data,t):
             key='ep_setting_fee',on_change=_change_setting,args=('fee',))
         tax=st.number_input('Thuế/chi phí khác giả định (%)',0.,5.,float(settings['tax']),.05,
             key='ep_setting_tax',on_change=_change_setting,args=('tax',))
-        st.caption('Phí và thuế là giả định người dùng nhập; mặc định 0%, cần điều chỉnh phù hợp.')
+        st.caption('Phí và thuế giả định; điều chỉnh trước khi tính.')
     missing=sorted(set(draft)-valid_symbols)
     zeros=sorted(s for s,v in draft.items() if v<=0)
     batch=None
     if draft:
-        if missing:st.warning('Thiếu sổ lệnh hợp lệ: '+', '.join(missing)+'. Cần thu thập dữ liệu trước khi tính; OHLCV không thay cho sổ lệnh.')
+        if missing:st.warning('Chưa thể tính: thiếu sổ lệnh '+', '.join(missing)+'.')
         if zeros:st.info('Nhập số lượng nắm giữ lớn hơn 0 cho: '+', '.join(zeros))
         if nonstandard:st.warning('Không hỗ trợ lô giao dịch khác 100: '+', '.join(nonstandard))
         if unknown:st.warning('Mã không còn trong danh sách tra cứu: '+', '.join(sorted(unknown)))
@@ -404,7 +412,7 @@ def planner(root,data,t):
             {'label':'Mục tiêu','value':'Đạt' if p['satisfied'] else 'Chưa đạt','note':fmt.vnd_big(p['shortfall'])+' thiếu hụt'}]),unsafe_allow_html=True)
         st.markdown(verdict('Kết quả phương án B', 'Đạt mục tiêu ròng trong độ sâu ba bid quan sát.' if p['satisfied'] else
             'Mục tiêu không khả thi trong độ sâu ba mức mua; xem phần thiếu hụt.'),unsafe_allow_html=True)
-    explain('Tại sao chưa thể tính với một số mã?', 'Mọi mã trong danh sách có thể được tra cứu, nhưng mô hình cần giá mua và khối lượng chờ mua tại một thời điểm chung của danh mục. OHLCV không thay thế sổ lệnh.')
+    explain('Điều kiện tính và giới hạn', 'Mô hình cần sổ lệnh tại một thời điểm chung của danh mục; OHLCV không thay thế sổ lệnh. Số lượng nắm giữ nhập tự do, lượng bán theo lô 100 và phần lẻ được giữ lại. Không đọc tài khoản hoặc đặt lệnh thật. Danh mục SSI được lọc theo phạm vi cổ phiếu, nhưng loại chứng khoán chưa có phân loại rõ chỉ là ứng viên.')
 
 
 def compare(root,data,t):
