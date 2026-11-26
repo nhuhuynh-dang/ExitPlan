@@ -58,7 +58,7 @@ def test_read_only_client_token_then_catalog_and_ohlc():
     assert session.calls[0][2]["json"] == {"apiKey": "fake_key", "apiSecret": "fake_secret"}
     assert session.calls[1][1] == "https://api.ssi.com.vn/api/v3/data/securitiesByBoard"
     assert session.calls[-1][2]["params"]["timeFrame"] == "1d"
-    assert session.calls[-1][2]["params"]["from"] == "2026-11-01"
+    assert session.calls[-1][2]["params"]["from"] == "2026/11/01 00:00:00"
     assert session.calls[-1][2]["params"]["pageIndex"] == 1
     assert session.calls[-1][2]["params"]["pageSize"] == 10
     assert session.calls[-1][2]["headers"]["Content-Type"] == "application/json"
@@ -109,24 +109,23 @@ def test_cli_without_keys_exits_before_network_or_writing(tmp_path, monkeypatch)
     assert list(tmp_path.iterdir()) == []
 
 
-def test_ohlc_retries_slash_dates_only_after_http_400():
-    class SlashSession(FakeSession):
+def test_ohlc_full_end_timestamp():
+    session = FakeSession()
+    _client(session).ohlc_daily("HPG", date(2026, 11, 1),
+                                date(2026, 11, 20), wait=0)
+    params = session.calls[-1][2]["params"]
+    assert params["from"] == "2026/11/01 00:00:00"
+    assert params["to"] == "2026/11/20 23:59:59"
+
+
+def test_ohlc_preserves_detailed_error_code():
+    class ErrorSession(FakeSession):
         def get(self, url, **kwargs):
-            if url.endswith("/ohlc") and "-" in kwargs["params"]["from"]:
-                self.calls.append(("GET", url, kwargs))
-                return FakeResponse(400, {"code": "400", "msg": "Invalid request"})
-            return super().get(url, **kwargs)
+            self.calls.append(("GET", url, kwargs))
+            return FakeResponse(400, {"status": 400, "ErrCode": 400213})
 
-    session = SlashSession()
-    assert len(_client(session).ohlc_daily("HPG", date(2026, 11, 1),
-                                          date(2026, 11, 20), wait=0)) == 1
-    assert session.calls[-2][2]["params"]["from"] == "2026-11-01"
-    assert session.calls[-1][2]["params"]["from"] == "2026/11/01"
-
-
-def test_ohlc_stops_after_two_bad_requests():
-    session = FakeSession(error_get=400)
-    with pytest.raises(SSIResponseError, match="cả hai định dạng ngày"):
+    session = ErrorSession()
+    with pytest.raises(SSIResponseError, match="400213"):
         _client(session).ohlc_daily("HPG", date(2026, 11, 1),
                                     date(2026, 11, 20), wait=0)
-    assert len(session.calls) == 3
+    assert len(session.calls) == 2
