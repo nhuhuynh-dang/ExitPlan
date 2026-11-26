@@ -1106,6 +1106,46 @@ body [data-testid="stPopoverBody"] button[kind="primary"] p{color:white !importa
     border-color:__ACCENT__ !important;
 }
 """
+    modern_css+="""
+/* Planner notice: one surface, explicit readable color, no inherited alert tone. */
+.stApp .ep-planner-notice {
+    display:flex;align-items:center;gap:10px;padding:10px 14px;
+    border:1px solid __BORDER__;border-radius:10px;
+    background:__STEP_ICON_BG__;color:__TEXT__ !important;
+    font-size:.86rem;line-height:1.5;
+}
+.stApp .ep-planner-notice.warning {background:__WARNING_BG__;color:__STATUS_WARN__ !important;border-color:__WARN_EDGE__;}
+.stApp .ep-planner-notice.error {background:__ERROR_BG__;color:__STATUS_ERROR__ !important;}
+.stApp .ep-planner-notice.success {background:__SUCCESS_BG__;color:__STATUS_OK__ !important;}
+.stApp .ep-planner-notice span {color:inherit !important;-webkit-text-fill-color:currentColor !important;opacity:1 !important;}
+.stApp .ep-planner-notice .material-symbols-rounded {font-size:20px;flex:none;}
+/* Match the actual native numeric frame across Streamlit releases. */
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"],
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="input"] {
+    border:1px solid __BORDER__ !important;box-shadow:none !important;border-radius:10px !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="base-input"],
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] input,
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] button {
+    border:0 !important;box-shadow:none !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-testid="stNumberInputContainer"] [data-baseweb="input"] {
+    border:0 !important;
+}
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"]:focus-within [data-testid="stNumberInputContainer"],
+.stApp [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="input"]:focus-within {
+    border-color:__ACCENT__ !important;
+}
+.stApp .st-key-ep_setting_target [data-testid="stNumberInput"][data-testid="stNumberInput"] [data-baseweb="input"] {
+    border-color:__ACCENT__ !important;
+}
+body [data-testid="stPopoverBody"] button[kind="primary"] {
+    background:#2563EB !important;color:#FFFFFF !important;
+}
+body [data-testid="stPopoverBody"] button[kind="primary"] * {
+    color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;
+}
+"""
     modern_tokens['__WARN_EDGE__']='#6B5429' if mode=='Tối' else '#E7C775'
     for key,value in modern_tokens.items():modern_css=modern_css.replace(key,value)
     # Last in cascade, after prior BaseWeb selectors.
