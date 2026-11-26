@@ -384,13 +384,13 @@ def liquidity(root,data,t):
 def ssi_history(root,data,t):
     path=Path(root)/'data/processed/ssi_history.parquet'
     stats_path=Path(root)/'outputs/tables/ssi_liquidity_stats.parquet'
-    st.info('Đang chuẩn bị SSI FastConnect V3 chính thức. Chỉ chạy lệnh sau khi được cấp API Key/Secret Market Data. '
+    st.info('SSI FastConnect V3 chính thức. Chạy lệnh với API Key/Secret Market Data đã được cấp. '
             'OHLCV theo ngày dùng cho biểu đồ và ADV; không có ba mức bid để lập phương án.')
     st.code('py scripts/ssi_v3_sync.py --check\n'
             'py scripts/ssi_v3_sync.py --catalog\n'
             'py scripts/ssi_v3_sync.py --history --symbols HPG VPB ACB --from-date 01/09/2026 --to-date 20/11/2026',
             language='powershell')
-    st.caption('Hướng dẫn xin quyền: docs/SSI_FASTCONNECT_SETUP.md. Không nhập API Key hoặc Secret vào dashboard.')
+    st.caption('Hướng dẫn kết nối: docs/SSI_FASTCONNECT_SETUP.md. Không nhập API Key hoặc Secret vào dashboard.')
     # The 3-board securities catalog is real only after --catalog succeeds.
     # Show it independently of the historical prices, with an explicit source label.
     catalog_path=Path(root)/'data/processed/ssi_securities.parquet'
@@ -536,14 +536,16 @@ def data_page(root,data,t):
             st.dataframe(quality,hide_index=True,use_container_width=True)
 
     st.subheader('Trạng thái kết nối dữ liệu')
-    status_file=Path(root)/'outputs/tables/ssi_recorder_status.json' if data.get('use_ssi') else Path(root)/'outputs/tables/recorder_status.json'
+    ssi_status=Path(root)/'outputs/tables/ssi_recorder_status.json'
+    status_file=ssi_status if ssi_status.is_file() or data.get('use_ssi') else Path(root)/'outputs/tables/recorder_status.json'
     if status_file.exists():
         try:
             status=json.loads(status_file.read_text(encoding='utf-8'))
             if not isinstance(status,dict):raise ValueError('Trạng thái phải là đối tượng JSON')
             kind=str(status.get('data_kind','unknown'))
             state=str(status.get('state',status.get('status','unknown')))
-            status_label='Giả lập' if kind=='synthetic' else ('Đang ghi dữ liệu' if state in ('connected','recording') else 'Chưa kết nối')
+            state_labels={'connecting':'Đang kết nối','connected_unverified_auth':'Socket đã mở','subscribed_no_data':'Đăng ký thành công · chưa có dữ liệu','receiving_stockinfo':'Đã nhận dữ liệu tại lần cập nhật','stopped':'Đã dừng · có bản tin','stopped_no_data':'Đã dừng · chưa có bản tin','connected':'Đã mở socket','recording':'Đã ghi dữ liệu tại lần cập nhật','error':'Lỗi kết nối'}
+            status_label='Giả lập' if kind=='synthetic' else state_labels.get(state,'Chưa xác nhận')
             updated=str(status.get('last_update_vn',status.get('updated_at',status.get('timestamp','–'))))
             channel=str(status.get('channel','–'))
             records=status.get('records')
@@ -579,7 +581,7 @@ def data_page(root,data,t):
 def validation(root,data,t):
     source_labels(data)
     folder=Path(root)/'outputs/tables'
-    files=sorted(folder.glob('validation_*.csv'))
+    files=sorted(folder.glob('validation_*_ssi.csv')) if data.get('use_ssi') else sorted(f for f in folder.glob('validation_*.csv') if not f.stem.endswith('_ssi'))
     if not files:
         st.warning('Chưa có dữ liệu: cần file outputs/tables/validation_*.csv')
         return
@@ -593,6 +595,7 @@ def validation(root,data,t):
         # (dropdown portal của Streamlit không đồng bộ dark mode).
         label_map={
             'validation_replay.csv':'Phát lại dữ liệu',
+            'validation_replay_ssi.csv':'Phát lại dữ liệu SSI',
             'validation_sensitivity.csv':'Độ nhạy tham số',
         }
         buttons=st.columns(len(filenames),gap='small')
