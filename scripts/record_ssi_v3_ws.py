@@ -210,6 +210,12 @@ def main():
         symbols=select_catalog(catalog,boards)
     else:
         symbols=sorted(set(s.strip().upper() for s in (args.symbols or ["HPG","VPB","ACB"])))
+    from src.data.equity_universe import equity_symbols
+    catalog_path=ROOT/"data/processed/ssi_securities.parquet"
+    if not catalog_path.exists():parser.error("Run ssi_v3_sync.py --catalog first")
+    allowed=set(equity_symbols(pd.read_parquet(catalog_path)))
+    excluded=set(symbols)-allowed
+    if excluded:parser.error("Outside stock scope: "+", ".join(sorted(excluded)))
     if not symbols or any(not re.fullmatch(r"[A-Z0-9]{1,12}",s) for s in symbols):parser.error("Invalid symbols")
     if not boards and len(symbols)>100:parser.error("Use --boards or --all-market for large scope")
     if not 1<=args.max_mb<=4096:parser.error("--max-mb must be 1..4096")
