@@ -966,5 +966,10 @@ def render_page(page,root,cfg):
     try:
         FUNCTIONS[page](root,data,t)
     except Exception as ex:
-        st.error(f'Không thể hiển thị trang: {type(ex).__name__}: {ex}')
-        st.caption('Không dùng dữ liệu giả định để thay cho dữ liệu đang thiếu. Hãy kiểm tra file đầu vào và schema.')
+        if page=='planner':
+            import logging
+            logging.getLogger(__name__).exception('Lỗi giao diện lập phương án')
+            st.error('Trang chưa thể hiển thị. Kiểm tra dữ liệu trong Thông tin & hỗ trợ.',icon=':material/error:')
+        else:
+            st.error(f'Không thể hiển thị trang: {type(ex).__name__}: {ex}')
+            st.caption('Không dùng dữ liệu giả định để thay cho dữ liệu đang thiếu. Hãy kiểm tra file đầu vào và schema.')
