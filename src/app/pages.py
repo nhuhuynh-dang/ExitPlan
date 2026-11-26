@@ -18,10 +18,10 @@ from src.analytics.planner import calculate,summaries,frontier
 NAV={
  'overview':'🏠  Tổng quan',
  'planner':'🧮  Lập phương án',
- 'compare':'⚖️  So sánh phương án',
- 'liquidity':'📊  Thanh khoản các mã',
+ 'compare':'⚖️  Kết quả & so sánh',
+ 'liquidity':'📊  Rủi ro thanh khoản',
  'data':'🗄️  Dữ liệu & kết nối',
- 'ssi_history':'📈  SSI · Dữ liệu lịch sử',
+ 'ssi_history':'📈  Lịch sử giá',
  'validation':'✅  Kiểm chứng',
  'methods':'📖  Phương pháp & giới hạn',
  'downloads':'📥  Tải dữ liệu',
@@ -40,10 +40,10 @@ PAGE_HELP={
 PAGE_INFO={
  'overview':('PORTFOLIO INTELLIGENCE','Tổng quan ExitPlan','Một góc nhìn thống nhất về danh mục, khả năng thu hồi tiền mặt và tình trạng dữ liệu.'),
  'planner':('SMART EXIT PLANNER','Lập phương án thanh lý','Thiết lập mục tiêu tiền ròng và cân bằng chi phí thanh khoản với mức tập trung còn lại.'),
- 'compare':('DECISION ANALYTICS','So sánh phương án','So sánh A, B, C và mốc bán tỷ trọng; chỉ báo cáo dựa trên ảnh chụp có sổ lệnh hợp lệ.'),
- 'liquidity':('MARKET MICROSTRUCTURE','Thanh khoản các mã','Độ sâu ba mức giá mua, chênh lệch mua–bán và giới hạn khối lượng quan sát.'),
+ 'compare':('DECISION ANALYTICS','Kết quả & so sánh','So sánh A, B, C và mốc bán tỷ trọng; chỉ báo cáo dựa trên ảnh chụp có sổ lệnh hợp lệ.'),
+ 'liquidity':('MARKET MICROSTRUCTURE','Rủi ro thanh khoản','Độ sâu ba mức giá mua, chênh lệch mua–bán và giới hạn khối lượng quan sát.'),
  'data':('DATA OPERATIONS','Dữ liệu & kết nối','Tình trạng file, thời gian, chất lượng dữ liệu và nhật ký bộ ghi thị trường.'),
- 'ssi_history':('SSI FASTCONNECT · MARKET DATA','Dữ liệu lịch sử SSI','Giá, khối lượng, ADV từ SSI V3 khi có quyền Market Data; tách biệt dữ liệu sổ lệnh WebSocket.'),
+ 'ssi_history':('SSI FASTCONNECT · MARKET DATA','Lịch sử giá cổ phiếu','Giá, khối lượng, ADV từ SSI V3 khi có quyền Market Data; tách biệt dữ liệu sổ lệnh WebSocket.'),
  'validation':('MODEL GOVERNANCE','Kiểm chứng mô hình','Xem kết quả kiểm thử, phân tích độ nhạy và phát lại ảnh chụp đã lưu.'),
  'methods':('METHODOLOGY','Phương pháp & giới hạn','Giả định, công thức, mô hình tối ưu hóa và phạm vi sử dụng có trách nhiệm.'),
  'downloads':('REPRODUCIBILITY','Tải dữ liệu','Xuất các bảng đã tính để kiểm tra, đối chiếu và viết báo cáo.'),
@@ -466,6 +466,8 @@ def compare(root,data,t):
     detail=pd.DataFrame(p['details']).rename(columns={'symbol':'Mã','held':'Nắm giữ','sold':'Bán','remaining':'Còn lại','net':'Tiền ròng','visible_depth':'Độ sâu ba mức','uncovered':'Chưa bao phủ'})
     st.markdown(frame_table(detail[['Mã','Nắm giữ','Bán','Còn lại','Độ sâu ba mức','Tiền ròng']]),unsafe_allow_html=True)
     explain('Các cột phương án','**HHI** = Σ(tỷ trọng giá trị còn lại)². **Chi phí bps** = (chi phí thanh khoản/doanh số khớp mô phỏng) × 10.000. **A/B/C/P** là tối ưu hóa theo các hàm mục tiêu khác nhau; không được hiểu là khuyến nghị mua bán.')
+    with st.expander('Xuất kết quả CSV',icon=':material/download:'):
+        downloads(root,data,t,show_source=False,include_liquidity=False)
 
 
 def liquidity(root,data,t):
@@ -480,6 +482,7 @@ def liquidity(root,data,t):
             stats=asof_history_stats(history)
             st.caption('ADV20 lịch sử SSI (đơn vị volume gốc; chưa xác minh quy đổi CP). Chưa có sổ lệnh để tính tỷ lệ tham gia.')
             st.dataframe(stats[['symbol','adv','sigma','n_sessions','asof_date']],hide_index=True,use_container_width=True)
+            st.download_button('Tải thống kê lịch sử CSV',fmt.csv_bom(stats),'ExitPlan_historical_liquidity.csv','text/csv',icon=':material/download:')
         return
     quotes=st.session_state.get('ep_plan_quotes') or quote_map(data)
     if not quotes:st.error('Không có dữ liệu sổ lệnh hợp lệ.');return
@@ -539,7 +542,9 @@ def liquidity(root,data,t):
             range_rows.append([s,fmt.shares(z['uncovered']),fmt.vnd(z['bound_low']),fmt.vnd(z['bound_high'])])
     if range_rows:st.markdown(html_table(['Mã','Vượt độ sâu','Bi quan','Lạc quan'],range_rows,numeric=(1,2,3)),unsafe_allow_html=True)
     else:note('Không có vị thế vượt độ sâu được quan sát, hoặc chưa nhập danh mục.')
-    if qstats is None:st.caption('Chưa có dữ liệu: cần file '+LIQUIDITY+' để tính ADV và tỷ lệ tham gia.')
+    if qstats is None:st.caption('Chưa có ADV để tính tỷ lệ tham gia.')
+    else:
+        st.download_button('Tải bảng thanh khoản CSV',fmt.csv_bom(qstats),'ExitPlan_liquidity.csv','text/csv',icon=':material/download:')
 
 
 def ssi_history(root,data,t):
@@ -884,8 +889,8 @@ def methods(root,data,t):
     st.warning('Ứng dụng không đặt lệnh thật và không đưa ra khuyến nghị đầu tư. Chi phí và khả năng khớp chỉ là ước tính theo dữ liệu sổ lệnh được cung cấp.')
 
 
-def downloads(root,data,t):
-    source_labels(data)
+def downloads(root,data,t,show_source=True,include_liquidity=True):
+    if show_source:source_labels(data)
     plans=st.session_state.get('ep_plans')
     if plans:
         summary=summaries(plans)
@@ -898,9 +903,10 @@ def downloads(root,data,t):
         fr=st.session_state.get('ep_frontier')
         if fr is not None:st.download_button('⬇️ Tải đường đánh đổi',fmt.csv_bom(fr.assign(**meta)),'ExitPlan_frontier.csv','text/csv',use_container_width=True)
     else:st.info('Chưa có bảng phương án hiện tại. Bấm “Tính phương án” để tạo.')
-    if data['liquidity'] is not None:
-        st.download_button('⬇️ Tải bảng thanh khoản đã lưu',fmt.csv_bom(data['liquidity']),'ExitPlan_liquidity.csv','text/csv',use_container_width=True)
-    else:st.warning('Chưa có dữ liệu: cần file '+LIQUIDITY)
+    if include_liquidity:
+        if data['liquidity'] is not None:
+            st.download_button('⬇️ Tải bảng thanh khoản đã lưu',fmt.csv_bom(data['liquidity']),'ExitPlan_liquidity.csv','text/csv',use_container_width=True)
+        else:st.warning('Chưa có dữ liệu: cần file '+LIQUIDITY)
     st.caption('Mỗi CSV dùng UTF-8 có BOM để Excel nhận tiếng Việt. Không tự tạo hoặc điều chỉnh dữ liệu nguồn.')
 
 FUNCTIONS={'overview':overview,'planner':planner,'compare':compare,'liquidity':liquidity,
