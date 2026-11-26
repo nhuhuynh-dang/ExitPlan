@@ -9,6 +9,7 @@ from collections import Counter
 from datetime import datetime, timezone, timedelta
 import json
 import math
+import pandas as pd
 from pathlib import Path
 import re
 import sys
@@ -65,8 +66,13 @@ def market_rows(frame, symbols):
     return rows
 
 
-async def capture(token, symbols, minutes):
-    topics = [f"{kind}.{sym}@tick" for sym in symbols for kind in ("quote", "trade")]
+async def capture(token, symbols, minutes, boards=None, max_mb=512):
+    filters=[b.lower() for b in boards] if boards else symbols
+    topics = [f"{kind}.{sym}@tick" for sym in filters for kind in ("quote", "trade")]
+    wanted=set(symbols)
+    bytes_written=0
+    next_status=time.monotonic()+15
+    print(f'Subscribing {len(topics)} topics; catalog candidates={len(wanted)}',flush=True)
     folder = ROOT / "data/raw/ssi_ws"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / (datetime.now(VN).strftime("%Y%m%d_%H%M%S_%f") + ".jsonl")
@@ -78,7 +84,7 @@ async def capture(token, symbols, minutes):
         temp=status_path.with_suffix(".json.tmp")
         temp.write_text(json.dumps({"state":state,"channel":"DATA","data_kind":"live",
             "source":"ssi_fastconnect_v3_ws","records":sum(counts.values()),
-            "last_update_vn":datetime.now(VN).isoformat(),"symbols":symbols,
+            "last_update_vn":datetime.now(VN).isoformat(),"symbols":symbols,"boards":boards,"bytes_written":bytes_written,
             "frames":dict(frames)},ensure_ascii=False,indent=2),encoding="utf-8")
         temp.replace(status_path)
     save_status("connecting")
@@ -140,31 +146,47 @@ async def capture(token, symbols, minutes):
                             continue
                         if channel == "DATA":
                             frames["data"] += 1
-                    rows = market_rows(frame, symbols)
+                    rows = market_rows(frame, wanted)
                     if isinstance(frame, dict) and str(frame.get("channel", "")).upper() == "DATA" and not rows:
                         frames["data_unmatched"] += 1
                         if frames["data_unmatched"] <= 3:
                             print("DATA frame did not match quote/trade parser; inspect schema locally.", flush=True)
                     for row in rows:
-                        out.write(json.dumps(row, ensure_ascii=False) + "\n")
-                        counts[(row["symbol"], row["event"])] += 1
-                        if counts[(row["symbol"], row["event"])] == 1:
-                            print(f"Received {row['event']}: {row['symbol']}", flush=True)
+                        line=json.dumps(row,ensure_ascii=False)+"\n"
+                        bytes_written+=len(line.encode("utf-8"))
+                        out.write(line)
+                        counts[(row["symbol"],row["event"])]+=1
+                        if counts[(row["symbol"],row["event"])]==1 and (not boards or len(counts)<=6):
+                            print(f"Received {row['event']}: {row['symbol']}",flush=True)
                             fields=("s","t","bids","asks") if row["event"]=="quote" else ("s","t","p","q","v")
                             print("Market sample:",json.dumps({k:row["data"].get(k) for k in fields},ensure_ascii=False),flush=True)
-                            save_status("receiving_stockinfo")
-                    out.flush()
+                    if time.monotonic()>=next_status:
+                        out.flush()
+                        save_status("receiving_stockinfo" if counts else "subscribed_no_data")
+                        print(f"Events={sum(counts.values())}; symbols={len({s for s,k in counts})}; MB={bytes_written/1e6:.1f}",flush=True)
+                        next_status=time.monotonic()+15
+                    if bytes_written>=max_mb*1024*1024:
+                        print("Local file-size cap reached; stopping safely.",flush=True)
+                        break
     finally:
         save_status("stopped" if sum(counts.values()) else "stopped_no_data")
         print("Subscription explicitly acknowledged:", "yes" if subscribed else "not verified")
         print("Frame counts:", dict(frames))
-        for sym in symbols:
+        received=sorted({s for s,k in counts})
+        print(f"Received symbols: {len(received)}/{len(symbols)}; both streams: {sum(bool(counts[(s,'quote')] and counts[(s,'trade')]) for s in received)}")
+        for sym in (received[:20] if boards else symbols):
             print(f"{sym}: quote={counts[(sym, 'quote')]} trade={counts[(sym, 'trade')]}")
         if path.exists():
             if path.stat().st_size:
                 print("Raw file:", path.relative_to(ROOT))
             else:
                 path.unlink()
+    if boards:
+        if not any(counts[(s,"quote")] and counts[(s,"trade")] for s in symbols):
+            print("No symbol has both streams yet; whole-board capture not verified.")
+            return 1
+        print("Board capture received actual events; coverage is partial unless verified.")
+        return 0
     if not all(counts[(s, "quote")] and counts[(s, "trade")] for s in symbols):
         print("Incomplete quote/trade capture. Try during market hours; check scope/schema.")
         return 1
@@ -174,19 +196,30 @@ async def capture(token, symbols, minutes):
 
 def main():
     parser = argparse.ArgumentParser(description="SSI V3 direct market data streaming")
-    parser.add_argument("--symbols", nargs="+", default=["HPG", "VPB", "ACB"])
+    scope=parser.add_mutually_exclusive_group()
+    scope.add_argument("--symbols", nargs="+")
+    scope.add_argument("--boards", nargs="+", choices=["HOSE","HNX","UPCOM"])
+    scope.add_argument("--all-market", action="store_true")
+    parser.add_argument("--max-mb",type=int,default=512)
     parser.add_argument("--minutes", type=float, default=5)
     args = parser.parse_args()
-    symbols = sorted(set(s.strip().upper() for s in args.symbols))
-    if not 1 <= len(symbols) <= 12 or any(not re.fullmatch(r"[A-Z0-9]{1,12}", s) for s in symbols):
-        parser.error("Choose 1-12 valid symbols")
+    boards=["HOSE","HNX","UPCOM"] if args.all_market else args.boards
+    if boards:
+        from scripts.ssi_market_history import select_catalog
+        catalog=pd.read_parquet(ROOT/"data/processed/ssi_securities.parquet")
+        symbols=select_catalog(catalog,boards)
+    else:
+        symbols=sorted(set(s.strip().upper() for s in (args.symbols or ["HPG","VPB","ACB"])))
+    if not symbols or any(not re.fullmatch(r"[A-Z0-9]{1,12}",s) for s in symbols):parser.error("Invalid symbols")
+    if not boards and len(symbols)>100:parser.error("Use --boards or --all-market for large scope")
+    if not 1<=args.max_mb<=4096:parser.error("--max-mb must be 1..4096")
     if not math.isfinite(args.minutes) or not 0 < args.minutes <= 360:
         parser.error("--minutes must be between 0 and 360")
     try:
         client = SSIReadOnlyClient()
         client.authenticate()
         print("SSI Market Data token received. No OTP or Client ID.", flush=True)
-        return asyncio.run(capture(client._token, symbols, args.minutes))
+        return asyncio.run(capture(client._token, symbols, args.minutes, boards, args.max_mb))
     except KeyboardInterrupt:
         print("Stopped by user.")
         return 130
