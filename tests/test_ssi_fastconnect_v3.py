@@ -157,3 +157,28 @@ def test_string_200_success():
             resp.payload["code"]="200"
             return resp
     assert len(_client(StringCodeSession()).ohlc_daily("HPG",date(2026,11,1),date(2026,11,20),wait=0))==1
+
+
+@pytest.mark.parametrize("http,payload", [(204,None),(200,{"code":204}),(200,{"code":"204","data":[]})])
+def test_end_of_pagination_preserves_full_previous_page(http,payload):
+    class EmptyLastPageSession(FakeSession):
+        def get(self,url,**kwargs):
+            self.calls.append(("GET",url,kwargs))
+            if kwargs["params"]["pageIndex"]==1:
+                return FakeResponse(200,{"data":[
+                    {"symbol":"ADC","tradingDate":f"2026/10/{day:02d}",
+                     "open":"20","high":"21","low":"19","close":"20","volume":"1000"}
+                    for day in range(1,11)
+                ]})
+            return FakeResponse(http,payload)
+    session=EmptyLastPageSession()
+    rows=_client(session).ohlc_daily("ADC",date(2026,10,1),date(2026,11,25),wait=0)
+    assert len(rows)==10
+    assert len(session.calls)==3
+
+
+def test_empty_first_page_returns_no_candles():
+    class NoDataSession(FakeSession):
+        def get(self,url,**kwargs):
+            return FakeResponse(200,{"code":"204"})
+    assert _client(NoDataSession()).ohlc_daily("ADC",date(2026,10,1),date(2026,11,25),wait=0)==[]
