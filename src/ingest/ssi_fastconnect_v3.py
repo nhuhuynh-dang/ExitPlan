@@ -123,6 +123,9 @@ class SSIReadOnlyClient:
             )
         except requests.RequestException as exc:
             raise SSIResponseError("Không kết nối được SSI Market Data.") from exc
+        # SSI list endpoints may report no content at the end of pagination.
+        if resp.status_code == 204 and endpoint == "/api/v3/data/ohlc":
+            return {"data": []}
         if resp.status_code == 401:
             raise SSIAuthError("Token SSI hết hạn hoặc không hợp lệ (401). Chạy lại script.")
         if resp.status_code == 403:
@@ -160,6 +163,11 @@ class SSIReadOnlyClient:
         except ValueError as exc:
             raise SSIResponseError("SSI trả về dữ liệu không phải JSON (%s)." % endpoint) from exc
         if isinstance(body,dict):
+            # Official SSI SDK maps code 204 to an empty list. Do not discard
+            # earlier valid pages when an exact-multiple final page is followed by 204.
+            if endpoint == "/api/v3/data/ohlc" and body.get("code") in (204,"204"):
+                if _numeric_error_code(body) is None and body.get("data") in (None,[]):
+                    return {"data": []}
             code=_numeric_error_code(body)
             if code=="404204":
                 raise SSISymbolNotFound("SSI code 404204: không tìm thấy mã chứng khoán.")
@@ -168,7 +176,10 @@ class SSIReadOnlyClient:
             if code and code.startswith("429"):
                 raise SSIResponseError("SSI giới hạn lượt gọi (SSI code %s); dừng để tránh gửi dồn." % code)
             if code or body.get("code") not in (None,0,"0","SUCCESS",200,"200"):
-                raise SSIResponseError("SSI thông báo lỗi ở %s (HTTP 200, SSI code %s); kiểm tra quyền và tham số." % (endpoint,code or "không xác định"))
+                # Report only strictly numeric status values; never dump response bodies.
+                raw_code=str(body.get("code",""))
+                safe_code=code or (raw_code if re.fullmatch(r"[0-9]{1,8}",raw_code) else "không xác định")
+                raise SSIResponseError("SSI thông báo lỗi ở %s (HTTP 200, SSI code %s); kiểm tra quyền và tham số." % (endpoint,safe_code))
         return body
 
     def securities_by_board(self, board: str) -> list[dict]:
