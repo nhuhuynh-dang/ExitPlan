@@ -1,9 +1,10 @@
 """Import raw SSI V3 captures into a separate verified-input dataset.
 Example (ONLY after checking live units against SSI iBoard):
-py scripts/import_ssi_ws.py --symbols HPG VPB ACB --quote-price-factor 1000 --trade-price-factor 1 --volume-factor 1
+py scripts/import_ssi_ws.py --symbols HPG VPB ACB --quote-price-factor 1000 --trade-price-factor 1 --volume-factor 1 --history-volume-factor 1
 """
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -19,7 +20,10 @@ def main():
     p.add_argument("--quote-price-factor", type=float, required=True)
     p.add_argument("--trade-price-factor", type=float, required=True)
     p.add_argument("--volume-factor", type=float, required=True)
+    p.add_argument("--history-volume-factor", type=float, required=True, help="Confirmed daily OHLCV volume to shares multiplier")
     a=p.parse_args()
+    if not math.isfinite(a.history_volume_factor) or a.history_volume_factor <= 0:
+        p.error("Invalid history volume factor")
     symbols=sorted(set(s.strip().upper() for s in a.symbols))
     paths=[Path(x) for x in a.input] if a.input else sorted((ROOT/"data/raw/ssi_ws").glob("*.jsonl"))
     if not paths:
@@ -45,6 +49,7 @@ def main():
         if frame.empty:
             print("Không có nhóm snapshot đủ điều kiện. Giữ nguyên toàn bộ dữ liệu đã lưu.")
             return 1
+        frame["history_volume_factor"]=a.history_volume_factor
         out=ROOT/"data/processed/ssi_book_snapshots.parquet"
         out.parent.mkdir(parents=True,exist_ok=True)
         tmp=out.with_suffix(".parquet.tmp")
@@ -54,7 +59,7 @@ def main():
         report.parent.mkdir(parents=True,exist_ok=True)
         report.write_text(json.dumps(dict(stats,source="ssi_fastconnect_v3_ws",data_kind="live",
           symbols=symbols,quote_price_factor=a.quote_price_factor,trade_price_factor=a.trade_price_factor,
-          volume_factor=a.volume_factor,rows=len(frame),first=str(frame.ts_vn.min()),
+          volume_factor=a.volume_factor,history_volume_factor=a.history_volume_factor,rows=len(frame),first=str(frame.ts_vn.min()),
           last=str(frame.ts_vn.max())),ensure_ascii=False,indent=2),encoding="utf-8")
         print(f"Đã lưu {len(frame)} dòng SSI, {frame.ts_vn.nunique()} nhóm snapshot đồng bộ.")
         print("Không ghi đè book_snapshots.parquet hoặc OHLCV.")
