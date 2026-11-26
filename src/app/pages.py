@@ -39,7 +39,7 @@ PAGE_HELP={
 }
 PAGE_INFO={
  'overview':('PORTFOLIO INTELLIGENCE','Tổng quan ExitPlan','Một góc nhìn thống nhất về danh mục, khả năng thu hồi tiền mặt và tình trạng dữ liệu.'),
- 'planner':('SMART EXIT PLANNER','Lập phương án thanh lý','Thiết lập mục tiêu tiền ròng và cân bằng chi phí thanh khoản với mức tập trung còn lại.'),
+ 'planner':('','Lập phương án thanh lý','Xây dựng phương án bán cổ phiếu phù hợp với mục tiêu tài chính của bạn.'),
  'compare':('DECISION ANALYTICS','Kết quả & so sánh','So sánh A, B, C và mốc bán tỷ trọng; chỉ báo cáo dựa trên ảnh chụp có sổ lệnh hợp lệ.'),
  'liquidity':('MARKET MICROSTRUCTURE','Rủi ro thanh khoản','Độ sâu ba mức giá mua, chênh lệch mua–bán và giới hạn khối lượng quan sát.'),
  'data':('DATA OPERATIONS','Dữ liệu & kết nối','Tình trạng file, thời gian, chất lượng dữ liệu và nhật ký bộ ghi thị trường.'),
@@ -63,9 +63,11 @@ def page_header(key,accent,mode='Sáng'):
         'downloads':'<path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/>'
     }
     icon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icons.get(key,icons['overview'])+'</svg>'
+    eyebrow='<div class="ep-eyebrow">'+escape(eye)+'</div>' if eye else ''
+    if key=='planner':icon='<span class="material-symbols-rounded" aria-hidden="true">calculate</span>'
     html=(
-        '<div class="ep-hero"><div class="ep-hero-heading"><span class="ep-hero-icon">'+icon+'</span>'
-        '<div><div class="ep-eyebrow">'+escape(eye)+'</div><h1>'+escape(title)+'</h1></div></div>'
+        '<div class="ep-hero'+(' ep-hero-planner' if key=='planner' else '')+'"><div class="ep-hero-heading"><span class="ep-hero-icon">'+icon+'</span>'
+        '<div>'+eyebrow+'<h1>'+escape(title)+'</h1></div></div>'
         '<p>'+escape(description)+'</p><div class="art">'+hero_svg(accent,mode)+'</div></div>'
     )
     st.markdown(html,unsafe_allow_html=True)
@@ -179,21 +181,24 @@ def load(root):
     return dict(use_ssi=use_ssi,allowed_equities=allowed,books=books,err=err,liquidity=liquidity,liquidity_err=liquidity_err,
                 saved_plans=saved_plans,saved_frontier=saved_frontier,quality=quality,overrides=overrides)
 
-def source_labels(data):
+def source_labels(data,compact=False):
     books=data['books']
     if books is None or books.empty:
-        st.warning(data['err'] or f'Chưa có dữ liệu: cần file {SNAPSHOT}')
+        st.warning('Dữ liệu thị trường chưa sẵn sàng.' if compact else (data['err'] or f'Chưa có dữ liệu: cần file {SNAPSHOT}'),icon=':material/info:')
         return False
     kinds=sorted(set(books['data_kind']))
     if len(kinds)>1:
-        st.error('Tồn tại dữ liệu trộn nguồn live/lịch sử/giả lập. Chọn một nguồn riêng trước khi tính; hệ thống không tự trộn.')
+        st.error('Nguồn dữ liệu không đồng nhất. Vui lòng kiểm tra trong Thông tin & hỗ trợ.' if compact else 'Tồn tại dữ liệu trộn nguồn live/lịch sử/giả lập. Chọn một nguồn riêng trước khi tính; hệ thống không tự trộn.',icon=':material/error:')
         return False
     kind=kinds[0]
-    if kind=='synthetic':st.warning('⚠️ DỮ LIỆU GIẢ LẬP (synthetic) — Không phải báo giá thị trường thật.')
+    if kind=='synthetic':st.warning('Dữ liệu giả lập — không phải báo giá thị trường thật.',icon=':material/warning:')
     last=books['ts_vn'].max()
     label='SSI FastConnect V3 · snapshot đã ghi' if data.get('use_ssi') else KIND_LABELS.get(kind,kind)
-    st.markdown(badge('Nguồn: '+label,kind)+badge('Cập nhật: '+last.strftime('%d/%m/%Y %H:%M:%S')+' · UTC+7')+
-                badge('File đã ghi · không kết nối API trong dashboard'),unsafe_allow_html=True)
+    if compact:
+        st.caption(label+' · '+last.strftime('%d/%m/%Y %H:%M')+' (UTC+7)')
+    else:
+        st.markdown(badge('Nguồn: '+label,kind)+badge('Cập nhật: '+last.strftime('%d/%m/%Y %H:%M:%S')+' · UTC+7')+
+                    badge('File đã ghi · không kết nối API trong dashboard'),unsafe_allow_html=True)
     return True
 
 def quote_map(data):
@@ -281,17 +286,22 @@ def _change_setting(name):
     _clear_plan()
 
 
+def _planner_step(number,title,icon,count=''):
+    counter='<span class="ep-step-count">'+escape(count)+'</span>' if count else ''
+    st.markdown('<div class="ep-step-heading"><span class="ep-step-icon material-symbols-rounded" aria-hidden="true">'+escape(icon)+'</span><div><span class="ep-step-number">Bước '+str(number)+'</span><h2>'+escape(title)+'</h2></div>'+counter+'</div>',unsafe_allow_html=True)
+
+
 def planner(root,data,t):
-    valid_source=source_labels(data)
+    valid_source=source_labels(data,compact=True)
     books=data['books'] if valid_source else None
     raw,catalog_err=read_parquet(root,'data/processed/ssi_securities.parquet')
     try:
         catalog=stock_catalog(raw,books,equity_only=raw is not None or data.get('use_ssi',False))
     except ValueError as ex:
-        st.warning(str(ex))
+        st.warning('Danh mục cổ phiếu chưa hợp lệ. Kiểm tra Thông tin & hỗ trợ.',icon=':material/warning:')
         catalog=stock_catalog(None,books,equity_only=True)
     if raw is None:
-        st.caption('Chưa có danh mục SSI đã lưu; hiện chỉ tra cứu mã trong file sổ lệnh. '+str(catalog_err or ''))
+        st.info('Danh mục cổ phiếu SSI chưa sẵn sàng.',icon=':material/info:')
     valid_symbols=set(available_symbols(books)) if books is not None else set()
     kind=str(books['data_kind'].iloc[0]) if books is not None else ''
     # Real daily bars are displayed only as independent history coverage, never as depth.
@@ -303,135 +313,141 @@ def planner(root,data,t):
     if 'ep_draft_holdings' not in st.session_state:
         st.session_state['ep_draft_holdings']={}
     draft=st.session_state['ep_draft_holdings']
-    st.subheader('1. Tìm kiếm cổ phiếu')
-    search_col,board_col=st.columns([3,1])
-    # Render board first so the search options are filtered in this same run.
-    with board_col:
-        board=st.selectbox('Sàn giao dịch',['Tất cả']+sorted(catalog.board.unique()),key='ep_stock_board')
-    matches=search_stocks(catalog,board=board,exclude=draft,limit=len(catalog))
-    names={r.symbol:f"{r.symbol} · {r.name or 'Chưa có tên'} · {r.board}" for r in matches.itertuples()}
-    with search_col:
-        st.selectbox('Tìm theo mã hoặc tên doanh nghiệp',list(names),index=None,
-            format_func=names.get,placeholder='Nhập mã hoặc tên công ty…',
-            key='ep_stock_autocomplete',on_change=_add_selected_stock,
-            args=(tuple(names),),disabled=not names or len(draft)>=12,
-            help=f'{len(catalog):,} mã trong phạm vi cổ phiếu. Chọn gợi ý để thêm trực tiếp.')
-    if len(draft)>=12:
-        st.info('Đã đủ 12 mã. Xóa một mã nếu muốn thêm mã khác.')
-    elif not names:
-        st.info('Không còn mã phù hợp trong sàn đang chọn.')
-    st.subheader(f'2. Danh mục của tôi · {len(draft)}/12 mã')
-    if not draft:
-        st.info('Danh mục đang trống. Hãy tìm và thêm cổ phiếu ở phía trên.')
+    with st.container(border=True,key='ep_planner_step1'):
+        _planner_step(1,'Tìm kiếm cổ phiếu','search')
+        search_col,board_col=st.columns([3,1],gap='medium')
+        with board_col:
+            board=st.selectbox('Sàn giao dịch',['Tất cả']+sorted(catalog.board.unique()),key='ep_stock_board')
+        matches=search_stocks(catalog,board=board,exclude=draft,limit=len(catalog))
+        names={r.symbol:f"{r.symbol} · {r.name or 'Chưa có tên'} · {r.board}" for r in matches.itertuples()}
+        with search_col:
+            st.selectbox('Mã hoặc tên doanh nghiệp',list(names),index=None,
+                format_func=names.get,placeholder='Nhập mã hoặc tên doanh nghiệp',
+                key='ep_stock_autocomplete',on_change=_add_selected_stock,
+                args=(tuple(names),),disabled=not names or len(draft)>=12)
+        if len(draft)>=12:
+            st.info('Đã đủ 12 mã. Xóa một mã để thêm mã khác.',icon=':material/info:')
+        elif not names:
+            st.info('Không còn mã phù hợp.',icon=':material/info:')
     meta=catalog.set_index('symbol').to_dict('index')
     nonstandard=known_nonstandard_lots(catalog,draft)
     unknown=set(draft)-set(meta)
-    if draft:
-        # Compact one-line rows: keep the company name in the search suggestion,
-        # preserve the exchange and distinguish real/synthetic/missing depth.
-        widths=[1.15,.9,2.3,2.7,.55]
-        with st.container(border=True,key='ep_compact_portfolio'):
-            header=st.columns(widths,vertical_alignment='center')
-            for col,label in zip(header,['Mã','Sàn','Nắm giữ (CP)','Dữ liệu','']):
-                if label:col.markdown('**'+label+'**')
-            for sym,qty in list(draft.items()):
-                a,b,n,d,e=st.columns(widths,vertical_alignment='center')
-                info=meta.get(sym,{})
-                with a:
-                    st.markdown('**'+escape(sym)+'**')
-                with b:
-                    st.write(info.get('board') or 'Chưa rõ')
-                with n:
-                    st.number_input('Số lượng '+sym,min_value=0,value=int(qty),step=1,format='%d',
-                        key='ep_qty_'+sym,label_visibility='collapsed',on_change=_change_quantity,args=(sym,),
-                        help='Nhập số nguyên bất kỳ. Mô hình bán theo lô 100, phần lẻ được giữ lại.')
-                with d:
-                    if sym in unknown:
-                        status='Ngoài danh mục'
-                    elif sym in nonstandard:
-                        status='Lô không hỗ trợ'
-                    elif sym in valid_symbols:
-                        status='Sổ lệnh giả lập' if kind=='synthetic' else 'Có sổ lệnh'
-                    elif history_counts.get(sym,0):
-                        status='Có lịch sử · thiếu sổ lệnh'
-                    else:
-                        status='Chưa có dữ liệu'
-                    st.write(status)
-                with e:
-                    if st.button('',key='ep_remove_'+sym,icon=':material/delete:',
-                                 help='Xóa '+sym,use_container_width=True):
-                        st.session_state['ep_draft_holdings']={s:v for s,v in draft.items() if s!=sym}
-                        st.session_state.pop('ep_qty_'+sym,None)
-                        _clear_plan()
-                        st.rerun()
-            if len(draft)>=2:
-                _,actions=st.columns([3,1])
-                with actions:
-                    with st.popover('Xóa toàn bộ',icon=':material/delete_sweep:',use_container_width=True):
-                        st.write(f'Xóa cả {len(draft)} mã khỏi danh mục?')
-                        if st.button('Xác nhận xóa',key='ep_clear_draft',type='primary',use_container_width=True):
-                            st.session_state['ep_draft_holdings']={}
-                            for sym in draft:st.session_state.pop('ep_qty_'+sym,None)
-                            _clear_plan()
-                            st.rerun()
-    st.subheader('3. Mục tiêu và điều kiện thanh lý')
-    settings=st.session_state.setdefault('ep_draft_settings',dict(target=100.,lamb=.5,fee=0.,tax=0.))
-    c1,c2=st.columns(2)
-    with c1:
-        target=st.number_input('Tiền RÒNG cần thu (triệu đồng)',min_value=.1,value=float(settings['target']),step=5.,
-            key='ep_setting_target',on_change=_change_setting,args=('target',))
-        lamb=st.slider('Ưu tiên λ · 0 = chi phí / 1 = tập trung',0.,1.,float(settings['lamb']),.05,
-            key='ep_setting_lamb',on_change=_change_setting,args=('lamb',))
-    with c2:
-        fee=st.number_input('Phí bán giả định (%)',0.,5.,float(settings['fee']),.05,
-            key='ep_setting_fee',on_change=_change_setting,args=('fee',))
-        tax=st.number_input('Thuế/chi phí khác giả định (%)',0.,5.,float(settings['tax']),.05,
-            key='ep_setting_tax',on_change=_change_setting,args=('tax',))
-        st.caption('Phí và thuế giả định; điều chỉnh trước khi tính.')
-    missing=sorted(set(draft)-valid_symbols)
-    zeros=sorted(s for s,v in draft.items() if v<=0)
-    batch=None
-    if draft:
-        if missing:st.warning('Chưa thể tính: thiếu sổ lệnh '+', '.join(missing)+'.')
-        if zeros:st.info('Nhập số lượng nắm giữ lớn hơn 0 cho: '+', '.join(zeros))
-        if nonstandard:st.warning('Không hỗ trợ lô giao dịch khác 100: '+', '.join(nonstandard))
-        if unknown:st.warning('Mã không còn trong danh sách tra cứu: '+', '.join(sorted(unknown)))
-        if not missing and not nonstandard and not unknown:
-            try:
-                batch=portfolio_snapshot(books,draft)
-                if 'lotSize' in batch and (pd.to_numeric(batch['lotSize'],errors='coerce').dropna()!=100).any():
-                    raise ValueError('Danh mục chứa mã có lô giao dịch khác 100')
-                # Validate quote structure before enabling calculation.
-                for _,row in batch.iterrows():quote_from_row(row)
-                stamp=batch['ts_vn'].max()
-                st.caption('Snapshot chung gần nhất của danh mục: '+stamp.strftime('%d/%m/%Y %H:%M:%S')+' · UTC+7 (dữ liệu đã ghi, không phải báo giá trực tiếp).')
-            except (ValueError,RuntimeError,KeyError,TypeError) as ex:
-                batch=None
-                st.warning(str(ex))
-    demo_ok=True
-    if kind=='synthetic':
-        demo_ok=st.checkbox('Cho phép tính thử bằng dữ liệu GIẢ LẬP',key='ep_demo_opt_in',on_change=_clear_plan)
-    ready=bool(draft) and batch is not None and not zeros and demo_ok
-    run=st.button('Tính phương án',icon=':material/calculate:',type='primary',
-                  use_container_width=True,disabled=not ready,key='ep_calculate_plan')
-    if run and ready:
-        _clear_plan()
-        try:
-            holdings=dict(draft)
-            quotes={r['symbol']:quote_from_row(r) for _,r in batch.iterrows()}
-            with st.spinner('Đang giải mô hình tối ưu MILP...'):
-                plans=calculate(holdings,quotes,target*1e6,lamb,fee/100,tax/100)
-                fr=frontier(holdings,quotes,target*1e6,fee/100,tax/100)
-            st.session_state['ep_plans']=plans
-            st.session_state['ep_frontier']=fr
-            st.session_state['ep_holdings']=holdings
-            st.session_state['ep_plan_quotes']=quotes
-            st.session_state['ep_params']=dict(target=target*1e6,lamb=lamb,fee=fee/100,tax=tax/100,
-                 snapshot_at=str(batch['ts_vn'].max()),data_kind=kind)
-            st.success('Đã tính 4 phương án: A, B, C và mốc tỷ trọng. Xem trang So sánh phương án.')
-        except Exception as ex:
+    with st.container(border=True,key='ep_planner_step2'):
+        _planner_step(2,'Danh mục của tôi','account_balance_wallet',f'{len(draft)}/12 mã')
+        if not draft:
+            st.markdown('<div class="ep-planner-empty"><span class="material-symbols-rounded" aria-hidden="true">account_balance_wallet</span><strong>Danh mục đang trống</strong><span>Tìm và thêm cổ phiếu ở bước 1.</span></div>',unsafe_allow_html=True)
+        else:
+            widths=[1.15,.85,2.1,2.7,.7]
+            with st.container(key='ep_compact_portfolio',gap='small'):
+                with st.container(key='ep_portfolio_head'):
+                    header=st.columns(widths,vertical_alignment='center')
+                    for col,label in zip(header,['Mã','Sàn','Nắm giữ (CP)','Dữ liệu','']):
+                        if label:col.markdown('<span class="ep-table-label">'+escape(label)+'</span>',unsafe_allow_html=True)
+                for sym,qty in list(draft.items()):
+                    with st.container(key='ep_holding_'+sym):
+                        a,b,n,d,e=st.columns(widths,vertical_alignment='center')
+                        info=meta.get(sym,{})
+                        with a:
+                            st.markdown('<strong title="'+escape(info.get('name') or sym,quote=True)+'">'+escape(sym)+'</strong>',unsafe_allow_html=True)
+                        with b:
+                            st.markdown('<span class="ep-board-label">'+escape(info.get('board') or 'Chưa rõ')+'</span>',unsafe_allow_html=True)
+                        with n:
+                            st.markdown('<span class="ep-mobile-qty">Nắm giữ (CP)</span>',unsafe_allow_html=True)
+                            st.number_input('Số lượng '+sym,min_value=0,value=int(qty),step=1,format='%d',
+                                key='ep_qty_'+sym,label_visibility='collapsed',on_change=_change_quantity,args=(sym,),
+                                help='Nhập số nguyên bất kỳ. Lượng bán theo lô 100.')
+                        with d:
+                            if sym in unknown:
+                                status,tone='Ngoài danh mục','warn'
+                            elif sym in nonstandard:
+                                status,tone='Lô không hỗ trợ','warn'
+                            elif sym in valid_symbols:
+                                status,tone=('Sổ lệnh giả lập','warn') if kind=='synthetic' else ('Có sổ lệnh','ok')
+                            elif history_counts.get(sym,0):
+                                status,tone='Có lịch sử · thiếu sổ lệnh','neutral'
+                            else:
+                                status,tone='Chưa có dữ liệu','neutral'
+                            st.markdown('<span class="ep-holding-status '+tone+'">'+escape(status)+'</span>',unsafe_allow_html=True)
+                        with e:
+                            if st.button('',key='ep_remove_'+sym,icon=':material/delete:',
+                                         help='Xóa '+sym,use_container_width=True):
+                                st.session_state['ep_draft_holdings']={s:v for s,v in draft.items() if s!=sym}
+                                st.session_state.pop('ep_qty_'+sym,None)
+                                _clear_plan()
+                                st.rerun()
+                if len(draft)>=2:
+                    _,actions=st.columns([3,1])
+                    with actions:
+                        with st.popover('Xóa toàn bộ',icon=':material/delete_sweep:',use_container_width=True):
+                            st.write(f'Xóa cả {len(draft)} mã khỏi danh mục?')
+                            if st.button('Xác nhận xóa',key='ep_clear_draft',type='primary',use_container_width=True):
+                                st.session_state['ep_draft_holdings']={}
+                                for sym in draft:st.session_state.pop('ep_qty_'+sym,None)
+                                _clear_plan()
+                                st.rerun()
+    with st.container(border=True,key='ep_planner_step3'):
+        _planner_step(3,'Mục tiêu và điều kiện thanh lý','tune')
+        settings=st.session_state.setdefault('ep_draft_settings',dict(target=100.,lamb=.5,fee=0.,tax=0.))
+        c1,c2=st.columns(2,gap='large')
+        with c1:
+            st.markdown('<div class="ep-form-heading">Mục tiêu thanh lý</div>',unsafe_allow_html=True)
+            target=st.number_input('Tiền ròng cần thu (triệu đồng)',min_value=.1,value=float(settings['target']),step=5.,
+                key='ep_setting_target',on_change=_change_setting,args=('target',))
+            lamb=st.slider('Mức độ ưu tiên tối ưu',0.,1.,float(settings['lamb']),.05,
+                key='ep_setting_lamb',on_change=_change_setting,args=('lamb',))
+            preference='Cân bằng' if abs(lamb-.5)<1e-9 else ('Ưu tiên chi phí' if lamb<.5 else 'Ưu tiên tập trung')
+            st.markdown('<div class="ep-priority-labels"><span>Giảm chi phí</span><strong>'+preference+'</strong><span>Giảm tập trung</span></div>',unsafe_allow_html=True)
+        with c2:
+            st.markdown('<div class="ep-form-heading">Chi phí giao dịch</div>',unsafe_allow_html=True)
+            fee=st.number_input('Phí bán giả định (%)',0.,5.,float(settings['fee']),.05,
+                key='ep_setting_fee',on_change=_change_setting,args=('fee',))
+            tax=st.number_input('Thuế và chi phí khác giả định (%)',0.,5.,float(settings['tax']),.05,
+                key='ep_setting_tax',on_change=_change_setting,args=('tax',))
+        missing=sorted(set(draft)-valid_symbols)
+        zeros=sorted(s for s,v in draft.items() if v<=0)
+        batch=None
+        if not draft:st.caption('Thêm cổ phiếu để bắt đầu.')
+        if draft:
+            if missing:st.warning('Thiếu sổ lệnh: '+', '.join(missing)+'.',icon=':material/warning:')
+            if zeros:st.info('Nhập số lượng cho: '+', '.join(zeros),icon=':material/info:')
+            if nonstandard:st.warning('Không hỗ trợ lô giao dịch khác 100: '+', '.join(nonstandard))
+            if unknown:st.warning('Mã không còn trong danh sách tra cứu: '+', '.join(sorted(unknown)))
+            if not missing and not nonstandard and not unknown:
+                try:
+                    batch=portfolio_snapshot(books,draft)
+                    if 'lotSize' in batch and (pd.to_numeric(batch['lotSize'],errors='coerce').dropna()!=100).any():
+                        raise ValueError('Danh mục chứa mã có lô giao dịch khác 100')
+                    # Validate quote structure before enabling calculation.
+                    for _,row in batch.iterrows():quote_from_row(row)
+                    stamp=batch['ts_vn'].max()
+                    st.caption('Snapshot chung gần nhất của danh mục: '+stamp.strftime('%d/%m/%Y %H:%M:%S')+' · UTC+7 (dữ liệu đã ghi, không phải báo giá trực tiếp).')
+                except (ValueError,RuntimeError,KeyError,TypeError) as ex:
+                    batch=None
+                    st.warning('Chưa có sổ lệnh đồng bộ, hợp lệ cho danh mục.',icon=':material/warning:')
+        demo_ok=True
+        if kind=='synthetic':
+            demo_ok=st.checkbox('Cho phép tính thử bằng dữ liệu GIẢ LẬP',key='ep_demo_opt_in',on_change=_clear_plan)
+        ready=bool(draft) and batch is not None and not zeros and demo_ok
+        run=st.button('Tính phương án',icon=':material/calculate:',type='primary',
+                      use_container_width=True,disabled=not ready,key='ep_calculate_plan')
+        if run and ready:
             _clear_plan()
-            st.error(f'Không thể tính phương án: {type(ex).__name__}: {ex}')
+            try:
+                holdings=dict(draft)
+                quotes={r['symbol']:quote_from_row(r) for _,r in batch.iterrows()}
+                with st.spinner('Đang tính phương án bán…'):
+                    plans=calculate(holdings,quotes,target*1e6,lamb,fee/100,tax/100)
+                    fr=frontier(holdings,quotes,target*1e6,fee/100,tax/100)
+                st.session_state['ep_plans']=plans
+                st.session_state['ep_frontier']=fr
+                st.session_state['ep_holdings']=holdings
+                st.session_state['ep_plan_quotes']=quotes
+                st.session_state['ep_params']=dict(target=target*1e6,lamb=lamb,fee=fee/100,tax=tax/100,
+                     snapshot_at=str(batch['ts_vn'].max()),data_kind=kind)
+                st.success('Đã tính 4 phương án. Xem Kết quả & so sánh.',icon=':material/check_circle:')
+            except Exception as ex:
+                _clear_plan()
+                st.error('Không thể tính phương án. Vui lòng kiểm tra dữ liệu và thử lại.',icon=':material/error:')
     plans=st.session_state.get('ep_plans')
     if plans:
         p=plans['B']; st.markdown(cards_html([
@@ -441,7 +457,8 @@ def planner(root,data,t):
             {'label':'Mục tiêu','value':'Đạt' if p['satisfied'] else 'Chưa đạt','note':fmt.vnd_big(p['shortfall'])+' thiếu hụt'}]),unsafe_allow_html=True)
         st.markdown(verdict('Kết quả phương án B', 'Đạt mục tiêu ròng trong độ sâu ba bid quan sát.' if p['satisfied'] else
             'Mục tiêu không khả thi trong độ sâu ba mức mua; xem phần thiếu hụt.'),unsafe_allow_html=True)
-    explain('Điều kiện tính và giới hạn', 'Mô hình cần sổ lệnh tại một thời điểm chung của danh mục; OHLCV không thay thế sổ lệnh. Số lượng nắm giữ nhập tự do, lượng bán theo lô 100 và phần lẻ được giữ lại. Không đọc tài khoản hoặc đặt lệnh thật. Danh mục SSI được lọc theo phạm vi cổ phiếu, nhưng loại chứng khoán chưa có phân loại rõ chỉ là ứng viên.')
+    with st.expander('Điều kiện và phương pháp tính',icon=':material/info:'):
+        st.markdown('Mô hình cần sổ lệnh tại một thời điểm chung của danh mục; OHLCV không thay thế sổ lệnh. Số lượng nắm giữ nhập tự do, lượng bán theo lô 100 và phần lẻ được giữ lại. Mức ưu tiên λ giữ nguyên từ 0 (chi phí) đến 1 (độ tập trung); 0,5 là mức cân bằng. Phí và thuế do người dùng giả định, mặc định 0%. Không đọc tài khoản hoặc đặt lệnh thật. Danh mục SSI được lọc theo phạm vi cổ phiếu; mã chưa có phân loại rõ chỉ là ứng viên.')
 
 
 def compare(root,data,t):
