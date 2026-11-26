@@ -48,7 +48,7 @@ def _validate_symbol(symbol: str) -> str:
 def _format_date(value: date) -> str:
     if not isinstance(value, date):
         raise TypeError("Ngày phải có kiểu datetime.date")
-    return value.strftime("%Y-%m-%d")
+    return value.strftime("%Y/%m/%d")
 
 
 class SSIReadOnlyClient:
@@ -115,7 +115,22 @@ class SSIReadOnlyClient:
         if resp.status_code == 429:
             raise SSIResponseError("SSI giới hạn tần suất (429). Không tự động gửi dồn request.")
         if resp.status_code == 400:
-            raise SSIBadRequest("SSI Market Data trả lỗi HTTP 400 (%s)." % endpoint)
+            # Only print numeric error codes, never raw response/authentication payload.
+            try:
+                error = resp.json()
+            except ValueError:
+                error = {}
+            code = None
+            if isinstance(error, dict):
+                for key in ("ErrCode", "errCode", "errorCode", "code", "status"):
+                    candidate = str(error.get(key, ""))
+                    if re.fullmatch(r"[0-9]{3,8}", candidate):
+                        if code is None or len(candidate) > len(code):
+                            code = candidate
+            hint = " (SSI code: %s)" % code if code else " (không có mã lỗi chi tiết)"
+            if code == "400213":
+                hint += "; kiểm tra ngày và giờ truy vấn"
+            raise SSIBadRequest("SSI Market Data trả lỗi HTTP 400 (%s)%s." % (endpoint, hint))
         if resp.status_code != 200:
             raise SSIResponseError("SSI Market Data trả lỗi HTTP %d (%s)." % (resp.status_code, endpoint))
         try:
@@ -145,28 +160,14 @@ class SSIReadOnlyClient:
             raise ValueError("Giới hạn phân trang không hợp lệ.")
         rows = []
         last_page_fingerprint = None
-        date_from, date_to = _format_date(start), _format_date(end)
+        date_from = _format_date(start) + " 00:00:00"
+        date_to = _format_date(end) + " 23:59:59"
         for page in range(1, max_pages + 1):
             params = {
                 "symbol": sym, "from": date_from, "to": date_to,
                 "timeFrame": "1d", "pageIndex": page, "pageSize": page_size,
             }
-            try:
-                body = self._get("/api/v3/data/ohlc", params)
-            except SSIBadRequest:
-                if page != 1:
-                    raise
-                # Quick Start uses ISO dates; API reference specifies slash dates.
-                # Retry exactly once, only on HTTP 400, not auth/rate-limit errors.
-                date_from, date_to = start.strftime("%Y/%m/%d"), end.strftime("%Y/%m/%d")
-                params = dict(params, **{"from": date_from, "to": date_to})
-                try:
-                    body = self._get("/api/v3/data/ohlc", params)
-                except SSIBadRequest as exc:
-                    raise SSIBadRequest(
-                        f"{sym}: SSI OHLC HTTP 400 với cả hai định dạng ngày; "
-                        f"timeFrame=1d, pageSize={page_size}. Kiểm tra quyền OHLCV hoặc tham số với SSI."
-                    ) from exc
+            body = self._get("/api/v3/data/ohlc", params)
             part = body.get("data") if isinstance(body, dict) else None
             if not isinstance(part, list):
                 raise SSIResponseError("SSI OHLC không chứa danh sách data.")
