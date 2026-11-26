@@ -299,13 +299,13 @@ header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
     }
     # Sidebar button navigation; stable st-key selectors instead of fragile radio DOM selectors.
     nav_button_css = """
-[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] {margin-bottom:5px;}
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] {margin-bottom:1px;}
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button {
     display:grid !important;grid-template-columns:21px minmax(0,1fr) !important;
     align-items:center !important;justify-content:stretch !important;justify-items:start !important;
-    gap:12px !important;width:100% !important;min-height:47px !important;
+    gap:12px !important;width:100% !important;min-height:44px !important;
     text-align:left !important;border-radius:13px !important;
-    border:1px solid transparent !important;padding:11px 13px !important;
+    border:1px solid transparent !important;padding:9px 13px !important;
     background:transparent !important;color:__NAVTEXT__ !important;
     box-shadow:none !important;transition:background .15s,border-color .15s !important;
 }
@@ -322,8 +322,18 @@ header[data-testid="stHeader"] [data-testid="stToolbarActions"] {
     text-align:left !important;white-space:normal !important;line-height:1.42 !important;
     width:100% !important;margin:0 !important;
 }
-[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button:hover {
-    background:rgba(72,151,235,.19) !important;
+/* Only the current page is filled. Hover/focus on inactive items never creates a second selected-looking tile. */
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="secondary"]:hover,
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="secondary"]:active,
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="secondary"]:focus {
+    background:transparent !important;box-shadow:none !important;
+    border-color:transparent !important;
+}
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="secondary"]:hover p {
+    text-decoration:underline;text-underline-offset:4px;
+}
+[data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button:focus-visible {
+    outline:2px solid __ACCENT__ !important;outline-offset:2px !important;
 }
 [data-testid="stSidebar"] div[class*="st-key-ep_nav_"] button[kind="primary"] {
     background:linear-gradient(100deg,#226BD0,#319CF0) !important;border:1px solid #58B5FC !important;
