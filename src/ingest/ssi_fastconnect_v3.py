@@ -38,6 +38,21 @@ class SSIBadRequest(SSIResponseError):
     """HTTP 400; request parameters may need correction."""
 
 
+class SSISymbolNotFound(SSIResponseError):
+    """SSI explicitly returned Symbol Not Found (404204)."""
+
+
+def _numeric_error_code(body):
+    if not isinstance(body, dict):
+        return None
+    codes=[]
+    for key in ("ErrCode","errCode","errorCode","code","status"):
+        candidate=str(body.get(key,""))
+        if re.fullmatch(r"[0-9]{3,8}",candidate) and candidate[0] in "45":
+            codes.append(candidate)
+    return max(codes,key=len,default=None)
+
+
 def _validate_symbol(symbol: str) -> str:
     val = str(symbol).strip().upper()
     if not _SYMBOL.fullmatch(val):
@@ -114,6 +129,13 @@ class SSIReadOnlyClient:
             raise SSIAuthError("SSI chưa cấp quyền đọc Market Data (403).")
         if resp.status_code == 429:
             raise SSIResponseError("SSI giới hạn tần suất (429). Không tự động gửi dồn request.")
+        if resp.status_code == 404:
+            try:
+                code=_numeric_error_code(resp.json())
+            except ValueError:
+                code=None
+            if code=="404204":
+                raise SSISymbolNotFound("SSI code 404204: không tìm thấy mã chứng khoán.")
         if resp.status_code == 400:
             # Only print numeric error codes, never raw response/authentication payload.
             try:
@@ -137,8 +159,16 @@ class SSIReadOnlyClient:
             body = resp.json()
         except ValueError as exc:
             raise SSIResponseError("SSI trả về dữ liệu không phải JSON (%s)." % endpoint) from exc
-        if isinstance(body, dict) and body.get("code") not in (None, 0, "0", "SUCCESS", 200):
-            raise SSIResponseError("SSI thông báo lỗi ở %s; kiểm tra quyền và tham số." % endpoint)
+        if isinstance(body,dict):
+            code=_numeric_error_code(body)
+            if code=="404204":
+                raise SSISymbolNotFound("SSI code 404204: không tìm thấy mã chứng khoán.")
+            if code and code.startswith(("401","403")):
+                raise SSIAuthError("SSI từ chối xác thực/quyền (SSI code %s)." % code)
+            if code and code.startswith("429"):
+                raise SSIResponseError("SSI giới hạn lượt gọi (SSI code %s); dừng để tránh gửi dồn." % code)
+            if code or body.get("code") not in (None,0,"0","SUCCESS",200,"200"):
+                raise SSIResponseError("SSI thông báo lỗi ở %s (HTTP 200, SSI code %s); kiểm tra quyền và tham số." % (endpoint,code or "không xác định"))
         return body
 
     def securities_by_board(self, board: str) -> list[dict]:
@@ -167,7 +197,10 @@ class SSIReadOnlyClient:
                 "symbol": sym, "from": date_from, "to": date_to,
                 "timeFrame": "1d", "pageIndex": page, "pageSize": page_size,
             }
-            body = self._get("/api/v3/data/ohlc", params)
+            try:
+                body = self._get("/api/v3/data/ohlc", params)
+            except (SSIResponseError,SSIAuthError) as exc:
+                raise type(exc)(f"{sym}, page {page}: {exc}") from exc
             part = body.get("data") if isinstance(body, dict) else None
             if not isinstance(part, list):
                 raise SSIResponseError("SSI OHLC không chứa danh sách data.")
