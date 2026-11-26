@@ -72,3 +72,31 @@ def test_history_short_sample_no_adv():
                         source=["ssi_fastconnect_v3"],data_kind=["historical"]))
     s=asof_history_stats(h).iloc[0]
     assert pd.isna(s.adv) and pd.isna(s.sigma)
+
+
+def test_market_mode_does_not_require_all_symbols():
+    b,qa=build_snapshots(events()[:-1],SYMS+["VNM"],
+                          quote_price_factor=1000,trade_price_factor=1,
+                          volume_factor=1,require_all=False)
+    assert set(b.symbol)=={"HPG"} and qa["aligned_snapshots"]==1
+
+
+def test_portfolio_uses_latest_shared_time_not_latest_per_symbol():
+    from src.data.repository import portfolio_snapshot
+    b,_=build(events())
+    newer=b.iloc[[0]].copy()
+    newer["ts_vn"]=newer.ts_vn+pd.Timedelta(seconds=10)
+    mixed=pd.concat([b,newer],ignore_index=True)
+    selected=portfolio_snapshot(mixed,SYMS)
+    assert set(selected.symbol)==set(SYMS)
+    assert selected.ts_vn.nunique()==1
+    assert selected.ts_vn.iloc[0]==b.ts_vn.iloc[0]
+
+
+def test_catalog_three_board_selection():
+    from scripts.ssi_market_history import select_catalog
+    catalog=pd.DataFrame({"symbol":["HPG","ACB","VGI","CW123"],
+         "board":["HOSE","HOSE","UPCOM","HOSE"],
+         "source":["ssi_fastconnect_v3"]*4,"stockType":["example-stock"]*3+["example-other"]})
+    assert select_catalog(catalog,["HOSE","UPCOM"])==["ACB","CW123","HPG","VGI"]
+    assert select_catalog(catalog,["HOSE"],["example-stock"])==["ACB","HPG"]
