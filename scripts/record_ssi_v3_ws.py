@@ -72,10 +72,21 @@ async def capture(token, symbols, minutes):
     path = folder / (datetime.now(VN).strftime("%Y%m%d_%H%M%S_%f") + ".jsonl")
     counts = Counter()
     frames = Counter()
+    status_path=ROOT/"outputs/tables/ssi_recorder_status.json"
+    status_path.parent.mkdir(parents=True,exist_ok=True)
+    def save_status(state):
+        temp=status_path.with_suffix(".json.tmp")
+        temp.write_text(json.dumps({"state":state,"channel":"DATA","data_kind":"live",
+            "source":"ssi_fastconnect_v3_ws","records":sum(counts.values()),
+            "last_update_vn":datetime.now(VN).isoformat(),"symbols":symbols,
+            "frames":dict(frames)},ensure_ascii=False,indent=2),encoding="utf-8")
+        temp.replace(status_path)
+    save_status("connecting")
     subscribed = False
     try:
         async with connect(URL, additional_headers={"Authorization": "Bearer " + token},
                            open_timeout=15, ping_interval=20, max_size=2**20) as ws:
+            save_status("connected_unverified_auth")
             print("WebSocket transport connected; waiting for subscription/data.", flush=True)
             await ws.send(json.dumps({"method": "SUBSCRIBE", "channel": "DATA", "topics": topics}))
             await ws.send(json.dumps({"method": "LIST_SUBSCRIPTION"}))
@@ -111,6 +122,7 @@ async def capture(token, symbols, minutes):
                             state = str(frame.get("status", "")).lower()
                             subscribed = state in ("ok", "success", "200")
                             print("SUBSCRIBE:", "OK" if subscribed else "ERROR" if state in ("error", "failed") else "UNCONFIRMED", flush=True)
+                            if subscribed:save_status("subscribed_no_data")
                             if state in ("error", "failed"):
                                 print("Subscription refused; check DATA streaming scope/topic with SSI.", flush=True)
                                 return 1
@@ -124,6 +136,8 @@ async def capture(token, symbols, minutes):
                                 print("DATA quote/trade scope or subscriptions:", "; ".join(allowed) or "not listed", flush=True)
                             else:
                                 print("LIST_SUBSCRIPTION response received (shape not verified).", flush=True)
+                            frames["subscription_list"] += 1
+                            continue
                         if channel == "DATA":
                             frames["data"] += 1
                     rows = market_rows(frame, symbols)
@@ -136,8 +150,12 @@ async def capture(token, symbols, minutes):
                         counts[(row["symbol"], row["event"])] += 1
                         if counts[(row["symbol"], row["event"])] == 1:
                             print(f"Received {row['event']}: {row['symbol']}", flush=True)
+                            fields=("s","t","bids","asks") if row["event"]=="quote" else ("s","t","p","q","v")
+                            print("Market sample:",json.dumps({k:row["data"].get(k) for k in fields},ensure_ascii=False),flush=True)
+                            save_status("receiving_stockinfo")
                     out.flush()
     finally:
+        save_status("stopped" if sum(counts.values()) else "stopped_no_data")
         print("Subscription explicitly acknowledged:", "yes" if subscribed else "not verified")
         print("Frame counts:", dict(frames))
         for sym in symbols:
