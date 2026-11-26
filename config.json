@@ -8,6 +8,6 @@
   "tax_rate_default": null,
   "impact_coefficient": null,
   "participation_threshold_pct_default": 10,
-  "data_source": "SSI FastConnect V3 Market Data (đang chờ quyền): OHLCV lịch sử; dữ liệu quote WS cần ghi riêng.",
-  "note": "Chỉ dùng khóa Market Data read-only sau khi SSI cấp quyền. OHLCV không thay cho bid/ask. Không tạo snapshot giả từ giá đóng cửa."
+  "data_source": "SSI FastConnect V3 — OHLCV REST và quote/trade WebSocket đã ghi",
+  "note": "REST và đăng ký WebSocket đã xác nhận trên máy người dùng. Chưa có tick live được xác minh. Chỉ dùng snapshot sau kiểm tra schema, đơn vị, tuổi báo giá; không thay OHLCV cho sổ lệnh."
 }
