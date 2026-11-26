@@ -87,6 +87,35 @@ def frame_table(frame,max_rows=70):
                                     if pd.api.types.is_numeric_dtype(frame[c])))
 
 
+def paged_table(frame,key,page_size=20):
+    if frame.empty:
+        st.info('Không có dữ liệu phù hợp.')
+        return
+    total=len(frame)
+    pages=max(1,(total+page_size-1)//page_size)
+    # Reset a stale page index when a filter reduces the available results.
+    if int(st.session_state.get(key,1))>pages:st.session_state[key]=1
+    page=1
+    if pages>1:
+        a,b=st.columns([4,1],vertical_alignment='center')
+        with a:st.caption(f'{fmt.num(total)} dòng · {page_size} dòng/trang')
+        with b:page=int(st.number_input('Trang',min_value=1,max_value=pages,value=1,step=1,key=key))
+    part=frame.iloc[(page-1)*page_size:page*page_size]
+    html=frame_table(part,max_rows=page_size).replace('class="ep-table-wrap"','class="ep-table-wrap ep-paged"',1)
+    st.markdown(html,unsafe_allow_html=True)
+
+
+def history_stats_table(stats,key,verified_volume=False):
+    view=pd.DataFrame({
+        'Mã':stats['symbol'],
+        'ADV20 (CP/ngày)' if verified_volume else 'ADV20 (đơn vị API)':stats['adv'].map(fmt.num),
+        'Biến động ngày (%)':stats['sigma'].map(lambda v:fmt.pct(v)),
+        'Số phiên':stats['n_sessions'].map(fmt.num),
+        'Ngày dữ liệu':pd.to_datetime(stats['asof_date'],errors='coerce').dt.strftime('%d/%m/%Y').fillna('–')
+    })
+    paged_table(view,key)
+
+
 def load(root):
     overrides={}
     if str(st.query_params.get('advanced',''))=='1':
@@ -471,7 +500,8 @@ def compare(root,data,t):
 
 
 def liquidity(root,data,t):
-    if not source_labels(data):
+    if data['books'] is None or data['books'].empty:
+        st.info('Chưa có sổ lệnh. Có thể xem thanh khoản lịch sử bên dưới.')
         history,_=read_parquet(root,'data/processed/ssi_history.parquet')
         if history is not None:
             from src.analytics.ssi_history_stats import asof_history_stats
@@ -480,10 +510,16 @@ def liquidity(root,data,t):
             history=history[history.symbol.isin(allowed)]
             if history.empty:return st.info('Chưa có lịch sử cổ phiếu hợp lệ.')
             stats=asof_history_stats(history)
-            st.caption('ADV20 lịch sử SSI (đơn vị volume gốc; chưa xác minh quy đổi CP). Chưa có sổ lệnh để tính tỷ lệ tham gia.')
-            st.dataframe(stats[['symbol','adv','sigma','n_sessions','asof_date']],hide_index=True,use_container_width=True)
-            st.download_button('Tải thống kê lịch sử CSV',fmt.csv_bom(stats),'ExitPlan_historical_liquidity.csv','text/csv',icon=':material/download:')
+            st.subheader('Thanh khoản lịch sử')
+            names=sorted(stats.symbol.unique())
+            draft=st.session_state.get('ep_draft_holdings',{})
+            selected=st.multiselect('Tìm mã cổ phiếu',names,default=[s for s in draft if s in names][:12],key='ep_liq_hist_search',placeholder='Nhập mã cần xem',max_selections=12)
+            view=stats[stats.symbol.isin(selected)] if selected else stats
+            st.caption('ADV20 theo đơn vị API, chưa xác minh quy đổi. Chưa thể tính tỷ lệ tham gia khi thiếu sổ lệnh.')
+            history_stats_table(view,'ep_liq_hist_page')
+            st.download_button('Tải thống kê CSV',fmt.csv_bom(view),'ExitPlan_historical_liquidity.csv','text/csv',icon=':material/download:')
         return
+    if not source_labels(data):return
     quotes=st.session_state.get('ep_plan_quotes') or quote_map(data)
     if not quotes:st.error('Không có dữ liệu sổ lệnh hợp lệ.');return
     if not st.session_state.get('ep_plan_quotes') and len(quotes)>12:
@@ -550,42 +586,10 @@ def liquidity(root,data,t):
 def ssi_history(root,data,t):
     path=Path(root)/'data/processed/ssi_history.parquet'
     stats_path=Path(root)/'outputs/tables/ssi_liquidity_stats.parquet'
-    st.info('SSI FastConnect V3 chính thức. Chạy lệnh với API Key/Secret Market Data đã được cấp. '
-            'OHLCV theo ngày dùng cho biểu đồ và ADV; không có ba mức bid để lập phương án.')
-    st.code('py scripts/ssi_v3_sync.py --check\n'
-            'py scripts/ssi_v3_sync.py --catalog\n'
-            'py scripts/ssi_v3_sync.py --history --symbols HPG VPB ACB --from-date 01/09/2026 --to-date 20/11/2026',
-            language='powershell')
-    st.caption('Hướng dẫn kết nối: docs/SSI_FASTCONNECT_SETUP.md. Không nhập API Key hoặc Secret vào dashboard.')
-    # The 3-board securities catalog is real only after --catalog succeeds.
-    # Show it independently of the historical prices, with an explicit source label.
-    catalog_path=Path(root)/'data/processed/ssi_securities.parquet'
-    if catalog_path.exists():
-        with st.expander('Danh sách mã SSI FastConnect V3 đã lưu (HOSE · HNX · UPCOM)'):
-            try:
-                catalog=pd.read_parquet(catalog_path)
-                if not {'symbol','board','source'}.issubset(catalog.columns):
-                    raise ValueError('Thiếu symbol, board hoặc source')
-                if set(catalog['source'])!={'ssi_fastconnect_v3'}:
-                    raise ValueError('Không đúng nguồn SSI FastConnect V3')
-                catalog=equity_catalog(catalog)
-                query=st.text_input('Tìm theo mã / tên cổ phiếu',key='ep_ssi_search').strip()
-                if query:
-                    matched=catalog['symbol'].astype(str).str.contains(query,case=False,regex=False)
-                    if 'name' in catalog.columns:
-                        matched=matched|catalog['name'].fillna('').astype(str).str.contains(query,case=False,regex=False)
-                    shown=catalog.loc[matched]
-                else:
-                    shown=catalog
-                boards=st.multiselect('Sàn',sorted(catalog.board.dropna().unique()),default=sorted(catalog.board.dropna().unique()),key='ep_catalog_boards')
-                shown=shown[shown.board.isin(boards)]
-                st.caption(f'Tìm thấy {len(shown)} / {len(catalog)} mã đã lưu · phạm vi ứng viên cổ phiếu phổ thông, không xác nhận mọi mã đang giao dịch.')
-                st.download_button('Tải danh sách đã lọc',fmt.csv_bom(shown),'ExitPlan_catalog.csv','text/csv')
-                st.markdown(frame_table(shown,max_rows=60),unsafe_allow_html=True)
-            except (OSError,ValueError,KeyError) as exc:
-                st.warning(f'File danh sách mã SSI không đọc được: {exc}')
+    # Investor-facing view: technical commands and the full security catalog
+    # remain in Data & connection, not on the price history page.
     if not path.exists():
-        st.warning('Chưa có ssi_history.parquet. Khi SSI cấp quyền, dùng script V3 để ghi dữ liệu thực tế; không tự tạo dữ liệu demo.')
+        st.info('Chưa có lịch sử giá đã lưu.')
         return
     try:
         h=pd.read_parquet(path)
@@ -594,12 +598,8 @@ def ssi_history(root,data,t):
         if h.empty:return st.warning('File lịch sử SSI trống.')
         if set(h['data_kind'])!={'historical'}:raise ValueError('Nhãn data_kind không phải historical')
         origins=set(h['source'].dropna().astype(str))
-        if origins=={'ssi_fastconnect_v3'}:
-            st.success('Đã nạp file dữ liệu lịch sử từ SSI FastConnect V3 được ghi bởi script riêng.')
-        else:
-            st.warning('File lịch sử hiện tại không xác nhận là từ SSI FastConnect V3. '
-                       'Nguồn ghi trong file: '+', '.join(sorted(origins or {'không xác định'})))
-        st.caption('Nguồn file lưu cục bộ không chứng minh kết nối API đang hoạt động ở thời điểm xem dashboard.')
+        if origins!={'ssi_fastconnect_v3'}:
+            raise ValueError('Nguồn lịch sử chưa được xác minh là SSI FastConnect V3.')
         h['tradingDate']=pd.to_datetime(h['tradingDate'],errors='coerce')
         allowed=data.get('allowed_equities')
         if allowed is None:
@@ -607,8 +607,14 @@ def ssi_history(root,data,t):
         h=h[h.symbol.isin(allowed)]
         if h.empty:return st.info('Chưa có lịch sử cho mã cổ phiếu trong phạm vi đã lọc.')
         names=sorted(h['symbol'].dropna().unique().tolist())
-        selected=st.multiselect('Mã cổ phiếu',names,default=names[:5],max_selections=12)
-        st.caption(f'Kho lịch sử có {len(names)} mã; biểu đồ hiển thị tối đa 12 mã để dễ đọc.')
+        raw,_=read_parquet(root,'data/processed/ssi_securities.parquet')
+        catalog=stock_catalog(raw,equity_only=True)
+        labels={r.symbol:f'{r.symbol} · {r.name}' for r in catalog.itertuples()}
+        draft=st.session_state.get('ep_draft_holdings',{})
+        defaults=[s for s in draft if s in names][:5] or names[:1]
+        selected=st.multiselect('Tìm mã cổ phiếu',names,default=defaults,max_selections=12,
+            format_func=lambda s:labels.get(s,s),placeholder='Nhập mã hoặc tên doanh nghiệp',key='ep_price_search')
+        st.caption('Nguồn SSI · dữ liệu cuối ngày đã lưu')
         view=h[h['symbol'].isin(selected)].copy().sort_values(['symbol','tradingDate'])
         if view.empty:return st.info('Chọn ít nhất một mã để xem dữ liệu SSI.')
         from plotly import graph_objects as go
@@ -627,12 +633,19 @@ def ssi_history(root,data,t):
         if stats_path.exists():
             stats=pd.read_parquet(stats_path)
             st.subheader('ADV 20 phiên và độ biến động')
-            st.caption('ADV/sigma chỉ có khi >=20 phiên hợp lệ mỗi mã. Đơn vị volume: số cổ phiếu theo nguồn API.')
-            st.markdown(frame_table(stats[stats['symbol'].isin(selected)],max_rows=40),unsafe_allow_html=True)
-        st.subheader('Dữ liệu OHLCV đã lưu')
-        st.markdown(frame_table(view,max_rows=60),unsafe_allow_html=True)
-        st.download_button('⬇️ Tải CSV lịch sử SSI',fmt.csv_bom(view),'ExitPlan_SSI_history.csv','text/csv')
-        st.warning('Không tự tạo bidPrice1–3/bidVol1–3 từ giá đóng cửa. Trang Lập phương án chỉ dùng snapshot sổ lệnh độc lập.')
+            if {'symbol','adv','sigma','n_sessions','asof_date','source','data_kind'}.issubset(stats.columns) and set(stats.source)=={'ssi_fastconnect_v3'} and set(stats.data_kind)=={'historical'}:
+                history_stats_table(stats[stats.symbol.isin(selected)],'ep_price_stats_page')
+                st.caption('ADV20 theo đơn vị API chưa xác minh. Biến động ngày cần 20 lợi suất.')
+        st.subheader('Lịch sử giao dịch')
+        columns={'symbol':'Mã','tradingDate':'Ngày','open':'Mở cửa','high':'Cao nhất','low':'Thấp nhất','close':'Đóng cửa','volume':'Khối lượng'}
+        shown=view.sort_values(['tradingDate','symbol'],ascending=[False,True])[[k for k in columns if k in view]].copy()
+        shown['tradingDate']=shown.tradingDate.dt.strftime('%d/%m/%Y')
+        for k in ('open','high','low','close'):
+            if k in shown:shown[k]=shown[k].map(lambda v:fmt.num(v,2))
+        shown['volume']=shown.volume.map(fmt.num)
+        paged_table(shown.rename(columns=columns),'ep_price_history_page')
+        st.download_button('Tải lịch sử CSV',fmt.csv_bom(view),'ExitPlan_SSI_history.csv','text/csv',icon=':material/download:')
+        explain('Nguồn và đơn vị','Giá và khối lượng theo đơn vị gốc SSI; dữ liệu lịch sử không thay thế sổ lệnh để lập phương án.')
     except Exception as exc:st.error(f'Lỗi đọc dữ liệu SSI: {type(exc).__name__}: {exc}')
 
 
@@ -649,6 +662,23 @@ def data_page(root,data,t):
             {'label':'Khoảng thời gian','value':fmt.num(duration.total_seconds()/3600,1)+' giờ','note':'Dữ liệu đã ghi'}
         ]),unsafe_allow_html=True)
 
+    with st.expander('Danh mục cổ phiếu',expanded=False):
+        catalog_raw,_=read_parquet(root,'data/processed/ssi_securities.parquet')
+        if catalog_raw is None:st.info('Chưa có danh mục SSI.')
+        else:
+            catalog=equity_catalog(catalog_raw)
+            q=st.text_input('Tìm mã hoặc tên',key='ep_catalog_query')
+            boards=st.multiselect('Sàn',sorted(catalog.board.unique()),default=sorted(catalog.board.unique()),key='ep_catalog_boards')
+            simple=stock_catalog(catalog,equity_only=False)
+            simple=simple[simple.board.isin(boards)]
+            matches=search_stocks(simple,q,limit=len(simple))
+            shown=catalog[catalog.symbol.isin(matches.symbol)].copy().sort_values('symbol')
+            cols={'symbol':'Mã','board':'Sàn','name':'Tên doanh nghiệp','icbName':'Ngành','lotSize':'Lô giao dịch'}
+            paged_table(shown[[k for k in cols if k in shown]].rename(columns=cols),'ep_catalog_page')
+            st.download_button('Tải danh mục CSV',fmt.csv_bom(shown),'ExitPlan_catalog.csv','text/csv')
+    with st.expander('Hướng dẫn kỹ thuật',expanded=False):
+        st.code('py scripts/ssi_v3_sync.py --check\\npy scripts/ssi_v3_sync.py --catalog',language='powershell')
+        st.caption('Xem README và docs/SSI_FASTCONNECT_SETUP.md. Không nhập khóa API vào dashboard.')
     st.subheader('Chất lượng dữ liệu')
     if data.get('use_ssi'):
         report=Path(root)/'outputs/tables/ssi_ws_quality.json'
@@ -709,7 +739,7 @@ def data_page(root,data,t):
             st.warning('Dữ liệu GIẢ LẬP (synthetic) — không phải dữ liệu thị trường SSI thật.')
         st.caption('Nguồn dữ liệu: '+source)
         with st.expander('Chi tiết kỹ thuật · Dữ liệu gốc',expanded=False):
-            st.dataframe(quality,hide_index=True,use_container_width=True)
+            paged_table(quality,'ep_quality_raw_page')
 
     st.subheader('Trạng thái kết nối dữ liệu')
     ssi_status=Path(root)/'outputs/tables/ssi_recorder_status.json'
