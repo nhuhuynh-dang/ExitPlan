@@ -211,3 +211,21 @@ py -m streamlit run src/app/app.py
 ```
 
 Mức phí/thuế là giả định ví dụ, cần xác minh. Kết quả SSI lưu riêng validation_replay_ssi.csv. Phương án C vẫn tối ưu proxy tập trung, không phải tối ưu HHI trực tiếp. Chưa xác minh schema/đơn vị thật, chưa kiểm thử end-to-end với dữ liệu live. Tài liệu: https://developers.ssi.com.vn/en/docs/api-reference/subscribeUnsubscribeMarketData
+
+## Mở rộng toàn thị trường (HOSE, HNX, UPCOM)
+
+```powershell
+py scripts/ssi_v3_sync.py --catalog
+py scripts/ssi_market_history.py --from-date 01/10/2026 --to-date 25/11/2026 --limit 50
+py scripts/record_ssi_v3_ws.py --all-market --minutes 5 --max-mb 64
+```
+
+Tải lịch sử theo từng mã có checkpoint riêng cho khoảng ngày; bỏ `--limit 50` để tiếp tục toàn bộ danh sách. Không gửi dồn yêu cầu khi API giới hạn hoặc mất quyền. Mã lỗi/no-data được đánh dấu riêng, dùng `--retry-failed` khi cần thử lại. Tùy chọn `--boards HOSE HNX UPCOM` hoặc `--stock-types` lọc theo mã loại chứng khoán đã xác minh từ catalog. Danh sách SSI bao gồm nhiều loại chứng khoán, không đồng nghĩa tất cả là cổ phiếu phổ thông.
+
+WebSocket đăng ký 6 topic quote/trade theo sàn, ghi file JSONL giới hạn dung lượng. Tài liệu cho phép topic theo sàn; phạm vi thực tế phụ thuộc quyền SSI và bản tin nhận được. Import `--all-market` sau khi xác minh hệ số giá và volume từ mẫu live; ví dụ:
+
+```powershell
+py scripts/import_ssi_ws.py --all-market --quote-price-factor 1000 --trade-price-factor 1 --volume-factor 1 --history-volume-factor 1
+```
+
+Các hệ số trên chỉ minh họa. Import toàn thị trường mặc định dùng file ghi gần nhất, tối đa 128 MiB đầu vào, lấy nhóm đánh giá cách tối thiểu 30 giây và cho phép từng nhóm thiếu mã. Có thể chỉ định `--input` và `--interval-seconds`. Dùng khung giờ chung bảo thủ 09:15–11:30, 13:00–14:30, không mô phỏng phiên đấu giá. Dashboard chọn tối đa 12 cổ phiếu phổ thông lô 100 có cùng snapshot hợp lệ, không cần toàn bộ thị trường đồng thời có báo giá. Chưa kiểm thử whole-board live hoặc xác minh mã stockType; không sử dụng cho công cụ khác loại/khác lô. File SSI cũ được sao lưu trước khi thay thế. Dữ liệu nguồn không bị xóa. 
