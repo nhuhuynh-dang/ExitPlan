@@ -106,6 +106,9 @@ def main(argv=None):
                         "board": str(item.get("board") or board).upper(),
                         "name": item.get("symbolNameVi") or item.get("symboNameVi") or "",
                         "lotSize": item.get("lotSize"),
+                        "stockType": item.get("stockType"),
+                        "firstTradingDate": item.get("firstTradingDate"),
+                        "lastTradingDate": item.get("lastTradingDate"),
                         "source": "ssi_fastconnect_v3",
                     })
                 print(f"{board}: {len(items)} mã")
@@ -130,13 +133,21 @@ def main(argv=None):
         history = normalize_ohlc(records)
         if set(history["symbol"]) != set(symbols):
             raise SSIResponseError("Bản ghi hợp lệ không đủ các mã đã yêu cầu. Không ghi file.")
-        stats = liquidity_from_history(history)
+        # Preserve earlier symbols/dates when downloading a new subset.
+        previous_path = ROOT / "data/processed/ssi_history.parquet"
+        if previous_path.exists():
+            previous = pd.read_parquet(previous_path)
+            if set(previous["source"]) != {"ssi_fastconnect_v3"} or set(previous["data_kind"]) != {"historical"}:
+                raise SSIResponseError("File lịch sử cũ không cùng nguồn SSI V3; không ghi đè.")
+            history = pd.concat([previous, history], ignore_index=True).drop_duplicates(["symbol", "tradingDate"], keep="last").sort_values(["symbol", "tradingDate"])
+        from src.analytics.ssi_history_stats import asof_history_stats
+        stats = asof_history_stats(history)
         stats["source"] = "ssi_fastconnect_v3"
         # Historical bars ONLY: never overwrite book_snapshots.parquet.
         _save_parquet(history, ROOT / "data/processed/ssi_history.parquet")
         _save_parquet(stats, ROOT / "outputs/tables/ssi_liquidity_stats.parquet")
         _save_csv(history, ROOT / "data/raw/ssi_fastconnect_v3_ohlcv.csv")
-        print(f"OK: {len(history)} nến lịch sử SSI chính thức, {len(symbols)} mã.")
+        print(f"OK: kho lịch sử có {len(history)} nến SSI chính thức, {history.symbol.nunique()} mã.")
         print("KHÔNG có bidPrice/bidVol; chưa được dùng làm bằng chứng WebSocket/sổ lệnh.")
         return 0
     except (SSIAuthError, SSIResponseError, ValueError, OSError, ImportError) as exc:
