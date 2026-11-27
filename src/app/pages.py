@@ -316,16 +316,79 @@ def _clear_plan():
         st.session_state.pop(key,None)
 
 
+def _reset_stock_preview_qty():
+    # Selection is a preview only. Preserve previously computed plans.
+    st.session_state['ep_stock_preview_qty']=100
+
+
 def _add_selected_stock(allowed):
     symbol=st.session_state.get('ep_stock_autocomplete')
     draft=dict(st.session_state.get('ep_draft_holdings',{}))
-    if symbol in allowed and symbol not in draft and len(draft)<12:
-        draft[symbol]=100
-        st.session_state['ep_draft_holdings']=draft
-        st.session_state.pop('ep_qty_'+symbol,None)
-        _clear_plan()
-    # Callback runs before widgets render; reset the picker for the next search.
+    qty=st.session_state.get('ep_stock_preview_qty',100)
+    if (symbol not in allowed or symbol in draft or len(draft)>=12
+            or not isinstance(qty,int) or isinstance(qty,bool) or qty<=0):
+        return
+    draft[symbol]=qty
+    st.session_state['ep_draft_holdings']=draft
+    st.session_state.pop('ep_qty_'+symbol,None)
+    _clear_plan()
+    # Explicit add callback runs before widgets render.
     st.session_state['ep_stock_autocomplete']=None
+    st.session_state['ep_stock_preview_qty']=100
+    st.session_state['ep_stock_added_notice']=f'Đã thêm {fmt.shares(qty)} {symbol} vào danh mục.'
+
+
+def _stock_preview(books, draft, symbol, info, history, use_ssi):
+    """Read the same latest common snapshot used by the planner, never mix dates."""
+    batch=portfolio_snapshot(books,set(draft)|{symbol})
+    row=batch.loc[batch.symbol.eq(symbol)].iloc[0]
+    q=quote_from_row(row)
+    stamp=pd.Timestamp(row['ts_vn'])
+    adv=sigma=None
+    quality='Chưa có lịch sử SSI hợp lệ'
+    if use_ssi and q.kind=='live' and row.get('source')=='ssi_fastconnect_v3_ws' and history is not None:
+        try:
+            from src.analytics.ssi_history_stats import asof_history_stats
+            selected=history[history.symbol.eq(symbol)]
+            if not selected.empty:
+                stats=asof_history_stats(selected,stamp.date(),strict_calendar=True)
+                if not stats.empty:
+                    stat=stats.iloc[0]
+                    quality=HISTORY_STATUS.get(stat['quality_status'],'Chưa xác định')
+                    sigma=stat['sigma']
+                    factor=float(row.get('history_volume_factor',float('nan')))
+                    if 0<factor<float('inf'):
+                        adv=stat['adv']*factor
+        except (ValueError,KeyError,TypeError,OverflowError):
+            quality='Không đọc được lịch sử hợp lệ'
+    if q.kind=='synthetic':
+        quality='Dữ liệu giả lập · không ghép lịch sử SSI'
+    lot=pd.to_numeric(info.get('lotSize'),errors='coerce')
+    return dict(symbol=symbol,name=info.get('name') or 'Chưa có tên doanh nghiệp',
+        board=info.get('board') or 'Chưa rõ',kind=q.kind,stamp=stamp,
+        last=q.last,bid=q.bids[0][0],depth=sum(v for _,v in q.bids),
+        adv=adv,sigma=sigma,lot=fmt.shares(lot) if pd.notna(lot) else 'Chưa xác nhận · mô hình lô 100',
+        quality=quality)
+
+
+def _stock_preview_html(p):
+    status='Sổ lệnh giả lập' if p['kind']=='synthetic' else 'Có sổ lệnh đã lưu'
+    tone='warn' if p['kind']=='synthetic' else 'ok'
+    items=[('Giá khớp gần nhất',fmt.vnd(p['last'])),('Giá mua tốt nhất (Bid 1)',fmt.vnd(p['bid'])),
+           ('Độ sâu 3 mức mua',fmt.shares(p['depth'])),('ADV20',fmt.shares(p['adv']) if pd.notna(p['adv']) else 'Chưa đủ dữ liệu'),
+           ('Sigma20',fmt.pct(p['sigma'],4) if pd.notna(p['sigma']) else 'Chưa đủ dữ liệu'),
+           ('Lô giao dịch',p['lot'])]
+    metrics=''.join('<div class="ep-stock-preview-metric"><span>'+escape(label)+'</span><strong>'+escape(value)+'</strong></div>'
+                    for label,value in items)
+    return ('<div class="ep-stock-preview"><div class="ep-stock-preview-head">'
+            '<span class="ep-stock-preview-symbol">'+escape(p['symbol'])+'</span>'
+            '<div class="ep-stock-preview-company"><strong>'+escape(p['name'])+'</strong>'
+            '<span>'+escape(p['board'])+' · Phạm vi cổ phiếu đã lọc</span></div>'
+            '<span class="ep-holding-status '+tone+'">'+status+'</span></div>'
+            '<div class="ep-stock-preview-grid">'+metrics+'</div>'
+            '<div class="ep-stock-preview-foot"><span>OHLCV: <strong>'+escape(p['quality'])+'</strong></span>'
+            '<span>Snapshot chung: '+escape(p['stamp'].strftime('%d/%m/%Y %H:%M:%S'))+' (UTC+7) · Dữ liệu đã ghi</span>'
+            '</div></div>')
 
 
 def _change_quantity(symbol):
@@ -393,13 +456,38 @@ def planner(root,data,t):
             board=st.selectbox('Sàn giao dịch',['Tất cả']+sorted(catalog.board.unique()),key='ep_stock_board')
         matches=search_stocks(catalog[catalog.symbol.isin(compatible)],board=board,exclude=draft,limit=len(catalog))
         names={r.symbol:f"{r.symbol} · {r.name or 'Chưa có tên'} · {r.board}" for r in matches.itertuples()}
+        if st.session_state.get('ep_stock_autocomplete') not in names:
+            st.session_state['ep_stock_autocomplete']=None
+            st.session_state['ep_stock_preview_qty']=100
         with search_col:
-            st.selectbox('Mã hoặc tên doanh nghiệp',list(names),index=None,
+            selected=st.selectbox('Mã hoặc tên doanh nghiệp',list(names),index=None,
                 format_func=names.get,placeholder='Nhập mã hoặc tên doanh nghiệp',
-                key='ep_stock_autocomplete',on_change=_add_selected_stock,
-                args=(tuple(names),),disabled=not names or len(draft)>=12)
+                key='ep_stock_autocomplete',on_change=_reset_stock_preview_qty,
+                disabled=not names or len(draft)>=12)
         st.caption(f'{len(names)} mã có thể thêm trên sàn đã chọn · '+
                    ('có ít nhất một snapshot chung với toàn bộ danh mục.' if draft else 'có sổ lệnh hợp lệ đã ghi.'))
+        added=st.session_state.pop('ep_stock_added_notice',None)
+        if added:planner_notice(added,'success')
+        preview=None
+        if selected in names and len(draft)<12:
+            try:
+                info=matches.loc[matches.symbol.eq(selected)].iloc[0].to_dict()
+                preview=_stock_preview(books,draft,selected,info,history,data.get('use_ssi',False))
+                st.markdown(_stock_preview_html(preview),unsafe_allow_html=True)
+            except (ValueError,RuntimeError,KeyError,TypeError,IndexError,OverflowError):
+                planner_notice('Chưa đọc được snapshot hợp lệ của mã này.','warning')
+        with st.container(key='ep_stock_preview_actions'):
+            qty_col,add_col=st.columns([1,1],vertical_alignment='bottom')
+            with qty_col:
+                qty=st.number_input('Số lượng cổ phiếu sở hữu',min_value=1,value=100,step=100,
+                    format='%d',key='ep_stock_preview_qty',disabled=preview is None,
+                    help='Nhập số nguyên dương bất kỳ. Mô hình chỉ bán theo lô 100 CP.')
+            with add_col:
+                st.button('Thêm vào danh mục',key='ep_add_stock',icon=':material/add:',
+                    type='primary',use_container_width=True,disabled=preview is None or qty<=0,
+                    on_click=_add_selected_stock,args=(tuple(names),))
+        if preview is not None and qty<100:
+            st.caption('Dưới lô 100 CP: vẫn thêm được vào danh mục, nhưng không thể bán theo mô hình.')
         if len(draft)>=12:
             planner_notice('Đã đủ 12 mã. Xóa một mã để thêm mã khác.','info')
         elif not names:
