@@ -90,7 +90,7 @@ def test_autocomplete_adds_selected_ticker_and_resets(monkeypatch):
            "ep_plans":{"old":True}}
     monkeypatch.setattr(pages,"st",SimpleNamespace(session_state=state))
     pages._add_selected_stock(("ACB","FPT"))
-    assert state["ep_draft_holdings"]=={"HPG":135,"ACB":0}
+    assert state["ep_draft_holdings"]=={"HPG":135,"ACB":100}
     assert state["ep_stock_autocomplete"] is None
     assert "ep_plans" not in state
     state["ep_stock_autocomplete"]="ACB"
