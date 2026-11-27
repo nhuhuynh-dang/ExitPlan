@@ -66,7 +66,8 @@ def market_rows(frame, symbols):
     return rows
 
 
-async def capture(token, symbols, minutes, boards=None, max_mb=512):
+async def capture(token, symbols, minutes, boards=None, max_mb=512, *,
+                  output_path=None, status_file=None, stop_event=None, on_status=None):
     filters = [b.upper() for b in boards] if boards else symbols
     interval = "*" if boards else "tick"
     topics = [f"{kind}.{sym}@{interval}" for sym in filters for kind in ("quote", "trade")]
@@ -76,34 +77,44 @@ async def capture(token, symbols, minutes, boards=None, max_mb=512):
     print(f'Subscribing {len(topics)} topics; catalog candidates={len(wanted)}',flush=True)
     folder = ROOT / "data/raw/ssi_ws"
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / (datetime.now(VN).strftime("%Y%m%d_%H%M%S_%f") + ".jsonl")
+    path = Path(output_path) if output_path is not None else folder / (datetime.now(VN).strftime("%Y%m%d_%H%M%S_%f") + ".jsonl")
+    path.parent.mkdir(parents=True,exist_ok=True)
     counts = Counter()
     frames = Counter()
-    status_path=ROOT/"outputs/tables/ssi_recorder_status.json"
+    status_path=Path(status_file) if status_file is not None else ROOT/"outputs/tables/ssi_recorder_status.json"
+    last_event=None
+    status_interval=5 if on_status is not None else 15
+    next_status=time.monotonic()+status_interval
     status_path.parent.mkdir(parents=True,exist_ok=True)
     def save_status(state):
         temp=status_path.with_suffix(".json.tmp")
-        temp.write_text(json.dumps({"state":state,"channel":"DATA","data_kind":"live",
+        payload={"state":state,"channel":"DATA","data_kind":"live",
             "source":"ssi_fastconnect_v3_ws","records":sum(counts.values()),
-            "last_update_vn":datetime.now(VN).isoformat(),"symbols":symbols,"boards":boards,"bytes_written":bytes_written,
-            "frames":dict(frames)},ensure_ascii=False,indent=2),encoding="utf-8")
+            "last_update_vn":datetime.now(VN).isoformat(),"last_event_vn":last_event,
+            "symbols":symbols,"boards":boards,"bytes_written":bytes_written,"frames":dict(frames)}
+        temp.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding="utf-8")
         temp.replace(status_path)
+        if on_status is not None:on_status(payload)
     save_status("connecting")
     subscribed = False
     try:
         async with connect(URL, additional_headers={"Authorization": "Bearer " + token},
-                           open_timeout=15, ping_interval=20, max_size=2**20) as ws:
+                           open_timeout=15, close_timeout=3, ping_interval=20, max_size=2**20) as ws:
             save_status("connected_unverified_auth")
             print("WebSocket transport connected; waiting for subscription/data.", flush=True)
             await ws.send(json.dumps({"method": "SUBSCRIBE", "channel": "DATA", "topics": topics}))
             await ws.send(json.dumps({"method": "LIST_SUBSCRIPTION"}))
             deadline = time.monotonic() + minutes * 60
             with path.open("x", encoding="utf-8") as out:
-                while time.monotonic() < deadline:
+                while time.monotonic() < deadline and not (stop_event is not None and stop_event.is_set()):
                     now = time.monotonic()
                     try:
                         raw = await asyncio.wait_for(ws.recv(), timeout=min(5, max(.1, deadline-now)))
                     except asyncio.TimeoutError:
+                        if on_status is not None and time.monotonic()>=next_status:
+                            out.flush()
+                            save_status('receiving_stockinfo' if counts else 'subscribed_no_data' if subscribed else 'connected_unverified_auth')
+                            next_status=time.monotonic()+status_interval
                         continue
                     try:
                         frame = json.loads(raw)
@@ -157,6 +168,10 @@ async def capture(token, symbols, minutes, boards=None, max_mb=512):
                         bytes_written+=len(line.encode("utf-8"))
                         out.write(line)
                         counts[(row["symbol"],row["event"])]+=1
+                        first_event=last_event is None
+                        last_event=row["received_at"]
+                        if on_status is not None and first_event:
+                            save_status("receiving_stockinfo")
                         if counts[(row["symbol"],row["event"])]==1 and (not boards or len(counts)<=6):
                             print(f"Received {row['event']}: {row['symbol']}",flush=True)
                             fields=("s","t","bids","asks") if row["event"]=="quote" else ("s","t","p","q","v")
@@ -165,7 +180,7 @@ async def capture(token, symbols, minutes, boards=None, max_mb=512):
                         out.flush()
                         save_status("receiving_stockinfo" if counts else "subscribed_no_data")
                         print(f"Events={sum(counts.values())}; symbols={len({s for s,k in counts})}; MB={bytes_written/1e6:.1f}",flush=True)
-                        next_status=time.monotonic()+15
+                        next_status=time.monotonic()+status_interval
                     if bytes_written>=max_mb*1024*1024:
                         print("Local file-size cap reached; stopping safely.",flush=True)
                         break
