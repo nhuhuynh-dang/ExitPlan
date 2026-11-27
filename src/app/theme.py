@@ -1203,7 +1203,7 @@ body [data-testid="stPopoverBody"] button[kind="primary"] * {
     extra_css+=controls_css+modern_css
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
-    return css + overview_css(mode) + stock_preview_css(mode) + rerun_visual_css() + compare_css(mode)
+    return css + overview_css(mode) + stock_preview_css(mode) + rerun_visual_css() + compare_css(mode) + sidebar_spacing_css()
 
 def compare_css(mode):
     """Scoped results page styling plus the explicit add button's states."""
@@ -1582,3 +1582,40 @@ def hero_svg(accent=BLUE_ACCENT, mode='Sáng'):
     for old,new in banking_vector_colors.items():
         template=template.replace(old,new)
     return template
+
+
+def sidebar_spacing_css():
+    """Remove the empty native header on desktop, keep mobile controls accessible."""
+    return """
+<style>
+/* The desktop collapse control is already hidden. Remove its reserved space. */
+@media (min-width:769px) {
+    .stApp [data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
+        display:none !important;
+        min-height:0 !important;
+        height:0 !important;
+        padding:0 !important;
+        margin:0 !important;
+    }
+    .stApp [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+        padding-top:12px !important;
+    }
+    .stApp [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+        padding-top:0 !important;
+        margin-top:0 !important;
+    }
+    .stApp [data-testid="stSidebar"] .ep-brand {
+        padding-top:4px !important;
+    }
+}
+/* Keep the native close button and header on narrow screens. */
+@media (max-width:768px) {
+    .stApp [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+        padding-top:4px !important;
+    }
+    .stApp [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+        padding-top:4px !important;
+    }
+}
+</style>
+"""
