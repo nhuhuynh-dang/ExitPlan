@@ -7,7 +7,7 @@ import time
 
 import pandas as pd
 from src.analytics.ssi_history_stats import HOLIDAYS_2026, expected_sessions
-from src.ingest.ssi_fastconnect_v3 import SSIReadOnlyClient, normalize_ohlc
+from src.ingest.ssi_fastconnect_v3 import SSIReadOnlyClient, normalize_ohlc, SSIAuthError, SSIBadRequest, SSISymbolNotFound
 
 VN=timezone(timedelta(hours=7))
 CLOSE_FILE="data/processed/ssi_dashboard_closes.parquet"
@@ -93,22 +93,28 @@ class CloseWorker:
         self._pending={}
         self._attempt={}
         self._thread=None
+        self._retry_at=0.
 
     def request(self,symbols,target,*,bulk=False):
         if target is None or market_phase()!="closed" or os.getenv("EXITPLAN_SSI_AUTO","1")=="0":return
         if not os.getenv("SSI_API_KEY") or not os.getenv("SSI_API_SECRET"):return
         with self._lock:
             now=time.monotonic()
+            if now<self._retry_at:return
             self._attempt={k:v for k,v in self._attempt.items() if k[1]==target}
-            for sym in list(dict.fromkeys(symbols)):
-                if not bulk and len(self._pending)>=48:break
+            self._pending={k:v for k,v in self._pending.items() if k[1]==target}
+            for sym in dict.fromkeys(symbols):
                 key=(sym,target)
-                if key not in self._attempt or now-self._attempt[key]>=300:
-                    if len(self._pending)<48:
-                        self._pending[key]=None
-                        if not bulk:
-                            # Selected symbols should be processed ahead of background coverage.
-                            self._pending[key]=self._pending.pop(key)
+                if key in self._attempt and now-self._attempt[key]<300:continue
+                if key in self._pending:
+                    if not bulk:self._pending[key]=True
+                    continue
+                if len(self._pending)>=48:
+                    if bulk:break
+                    discard=next((k for k,v in reversed(self._pending.items()) if not v),None)
+                    if discard is None:break
+                    self._pending.pop(discard)
+                self._pending[key]=not bulk
             if self._pending and (self._thread is None or not self._thread.is_alive()):
                 self._thread=threading.Thread(target=self._run,daemon=True,name="exitplan-ssi-close")
                 self._thread.start()
@@ -122,14 +128,16 @@ class CloseWorker:
                     if not self._pending:
                         self._thread=None
                         return
-                    (sym,target),_=self._pending.popitem()
+                    key=next((k for k,v in self._pending.items() if v),next(iter(self._pending)))
+                    sym,target=key
+                    self._pending.pop(key)
                     self._attempt[(sym,target)]=time.monotonic()
                 if completed_date()!=target:continue
                 try:
-                    from src.ingest.ssi_fastconnect_v3 import SSIAuthError, SSIBadRequest, SSISymbolNotFound
                     try:
                         records=client.ohlc_daily(sym,target,target,wait=.5)
-                    except SSIAuthError:
+                    except SSIAuthError as exc:
+                        if "401" not in str(exc):raise
                         client.authenticate()
                         records=client.ohlc_daily(sym,target,target,wait=.5)
                     if records:
@@ -144,6 +152,7 @@ class CloseWorker:
                     with self._lock:
                         for key in self._pending:self._attempt[key]=time.monotonic()
                         self._pending.clear()
+                        self._retry_at=time.monotonic()+300
                     return
                 time.sleep(1.)
         finally:
