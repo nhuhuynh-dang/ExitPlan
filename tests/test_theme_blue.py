@@ -278,7 +278,14 @@ def test_planner_ui_keeps_calculation_and_existing_state_contract():
     assert "key='ep_qty_'+sym" in planner
     assert "Mức độ ưu tiên tối ưu" in planner
     assert "calculate(holdings,quotes,target*1e6,lamb,fee/100,tax/100)" in planner
-    assert "frontier(holdings,quotes,target*1e6,fee/100,tax/100)" in planner
+    # Frontier is deliberately deferred: four main plans are computed first.
+    assert "frontier(" not in planner
+    compare=source[source.index('def compare('):source.index('def liquidity(')]
+    assert "if st.session_state.get('ep_frontier') is None:" in compare
+    assert "key='ep_compute_frontier'" in compare
+    assert "st.session_state['ep_frontier']=frontier(st.session_state['ep_holdings']," in compare
+    assert "st.session_state['ep_plan_quotes'],params['target'],params['fee'],params['tax'])" in compare
+    assert "Bốn phương án vẫn được giữ nguyên." in compare
     assert "ready=bool(draft) and batch is not None and not zeros and demo_ok" in planner
     assert "Điều kiện và phương pháp tính" in planner
     assert "SMART EXIT PLANNER" not in source
