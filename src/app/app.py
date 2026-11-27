@@ -7,6 +7,7 @@ if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
 import streamlit as st
 from src.app.theme import BLUE_ACCENT, theme_css, palette
 from src.app.pages import render_page, NAV
+from src.app.live import sidebar_live
 
 st.set_page_config(page_title='ExitPlan | Kế hoạch bán',page_icon=None,layout='wide',initial_sidebar_state='expanded')
 
@@ -83,7 +84,9 @@ with st.sidebar:
     accent=BLUE_ACCENT
     font='Be Vietnam Pro'
     size_pt=12
-    st.caption('Dữ liệu đã lưu · Không đặt lệnh')
+    st.divider()
+    sidebar_live(ROOT)
+    st.caption('Không đặt lệnh thật')
 
 st.markdown(theme_css(mode),unsafe_allow_html=True)
 config=dict(mode=mode,accent=accent,font=font,size_pt=size_pt,theme=palette(mode,accent))
