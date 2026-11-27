@@ -1,5 +1,7 @@
 # SSI tự động trong ExitPlan
 
+Tài liệu này chỉ dành cho bên vận hành. Người sử dụng dashboard không cần tài khoản SSI hoặc khóa API cá nhân. Bản chạy offline sử dụng dữ liệu thực đã lưu; muốn cung cấp dữ liệu cập nhật cho nhiều máy không có khóa thì cần một máy chủ quản lý tập trung và quyền phân phối dữ liệu phù hợp. Chưa triển khai máy chủ công khai.
+
 Khởi chạy bằng `py -m streamlit run src/app/app.py` trong cùng môi trường PowerShell đã cấu hình SSI_API_KEY và SSI_API_SECRET. Không nhập khóa vào UI, không commit khóa.
 
 - Không cần bấm kết nối, ngắt kết nối hoặc làm mới. Thanh bên kiểm tra trạng thái mỗi 5 giây và tự khởi động bộ ghi trong khung thu thập liên tục 09:15–11:30, 13:00–14:30 (UTC+7, lịch 2026).
