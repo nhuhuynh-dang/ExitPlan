@@ -43,7 +43,7 @@ def missing_ssi(root):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Start ExitPlan using project-relative paths.")
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--live", action="store_true", help="Enable automatic SSI updates with your own environment credentials.")
+    mode.add_argument("--live", action="store_true", help="Operator only: enable automatic SSI updates with backend credentials.")
     mode.add_argument("--demo", action="store_true", help="Explicitly generate labeled synthetic demo if no SSI files are present.")
     parser.add_argument("--reinstall", action="store_true", help="Reinstall dependencies.")
     args = parser.parse_args(argv)
@@ -56,10 +56,13 @@ def main(argv=None):
         parser.error("Missing SSI files:\n  " + "\n  ".join(missing) +
                      "\nUse the authorized research bundle, or explicitly run --demo in a clean copy.")
     if args.live and not (os.getenv("SSI_API_KEY") and os.getenv("SSI_API_SECRET")):
-        parser.error("Set your own SSI_API_KEY and SSI_API_SECRET environment variables first.")
+        parser.error("Operator must configure SSI_API_KEY and SSI_API_SECRET on the backend. End users do not need these.")
     try:
         exe = prepare_environment(ROOT, args.reinstall)
         env = dict(os.environ, EXITPLAN_SSI_AUTO="1" if args.live else "0")
+        if not args.live:
+            for key in ("SSI_API_KEY", "SSI_API_SECRET"):
+                env.pop(key, None)
         if args.demo and not (ROOT / DEMO_BOOK).is_file():
             subprocess.run([str(exe), str(ROOT / "scripts/generate_synthetic.py")],
                            cwd=ROOT, env=env, check=True)
