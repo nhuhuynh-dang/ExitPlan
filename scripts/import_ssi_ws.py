@@ -32,7 +32,54 @@ def append_snapshots(old, new):
     return combined.drop_duplicates(["ts_vn","symbol"],keep="last").sort_values(["ts_vn","symbol"]).reset_index(drop=True)
 
 
-def main():
+from contextlib import contextmanager
+import time
+
+
+@contextmanager
+def snapshot_write_lock(path,timeout=30):
+    """OS file lock across manual import and dashboard worker; auto-released on exit."""
+    path=Path(path)
+    path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open("a+b") as handle:
+        if path.stat().st_size==0:
+            handle.write(b"0")
+            handle.flush()
+        deadline=time.monotonic()+timeout
+        while True:
+            handle.seek(0)
+            try:
+                if os.name=="nt":
+                    import msvcrt
+                    msvcrt.locking(handle.fileno(),msvcrt.LK_NBLCK,1)
+                else:
+                    import fcntl
+                    fcntl.flock(handle.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic()>=deadline:
+                    raise TimeoutError("Another SSI import is active; raw capture preserved")
+                time.sleep(.2)
+        try:
+            yield
+        finally:
+            handle.seek(0)
+            if os.name=="nt":
+                msvcrt.locking(handle.fileno(),msvcrt.LK_UNLCK,1)
+            else:
+                fcntl.flock(handle.fileno(),fcntl.LOCK_UN)
+
+
+def main(argv=None,*,backup=True):
+    try:
+        with snapshot_write_lock(ROOT/"data/processed/ssi_snapshot_write.lock"):
+            return _main(argv,backup=backup)
+    except (OSError,TimeoutError) as exc:
+        print("SSI import lock:",str(exc))
+        return 1
+
+
+def _main(argv=None,*,backup=True):
     p=argparse.ArgumentParser(description="Normalize SSI captures during common continuous-session windows")
     p.add_argument("--input", nargs="+", help="JSONL files; market default: latest file only")
     p.add_argument("--append",action="store_true",help="Accumulate market snapshots with existing SSI dataset; preserve older timestamps")
@@ -46,7 +93,7 @@ def main():
     p.add_argument("--trade-price-factor", type=float, required=True)
     p.add_argument("--volume-factor", type=float, required=True)
     p.add_argument("--history-volume-factor", type=float, required=True, help="Confirmed daily OHLCV volume to shares multiplier")
-    a=p.parse_args()
+    a=p.parse_args(argv)
     if not math.isfinite(a.history_volume_factor) or a.history_volume_factor <= 0:
         p.error("Invalid history volume factor")
     market=bool(a.all_market or a.boards)
@@ -133,7 +180,7 @@ def main():
         previous_rows=len(old) if old is not None else 0
         if a.append:
             frame=append_snapshots(old,frame) if old is not None else frame.drop_duplicates(["ts_vn","symbol"],keep="last").sort_values(["ts_vn","symbol"])
-        if out.exists():
+        if out.exists() and backup:
             import shutil
             from datetime import datetime
             backup=out.with_name("ssi_book_backup_"+datetime.now().strftime("%Y%m%d_%H%M%S_%f")+".parquet")
@@ -144,7 +191,8 @@ def main():
         os.replace(tmp,out)
         report=ROOT/"outputs/tables/ssi_ws_quality.json"
         report.parent.mkdir(parents=True,exist_ok=True)
-        report.write_text(json.dumps(dict(stats,source="ssi_fastconnect_v3_ws",data_kind="live",
+        report_tmp=report.with_suffix('.json.tmp')
+        report_tmp.write_text(json.dumps(dict(stats,source="ssi_fastconnect_v3_ws",data_kind="live",
           symbols=symbols,mode="market" if market else "portfolio",interval_seconds=interval,observed_symbols=int(frame.symbol.nunique()),quote_price_factor=a.quote_price_factor,trade_price_factor=a.trade_price_factor,
           statistics_scope="current import only; rows/observed_symbols/first/last describe stored dataset",
           append=a.append,input_files=[str(p.name) for p in paths],previous_rows=previous_rows,
@@ -152,6 +200,7 @@ def main():
           stored_snapshot_groups=int(frame.ts_vn.nunique()),stored_trading_dates=int(frame.ts_vn.dt.date.nunique()),
           volume_factor=a.volume_factor,history_volume_factor=a.history_volume_factor,rows=len(frame),first=str(frame.ts_vn.min()),
           last=str(frame.ts_vn.max())),ensure_ascii=False,indent=2),encoding="utf-8")
+        os.replace(report_tmp,report)
         print(f"Đã lưu {len(frame)} dòng SSI, {frame.ts_vn.nunique()} nhóm snapshot đồng bộ.")
         if a.append:print(f"Tích lũy: {previous_rows} dòng trước import; {imported_rows} dòng đợt này; {len(frame)} dòng sau khử trùng.")
         print("Không ghi đè book_snapshots.parquet hoặc OHLCV.")
