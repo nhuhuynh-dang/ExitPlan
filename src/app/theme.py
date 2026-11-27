@@ -1203,7 +1203,24 @@ body [data-testid="stPopoverBody"] button[kind="primary"] * {
     extra_css+=controls_css+modern_css
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
-    return css + overview_css(mode) + stock_preview_css(mode)
+    return css + overview_css(mode) + stock_preview_css(mode) + rerun_visual_css()
+
+def rerun_visual_css():
+    """Suppress Streamlit's stale-element fade without altering execution or input locks."""
+    return """
+<style>
+/* Streamlit marks old element wrappers as stale until the new render arrives.
+   Keep their visual opacity, but leave native interaction guards, progress,
+   spinners, disabled buttons and widget state untouched. */
+.stApp [data-stale="true"] {
+    opacity: 1 !important;
+}
+.stApp [data-stale] {
+    transition-property: none !important;
+}
+</style>
+"""
+
 
 def stock_preview_css(mode):
     p=palette(mode)
