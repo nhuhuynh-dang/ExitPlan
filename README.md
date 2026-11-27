@@ -1,260 +1,227 @@
-# ExitPlan – Dashboard phân tích thanh lý danh mục
+# ExitPlan — Dashboard hỗ trợ lập phương án thanh lý danh mục
 
-Giao diện Streamlit thuần **chỉ đọc file**, không gọi API, không truy cập tài khoản, không gửi lệnh. `src/analytics/planner.py` là bộ tính MILP thuần được giao diện gọi **chỉ khi nhấn “Tính phương án”**. Người dùng nhập thủ công mã và số lượng; dashboard dùng ảnh chụp ba mức giá mua đã lưu.
+**Smart Portfolio Exit | Đồ án Gói phần mềm ứng dụng cho tài chính 1**
 
-## SSI FastConnect V3 — nguồn dữ liệu chính thức
+ExitPlan là ứng dụng hỗ trợ nhà đầu tư cá nhân xây dựng phương án bán cổ phiếu để thu về một khoản tiền ròng mục tiêu, đồng thời cân nhắc chi phí thanh khoản và mức độ tập trung của danh mục còn lại.
 
-Khi SSI phê duyệt Market Data **read-only**, ExitPlan có sẵn script chuẩn:
-`scripts/ssi_v3_sync.py`. Script hỗ trợ kiểm tra token, lấy danh sách toàn bộ mã HOSE/HNX/UPCOM,
-tải OHLCV lịch sử và tính ADV, không đụng đến API giao dịch.
+Ứng dụng được phát triển bằng Python và Streamlit, sử dụng dữ liệu thị trường từ SSI FastConnect V3 và mô hình tối ưu hóa nguyên tuyến tính hỗn hợp (MILP). ExitPlan phục vụ phân tích và mô phỏng học thuật, không kết nối tài khoản giao dịch, không đặt lệnh thật và không đưa ra khuyến nghị đầu tư.
+
+## 1. Hướng dẫn cài đặt và chạy lần đầu
+
+### Bước 1 — Chuẩn bị mã nguồn
+
+Yêu cầu: Python 3.11 hoặc 3.12 (khuyến nghị), Git nếu tải mã nguồn bằng GitHub, và Windows PowerShell hoặc Terminal trong VS Code.
+
+Nếu chưa có thư mục dự án:
 
 ```powershell
+git clone https://github.com/nhuhuynh-dang/ExitPlan.git
+cd ExitPlan
+```
+
+Nếu đã nhận thư mục đồ án, giải nén và mở PowerShell tại thư mục chứa `requirements.txt`, `src/` và `scripts/`. Không cần clone lại.
+
+### Bước 2 — Cài đặt thư viện
+
+```powershell
+py -m pip install -r requirements.txt
+```
+
+### Bước 3 — Chuẩn bị dữ liệu
+
+**Trường hợp A — Có bộ dữ liệu SSI của đồ án (khuyến nghị khi chấm bài).**
+
+Đặt các tệp dữ liệu được cung cấp hợp lệ vào đúng thư mục:
+
+| Tệp | Vai trò |
+| --- | --- |
+| `data/processed/ssi_book_snapshots.parquet` | Sổ lệnh SSI đã chuẩn hóa, đầu vào chính của mô hình |
+| `data/processed/ssi_securities.parquet` | Danh mục mã, tên doanh nghiệp, sàn và thông tin lô giao dịch |
+| `data/processed/ssi_history.parquet` | OHLCV ngày, phục vụ ADV20 và Sigma20 |
+| `outputs/tables/validation_replay_ssi.csv` | Kết quả phát lại đã tính (nếu được cung cấp) |
+| `outputs/tables/validation_replay_ssi_summary.json` | Thống kê phát lại (nếu được cung cấp) |
+
+Các tệp SSI và bản ghi thô được lưu cục bộ, không mặc định có đầy đủ khi clone GitHub. Giữ nguyên cấu trúc thư mục của bộ dữ liệu. Không chạy script tạo dữ liệu giả lập trên bộ dữ liệu nghiên cứu.
+
+Để xem lại dữ liệu đã lưu mà không gọi API:
+
+```powershell
+$env:EXITPLAN_SSI_AUTO = "0"
+```
+
+**Trường hợp B — Chỉ có mã nguồn, chưa có dữ liệu SSI.**
+
+Có thể thử giao diện và thuật toán bằng dữ liệu giả lập trong một bản sao riêng của dự án:
+
+```powershell
+$env:EXITPLAN_SSI_AUTO = "0"
+py scripts/generate_synthetic.py
+```
+
+Dữ liệu này được gắn nhãn `synthetic`. Khi lập phương án, bật ô cho phép tính thử bằng dữ liệu giả lập. Không sử dụng kết quả demo để chứng minh kết nối SSI hoặc hiệu quả thanh lý trên thị trường thực. Script có thể ghi đè các tệp demo và bảng kết quả chung.
+
+Nếu đã có quyền SSI nhưng chưa có snapshot, thực hiện quy trình khởi tạo tại mục 3 trước khi bật tự động cập nhật.
+
+### Bước 4 — Kiểm thử và khởi chạy
+
+```powershell
+py -m pytest -q
+py -m streamlit run src/app/app.py
+```
+
+Trình duyệt sẽ mở ứng dụng. Nếu không, truy cập **http://localhost:8501**.
+
+Để dừng ứng dụng, nhấn `Ctrl+C` tại PowerShell. Để cập nhật mã nguồn trong thư mục Git hiện có, dừng ứng dụng rồi chạy `git pull origin main`.
+
+## 2. Hướng dẫn sử dụng nhanh
+
+1. Vào **Tổng quan** để kiểm tra nguồn dữ liệu, số mã và thời điểm snapshot.
+2. Vào **Lập phương án**, tìm mã cổ phiếu, xem thông tin, nhập số lượng sở hữu và bấm **Thêm vào danh mục**.
+3. Nhập mục tiêu tiền ròng, phí, thuế và mức ưu tiên λ, sau đó bấm **Tính phương án**.
+4. Vào **Kết quả & so sánh** để xem A/B/C/P, chi tiết lượng bán, HHI, chi phí và tiền ròng. Bấm **Tính đường đánh đổi λ** nếu cần phân tích bổ sung.
+5. Xem **Rủi ro thanh khoản** và **Lịch sử giá** để kiểm tra độ sâu sổ lệnh, ADV20, Sigma20 và dữ liệu lịch sử. Có thể xuất CSV ở các trang tương ứng.
+
+Ví dụ dùng thử (giả định, không phải danh mục khuyến nghị):
+
+| Thông số | Giá trị |
+| --- | ---: |
+| HPG | 5.000 CP |
+| VPB | 4.000 CP |
+| ACB | 3.000 CP |
+| Mục tiêu tiền ròng | 100.000.000 đồng |
+| Phí bán | 0,15% |
+| Thuế | 0,10% |
+| Mức ưu tiên λ | 0,5 |
+
+Chỉ chọn các mã có snapshot chung hợp lệ. Nếu nút tính bị khóa, kiểm tra số lượng nắm giữ, độ sâu sổ lệnh và điều kiện bán theo lô 100 CP. Nếu mục tiêu vượt khả năng thanh lý, hệ thống báo thiếu hụt thay vì giả định bán được ngoài nguồn lực hiện có.
+
+## 3. Kết nối SSI FastConnect V3 (tùy chọn)
+
+Không cần API Key để xem bộ dữ liệu đã lưu. Để cập nhật thị trường, cần được SSI cấp quyền **Market Data chỉ đọc**.
+
+### Cấu hình bảo mật
+
+Trong cùng cửa sổ PowerShell dùng để chạy ứng dụng:
+
+```powershell
+$env:SSI_API_KEY = "KEY_DO_SSI_CAP"
+$env:SSI_API_SECRET = "SECRET_DO_SSI_CAP"
 py scripts/ssi_v3_sync.py --check
-# Sau khi SSI cấp API Key/Secret và bạn đã đặt chúng qua $env: trong PowerShell:
-py scripts/ssi_v3_sync.py --catalog
-py scripts/ssi_v3_sync.py --history --symbols HPG VPB ACB --from-date 01/09/2026 --to-date 20/11/2026
 ```
 
-**Chưa được cấp quyền thì --check chỉ báo trạng thái và KHÔNG tạo dữ liệu.**
-Để xem thủ tục xin quyền, bảo vệ key và ý nghĩa từng file:
-**[Hướng dẫn SSI FastConnect V3](docs/SSI_FASTCONNECT_SETUP.md)**.
+Thay giá trị minh họa bằng khóa của chính người vận hành. Không đưa khóa, secret hoặc token lên GitHub, báo cáo hoặc video demo.
 
-OHLCV của SSI không phải snapshot bid/ask. Trang Lập phương án vẫn cần
-dữ liệu quote real-time được SSI cấp quyền, kiểm tra schema và ghi riêng theo phiên.
-Giao diện không tự giao dịch. Không đưa API Key, Secret hay token vào GitHub.
+### Khởi tạo kho dữ liệu SSI nếu chưa có
 
-## Cài và chạy (Windows PowerShell)
-
-```powershell
-py -m pip install -r requirements.txt
-py scripts/generate_synthetic.py
-py -m pytest -q
-py -m streamlit run src/app/app.py
-```
-
-Các file trong `data/` và `outputs/` được **sinh riêng bởi script**. Script phát sinh *dữ liệu giả lập có nhãn `data_kind="synthetic"`*, không được trình bày như dữ liệu thị trường thực. Trước khi chạy `generate_synthetic.py`, dashboard sẽ thông báo thiếu dữ liệu thay vì dùng fixture tự động. Để tùy chỉnh đường dẫn file, truy cập giao diện bằng URL có query `?advanced=1`.
-
-## Các trang
-
-Menu chính dành cho nhà đầu tư: Tổng quan · Lập phương án · Kết quả & so sánh · Rủi ro thanh khoản · Lịch sử giá.
-
-Mục thu gọn **Thông tin & hỗ trợ** giữ Dữ liệu & kết nối, Kiểm chứng, Phương pháp & giới hạn để phục vụ kiểm chứng và minh bạch phương pháp. CSV kết quả được tải ngay tại trang Kết quả & so sánh; CSV thanh khoản và lịch sử được tải ở các trang tương ứng. Không còn mục Tải dữ liệu riêng trên sidebar.
-
-## Danh sách đầu vào cần có
-
-| Đường dẫn | Trường chính | Bắt buộc |
-|---|---|---|
-| `data/processed/book_snapshots.parquet` | `ts_vn, symbol, bidPrice1..3, bidVol1..3, closePrice, totalTradingVolume, data_kind` | Có |
-| `outputs/tables/liquidity_stats.parquet` | `symbol, adv, sigma, n_sessions, data_kind` | Tùy chọn; cần để tính π |
-| `outputs/tables/plans.parquet` | `phuong_an, net, liquidity_cost, cost_bps, hhi, data_kind` | Tùy chọn; bản lưu chỉ để tham chiếu |
-| `outputs/tables/frontier.parquet` | `lamb, net, cost, hhi, data_kind` | Tùy chọn |
-| `outputs/tables/data_quality.csv` | `symbol, records, missing_pct, duplicate_pct, invalid_pct, data_kind` | Tùy chọn |
-| `outputs/tables/validation_*.csv` | Bảng thử độ nhạy / replay đã tính bên ngoài | Tùy chọn |
-| `outputs/tables/recorder_status.json` | `state, channel, last_update_vn, data_kind` | Tùy chọn |
-| `outputs/tables/test_results.csv` | Báo cáo kiểm thử được ghi ngoài app | Tùy chọn; không sinh kết quả giả |
-
-Nếu chưa có PyArrow: `py -m pip install pyarrow`. Các file `.parquet` được tạo bởi `generate_synthetic.py` khi đã cài requirements.
-
-## Các lưu ý tài chính
-
-- A giảm chi phí thanh khoản theo giá gần nhất; C giảm tổng bình phương giá trị tài sản còn lại; B lấy tổ hợp chuẩn hóa A/C với trọng số λ (hệ số tỉ lệ kỹ thuật 15); P xấp xỉ tỷ lệ bán danh mục.
-- **HHI thực được tính sau nghiệm**; MILP dùng proxy tổng bình phương giá trị còn lại. Bài toán nguyên rời rạc theo lô `100` CP, giới hạn 12 mã, cần hội tụ của bộ giải; có thể xảy ra không đạt nghiệm trong thời gian giới hạn.
-- Các lệnh lớn hơn độ sâu ba mức bid **không được định giá một giá khớp duy nhất**. Bảng khoảng bi quan–lạc quan chỉ là hai kịch bản có điều kiện; cận lạc quan giả định khối lượng vượt độ sâu bán được ở giá gần nhất, không phải bound chắc chắn của thị trường.
-- `adv` phải do pipeline bên ngoài tính từ dữ liệu đủ số phiên và chuẩn đơn vị. Nếu không có ADV, tỷ lệ tham gia hiển thị `–`.
-- Chế độ `synthetic` được gắn badge cảnh báo; dashboard không tự trộn nguồn `live/historical/synthetic`.
-- Trang dữ liệu *không tự mở WebSocket*. Phần thu thập và lưu dữ liệu NEO thật cần một pipeline/recorder riêng, với xác thực, quản lý IP, rate-limit và lưu trữ trước khi nộp.
-- `fee_rate_default`, `tax_rate_default`, `impact_coefficient` trong `config.json` cố ý là `null` cho đến khi được xác minh. Giao diện mặc định 0% và cho nhập giả định.
-- **TODO về NEO:** xác minh số lượng đơn vị cổ phiếu, giá hiển thị và các trường khi ATO/ATC, mapping trong `src/data/schema.py`; xử lý giá string và `null` trước khi tạo Parquet.
-- Trình mô phỏng này không triển khai đặt lệnh thật, xác suất khớp, thời gian xếp hàng hoặc market impact động.
-
-## Cấu trúc
-
-- `src/app/app.py`: cấu hình Streamlit, thanh bên và điều hướng.
-- `src/app/theme.py`: pastel dark/light, CSS, SVG tự vẽ.
-- `src/app/pages.py`: 8 trang, thiếu dữ liệu báo rõ.
-- `src/app/components.py`: KPI cards, badge, bảng HTML, verdict, guide.
-- `src/app/charts.py`: Plotly, tùy biến màu theo theme, xuất PNG.
-- `src/app/fmt.py`: định dạng số Việt Nam.
-- `src/data/schema.py`, `repository.py`: schema và đọc/chuẩn hóa file.
-- `src/finance/engine.py`: mô phỏng độ sâu ba mức bid và khoảng vượt độ sâu.
-- `src/analytics/planner.py`: MILP, phương án A/B/C/P và frontier.
-- `scripts/generate_synthetic.py`: dữ liệu giả lập riêng có nhãn.
-- `tests/`: kiểm thử hàm định dạng, HTML và tính toán.
-
-**Công cụ phân tích học thuật, không phải khuyến nghị đầu tư.**
-
-
-## Sửa giao diện v5
-- Navigation sử dụng ký tự Unicode thay vì cú pháp `:material/...:`; khởi động lại đúng thư mục v5 để không còn menu cũ.
-- Không dùng CSS ép font trên `button`, tránh làm Streamlit hiện tên biểu tượng Material dưới dạng chữ (`keyboard_double_arrow`, `arrow_right`, ...).
-- Tăng kích thước chữ menu và bảng, điều chỉnh độ rộng sidebar, giữ màu pastel, Sáng/Tối.
-- Khi thấy giao diện bản cũ: dừng mọi Streamlit đang chạy bằng Ctrl+C, mở terminal đúng thư mục v5 rồi chạy `py -m streamlit run src/app/app.py`; nhấn Ctrl+Shift+R để tải lại cache trình duyệt.
-- Chế độ demo vẫn là synthetic. Không sử dụng dữ liệu này để chứng minh NEO API hoạt động thật.
-
-## Bổ sung backend v6 — phần cốt lõi (chưa cần JWT)
-
-**Mục tiêu:** thu thập/lưu dữ liệu `stockInfo` NEO có timestamp lúc nhận, kiểm tra chất lượng,
-ước tính thanh khoản từ các phiên đã lưu, phát lại các snapshot và kiểm tra phương án MILP.
-Streamlit vẫn **chỉ đọc** file; không gửi lệnh chứng khoán hoặc gọi NEO từ giao diện.
-
-### Quy trình thử bằng dữ liệu mẫu hiện có
-
-```powershell
-py -m pip install -r requirements.txt
-py scripts/generate_synthetic.py
-py -m pytest -q
-py scripts/validate_recorded.py --holdings HPG:5000 VPB:4000 ACB:3000 --target 100000000 --fee 0.0015 --tax 0.001
-py -m streamlit run src/app/app.py
-```
-
-Tài liệu thử nghiệm trên dữ liệu synthetic chỉ kiểm tra **đúng chức năng**, không phải chứng minh
-độ chính xác giao dịch ngoài thị trường.
-
-### Khi có bản ghi stockInfo được thu từ kết nối hợp lệ
-
-```powershell
-py scripts/import_captured.py --input data/raw/neo_stockinfo.jsonl --kind live
-py scripts/build_liquidity_stats.py --min-sessions 5
-py scripts/validate_recorded.py --holdings HPG:5000 VPB:4000 --target 100000000
-```
-
-Raw NDJSON mỗi dòng: `{"received_at":"2026-11-18T09:31:05+07:00","message":{"channel":"stockInfo","data":{...}}}`.
-`received_at` là **giờ máy ghi nhận sự kiện**, không phải thời điểm khớp lệnh do Sở công bố.
-`--kind historical` dùng cho bản ghi lưu trữ quá khứ có timestamp; `live` cho log do recorder nhận mới;
-`synthetic` chỉ dùng thử. Import không tự chuyển sang dữ liệu giả định khi có lỗi.
-
-**Quan trọng:** Chạy `generate_synthetic.py` sẽ **ghi đè** bộ dữ liệu hiện có! Trước khi nhập dữ liệu thật,
-hãy sao lưu `data/processed/` và `outputs/tables/`, hoặc làm việc trên bản sao thư mục dự án.
-Để không lẫn nguồn, importer từ chối append khác nhãn `data_kind`.
-
-### Bộ ghi WebSocket tách riêng (chưa được xác thực live)
-
-`scripts/record_neo_ws.py` ghi NDJSON từ luồng `stockInfo`, không tự động tạo Parquet.
-Sau khi có quyền NEO API, phải xác minh **endpoint TLS WSS chính thức**, IP whitelist và
-cách xác thực WebSocket từ nhà cung cấp. Các cấu hình minh họa:
-
-```powershell
-$env:NEO_WS_URL="wss://<endpoint-TLS-duoc-VPBankS-xac-nhan>"
-$env:NEO_JWT="<token-luu-cuc-bo-khong-chia-se>"
-py scripts/record_neo_ws.py --symbols HPG VPB ACB --minutes 30
-py scripts/import_captured.py --input data/raw/neo_stockinfo.jsonl --kind live
-```
-
-**TODO thực tế:** Tài liệu mà nhóm đã đọc ghi `ws://neoapi.vpbanks.com.vn/stock-stream/broker`,
-không cho thấy chắc chắn endpoint `wss://` hay handshake JWT. Code **không tự suy đoán**
-URL TLS; không gửi token qua WebSocket không mã hóa. Nếu VPBankS chỉ hỗ trợ `ws://`,
-phải xác nhận phương án truy cập an toàn với nhà cung cấp, không bỏ chặn để gửi bí mật.
-Kết nối được socket chưa chứng minh đã đăng ký thành công: cần nhận dữ liệu `stockInfo` hợp lệ.
-
-`NEO_WS_AUTH_MESSAGE` (JSON) có thể được dùng cho cơ chế xác thực bằng message *nếu được tài liệu chính thức xác nhận*.
-Không commit JWT, mật khẩu hoặc địa chỉ IP vào Git; không cho phép đặt lệnh thật.
-
-### Chất lượng dữ liệu và giới hạn phương pháp
-
-- `src/ingest/pipeline.py`: lọc sai kiểu (`ATO`/`ATC`), âm/NaN, từ chối trộn dữ liệu, xóa lặp `ts_vn+symbol`.
-- `src/analytics/liquidity.py`: `adv` và `sigma` trả thiếu (`NaN`) khi chưa đủ 5 phiên. Nếu
-  chỉ ghi một phần phiên, ADV chỉ là **proxy khối lượng lũy kế tới snapshot cuối**, không gọi ADV toàn phiên.
-- `src/analytics/validation.py`: phát lại chỉ trên ảnh chụp **đủ đồng thời các mã**; không nội suy
-  báo giá cũ, không giả mạo tỷ lệ khớp lệnh. `validation_replay_summary.json` báo thống kê ổn định.
-- Mô hình MILP hiện tại dùng mục tiêu tập trung **proxy**, không tối ưu HHI chính xác. 3 mức bid
-  là giả định thực hiện tại thời điểm chụp, chưa tính market impact ngoài phạm vi quan sát.
-- `scripts/example_capture.jsonl` chỉ là minh họa định dạng và **dữ liệu giả định**, không phải log NEO thật.
-
-Bộ thư viện ghi live dùng `websockets>=15,<17` (thêm trong requirements). Kết quả triển khai
-live phụ thuộc xác thực/được cấp quyền của VPBankS và **chưa được kiểm thử kết nối thực tế**.
-
-## SSI iBoard endpoint cộng đồng (chỉ để tham khảo lịch sử, có thể không còn hoạt động)
-
-Bản này bổ sung **mã nguồn thật để tải và lưu** dữ liệu SSI iBoard theo tài liệu cộng đồng:
-https://github.com/anhtri04/vnstock-java-kbs/blob/main/docs/SSI_API_DOCUMENTATION.md
-
-**Không phải SSI FastConnect chính thức** và endpoint cộng đồng có thể trả `400/403` hoặc thay đổi. Không vượt bảo vệ truy cập; không tự thay dữ liệu trống bằng số giả. Tài liệu tác giả ghi thử ngày 02/06/2026, không bảo đảm hiện vẫn truy cập được.
-
-Chạy tại thư mục có `requirements.txt`:
-
-```powershell
-py -m pip install -r requirements.txt
-py scripts/fetch_ssi_history.py --symbols HPG VPB ACB --from-date 01/09/2026 --to-date 20/11/2026
-py -m streamlit run src/app/app.py
-```
-
-Mở trang **SSI · Dữ liệu lịch sử** để xem giá đóng cửa và ADV. Script xuất:
-- `data/raw/ssi_iboard_ohlcv.csv` (UTF-8 BOM)
-- `data/processed/ssi_history.parquet`
-- `outputs/tables/ssi_liquidity_stats.parquet` (ADV 20 phiên, độ lệch chuẩn lợi suất)
-
-Tệp `book_snapshots.parquet` **không** bị ghi đè, nhằm bảo toàn ranh giới giữa OHLCV và sổ lệnh. Nếu muốn trình diễn các trang tối ưu khi chưa có bid/ask thực, chạy `py scripts/generate_synthetic.py` **trước** để tạo dữ liệu demo có nhãn synthetic. Lệnh synthetic có thể ghi đè dữ liệu sổ lệnh đang lưu, không chạy nó trên bản đã ghi thị trường thật.
-
-**Giới hạn:** Chỉ có giá/volume theo ngày, không có WebSocket hay độ sâu bid 3 tầng. Dữ liệu SSI được gắn `source=ssi_iboard_community_doc`, `data_kind=historical`. Không được trình bày phần tối ưu dùng demo là kết quả ứng dụng sổ lệnh thật. Nếu API trả lỗi HTTP 400, lỗi từ máy chủ có thể do tham số, quyền hoặc thay đổi API; chương trình không suy đoán nguyên nhân và không ghi đè lịch sử cũ khi tất cả yêu cầu thất bại.
-
-## SSI V3 — quy trình sổ lệnh mới (HOSE, dữ liệu chỉ đọc)
-
-REST đã được người dùng kiểm tra: 2226 mã và 177 nến ngày. WebSocket SUBSCRIBE OK nhưng chưa nhận quote/trade thật ngoài giờ giao dịch. Không coi đăng ký là bằng chứng dữ liệu live.
-
-1. Giữ biến môi trường API Key/Secret trên máy cá nhân. Chạy trong khớp lệnh liên tục:
-
-```powershell
-py scripts/record_ssi_v3_ws.py --symbols HPG VPB ACB --minutes 5
-```
-
-2. Kiểm tra dòng Market sample, so sánh bid/ask và trade với bảng giá SSI, xác nhận đơn vị CP của khối lượng ngày và tick. Tài liệu SSI ví dụ quote 45.45 nhưng trade 45500; không tự suy ra đơn vị của bản tin thật. Lệnh sau CHỈ là ví dụ khi xác nhận đúng các hệ số:
-
-```powershell
-py scripts/import_ssi_ws.py --symbols HPG VPB ACB --quote-price-factor 1000 --trade-price-factor 1 --volume-factor 1 --history-volume-factor 1
-```
-
-Importer chỉ nhận full book 3 bid/ask hợp lệ, ghép dữ liệu theo thời điểm nhận trong cùng phiên liên tục HOSE (quote tối đa 5 giây, trade tối đa 60 giây), không nội suy hoặc nhìn trước. Tần suất đánh giá tối thiểu 5 giây giữa các nhóm. Từ chối dữ liệu lệch đơn vị lớn; không có nhóm hợp lệ thì không ghi đè. Lưu riêng data/processed/ssi_book_snapshots.parquet và outputs/tables/ssi_ws_quality.json. Không chạy generate_synthetic.py trên dữ liệu thật. Không coi thời điểm nhận dữ liệu là thời điểm khớp thực tế.
-
-3. Dashboard tự ưu tiên file SSI nếu tồn tại; file lỗi không tự fallback sang demo. ADV20 tính từ 20 phiên OHLCV trước ngày snapshot và độ lệch chuẩn của 20 lợi suất (21 giá). Dữ liệu lịch sử riêng ở trang SSI. Kiểm chứng theo snapshot đã ghi, không kiểm chứng khớp lệnh thật:
-
-```powershell
-py scripts/validate_recorded.py --holdings HPG:5000 VPB:4000 ACB:3000 --target 100000000 --fee 0.0015 --tax 0.001 --interval-seconds 60
-py -m streamlit run src/app/app.py
-```
-
-Mức phí/thuế là giả định ví dụ, cần xác minh. Kết quả SSI lưu riêng validation_replay_ssi.csv. Phương án C vẫn tối ưu proxy tập trung, không phải tối ưu HHI trực tiếp. Chưa xác minh schema/đơn vị thật, chưa kiểm thử end-to-end với dữ liệu live. Tài liệu: https://developers.ssi.com.vn/en/docs/api-reference/subscribeUnsubscribeMarketData
-
-## Mở rộng toàn thị trường (HOSE, HNX, UPCOM)
+Chạy khi ứng dụng đã dừng:
 
 ```powershell
 py scripts/ssi_v3_sync.py --catalog
-py scripts/ssi_market_history.py --from-date 01/10/2026 --to-date 25/11/2026 --limit 50
 py scripts/record_ssi_v3_ws.py --all-market --minutes 5 --max-mb 64
 ```
 
-Tải lịch sử theo từng mã có checkpoint riêng cho khoảng ngày; bỏ `--limit 50` để tiếp tục toàn bộ danh sách. Không gửi dồn yêu cầu khi API giới hạn hoặc mất quyền. Mã lỗi/no-data được đánh dấu riêng, dùng `--retry-failed` khi cần thử lại. Tùy chọn `--boards HOSE HNX UPCOM` hoặc `--stock-types` lọc theo mã loại chứng khoán đã xác minh từ catalog. Danh sách SSI bao gồm nhiều loại chứng khoán, không đồng nghĩa tất cả là cổ phiếu phổ thông.
-
-WebSocket đăng ký 6 topic quote/trade theo sàn, ghi file JSONL giới hạn dung lượng. Tài liệu cho phép topic theo sàn; phạm vi thực tế phụ thuộc quyền SSI và bản tin nhận được. Import `--all-market` sau khi xác minh hệ số giá và volume từ mẫu live; ví dụ:
+Bộ ghi cần được chạy trong khung thu thập của thị trường. Sau khi nhận quote/trade thật, đối chiếu đơn vị giá và khối lượng với SSI, rồi import file vừa ghi. Ví dụ dưới đây sử dụng hệ số 1 như cấu hình bộ dữ liệu nghiên cứu đã quan sát; phải kiểm tra lại trước khi áp dụng cho nguồn mới:
 
 ```powershell
-py scripts/import_ssi_ws.py --all-market --quote-price-factor 1000 --trade-price-factor 1 --volume-factor 1 --history-volume-factor 1
+py scripts/import_ssi_ws.py --all-market --append --input data/raw/ssi_ws/TEN_FILE_THUC_TE.jsonl --quote-price-factor 1 --trade-price-factor 1 --volume-factor 1 --history-volume-factor 1
 ```
 
-Các hệ số trên chỉ minh họa. Import toàn thị trường mặc định dùng file ghi gần nhất, tối đa 128 MiB đầu vào, lấy nhóm đánh giá cách tối thiểu 30 giây và cho phép từng nhóm thiếu mã. Có thể chỉ định `--input` và `--interval-seconds`. Dùng khung giờ chung bảo thủ 09:15–11:30, 13:00–14:30, không mô phỏng phiên đấu giá. Dashboard chọn tối đa 12 cổ phiếu phổ thông lô 100 có cùng snapshot hợp lệ, không cần toàn bộ thị trường đồng thời có báo giá. Chưa kiểm thử whole-board live hoặc xác minh mã stockType; không sử dụng cho công cụ khác loại/khác lô. File SSI cũ được sao lưu trước khi thay thế. Dữ liệu nguồn không bị xóa. 
+Thay `TEN_FILE_THUC_TE.jsonl` bằng tên file do bộ ghi tạo. Import toàn thị trường giới hạn 128 MiB đầu vào mỗi lượt; chia file lớn theo ranh giới dòng JSONL và giữ bản gốc. Dùng `--append` để tích lũy thay vì thay thế snapshot.
 
-
-## Lập danh mục cá nhân từ danh sách thị trường
-
-Trang **Lập phương án** có một ô tìm kiếm tích hợp gợi ý theo mã hoặc tên doanh nghiệp và bộ lọc HOSE/HNX/UPCOM. Chọn gợi ý sẽ tự thêm mã vào danh mục; không cần ô kết quả hay nút Thêm mã riêng. Danh mục SSI được đọc từ `data/processed/ssi_securities.parquet`; cập nhật bằng `py scripts/ssi_v3_sync.py --catalog` khi cần. Có thể tra cứu ngay cả khi chưa có sổ lệnh. Mã trùng nhiều sàn không được tự suy đoán danh tính; mã chỉ có trong file sổ lệnh được ghi sàn chưa rõ.
-
-Người dùng tự thêm tối đa 12 mã, gõ trực tiếp số cổ phiếu đang nắm giữ (số nguyên không âm, không cần là bội của 100), xóa mã hoặc xóa danh mục. Mô hình vẫn giới hạn số lượng bán theo lô 100; phần lẻ được giữ lại. Bản nháp được lưu trong phiên Streamlit, không đọc tài khoản và không ghi thông tin cá nhân vào kho mã. Cập nhật dữ liệu không làm mất bản nháp; thay đổi số lượng/mục tiêu/phí/thuế sẽ xóa kết quả cũ.
-
-Mỗi mã có trạng thái sổ lệnh và số phiên OHLCV SSI đã lưu. Chỉ bật nút Tính phương án khi số lượng dương, không có mã thiếu sổ lệnh, có thời điểm chung hợp lệ và không có mã được biết có lô khác 100. Người dùng chỉ chọn cổ phiếu phổ thông; catalog có thể chứa chứng khoán khác loại, metadata loại chứng khoán chưa được xác minh toàn diện. Nếu nguồn sổ lệnh là synthetic, phải chọn rõ ô cho phép tính thử. Dữ liệu OHLCV không được dùng thay thế sổ lệnh, không tự gọi API từ dashboard.
-
-Kiểm thử tìm kiếm: `py -m pytest -q tests/test_stock_search.py`.
-
-
-## Phạm vi cổ phiếu phổ thông (lọc chung toàn dự án)
-
-Chạy `py scripts/ssi_v3_sync.py --catalog` để bổ sung metadata chính thức (stockType, maturityDate, cwUnderlyingSymbol, cwExercisePrice, cwExecutionRatio, iNav, tên tiếng Anh...). File danh mục gốc và checkpoint OHLCV vẫn được bảo toàn. Bộ lọc dùng chung tại `src/data/equity_universe.py` loại mã có dấu hiệu chứng quyền, quỹ/ETF, trái phiếu, phái sinh, cổ phiếu ưu đãi, lô khác 100, mã không theo quy ước ba ký tự hoặc trùng nhiều sàn. Nếu SSI không cung cấp loại cổ phiếu phổ thông rõ ràng, mã phù hợp được gắn nhãn stock_candidate; không coi đây là xác nhận tuyệt đối loại chứng khoán hoặc trạng thái đang giao dịch. Quy tắc có thể bỏ sót mã ngoài quy ước và cần đối chiếu metadata thực tế.
-
-Bộ tải OHLCV, WebSocket, importer, thống kê ADV, replay SSI và dashboard dùng phạm vi này. Đăng ký WebSocket theo sàn có thể nhận bản tin các loại chứng khoán khác; bộ ghi chỉ lưu các mã trong danh sách đã lọc. OHLCV cũ của mã ngoài phạm vi vẫn nằm trong kho gốc, nhưng không đưa vào phân tích SSI. Nếu bộ tải đang chạy phiên bản cũ, dừng bằng Ctrl+C để lưu tiến độ trước khi cập nhật; chạy lại cùng khoảng ngày để dùng checkpoint cũ. Không chạy hai bộ tải ghi cùng file.
+Bổ sung OHLCV ngày còn thiếu (ví dụ cho dữ liệu ngày 27/11/2026):
 
 ```powershell
-git pull origin main
+py scripts/ssi_market_history.py --missing-book-history --strict-calendar --from-date 01/09/2026 --to-date 26/11/2026 --dry-run
+py scripts/ssi_market_history.py --missing-book-history --strict-calendar --from-date 01/09/2026 --to-date 26/11/2026 --delay 2
+```
+
+Điều chỉnh khoảng ngày theo ngày snapshot cần phân tích. Nếu token hết hạn, chạy lại script cùng khoảng ngày để tiếp tục từ checkpoint. Không tự nội suy phiên bị thiếu.
+
+### Bật chế độ cập nhật tự động
+
+Sau khi có danh mục và snapshot SSI hợp lệ cùng hệ số quy đổi đã lưu:
+
+```powershell
+$env:EXITPLAN_SSI_AUTO = "1"
+py -m streamlit run src/app/app.py
+```
+
+- Trong khung thu thập 09:15–11:30 và 13:00–14:30 (UTC+7), hệ thống tự nhận bản tin SSI, chuẩn hóa và tích lũy snapshot theo đợt khoảng 60 giây.
+- Nghỉ trưa và giai đoạn đầu/cuối phiên sử dụng snapshot gần nhất. Sau 15:15 hoặc ngoài ngày giao dịch, hệ thống bổ sung OHLCV của ngày giao dịch hoàn thành gần nhất; nếu SSI chưa có dữ liệu mới, ghi rõ ngày dữ liệu hiện có.
+- Giá đóng cửa chỉ dùng làm tham chiếu, không thay thế sổ lệnh dùng cho mô phỏng thanh lý. Phương án đã tính được gắn với snapshot gốc.
+- Không chạy bộ ghi thủ công đồng thời với bộ ghi tự động của dashboard. Chế độ tự động hiện sử dụng lịch năm 2026 và chưa được xác nhận end-to-end trong phiên thật sau lần nâng cấp gần nhất.
+
+Chi tiết vận hành: [SSI tự động trong ExitPlan](docs/SSI_DASHBOARD_LIVE.md). Tài liệu API: [SSI Developer Portal](https://developers.ssi.com.vn/).
+
+## 4. Phương pháp và chức năng chính
+
+| Phương án | Mục tiêu |
+| --- | --- |
+| A — Chi phí thấp | Giảm chi phí thanh khoản |
+| B — Cân bằng | Cân bằng chi phí và mức tập trung bằng λ |
+| C — Giảm tập trung | Giảm đại lượng đại diện cho mức tập trung |
+| P — Theo tỷ lệ | Xấp xỉ thanh lý theo tỷ lệ danh mục |
+
+MILP lựa chọn lượng bán rời rạc theo lô 100 CP, tối đa 12 mã, giới hạn bởi số lượng sở hữu và độ sâu ba mức giá mua quan sát được. Tiền ròng bằng doanh số khớp mô phỏng trừ phí và thuế. HHI được tính sau khi tìm nghiệm; B và C tối ưu đại lượng đại diện cho mức tập trung, không trực tiếp tối ưu HHI.
+
+ADV20 sử dụng 20 phiên khối lượng giao dịch; Sigma20 sử dụng 20 lợi suất từ 21 giá đóng cửa trước ngày snapshot, có kiểm tra lịch giao dịch. Thiếu dữ liệu hợp lệ được hiển thị rõ thay vì thay bằng giá trị giả.
+
+## 5. Kiểm chứng và tái lập kết quả
+
+Kiểm thử tự động:
+
+```powershell
 py -m pytest -q
-py scripts/ssi_v3_sync.py --catalog
-py scripts/ssi_market_history.py --from-date 01/10/2026 --to-date 25/11/2026 --delay 2
 ```
 
-Tài liệu SSI: https://developers.ssi.com.vn/en/docs/api-reference/data-securitiesByBoard và https://developers.ssi.com.vn/en/docs/sdk/python/utilities .
+Phát lại phương án B trên sổ lệnh SSI đã lưu (phí và thuế dưới đây là giả định nghiên cứu):
+
+```powershell
+py scripts/validate_recorded.py --holdings HPG:5000 VPB:4000 ACB:3000 --target 100000000 --fee 0.0015 --tax 0.001 --lambda-weight 0.5 --interval-seconds 60
+```
+
+Sao lưu kết quả replay cũ trước khi chạy lại vì script cập nhật tệp kết quả cùng tên. Replay chỉ sử dụng thời điểm có đủ sổ lệnh đồng bộ, không đo tỷ lệ khớp lệnh thật.
+
+**Mốc thực nghiệm đã ghi nhận ngày 27/11/2026:**
+
+| Chỉ tiêu | Kết quả |
+| --- | ---: |
+| Bản ghi snapshot theo mã và thời điểm | 17.408 |
+| Mã có snapshot | 461 |
+| Mã đủ lịch sử ADV20 và Sigma20 theo kiểm tra lịch | 406 |
+| Dữ liệu OHLCV 1 phút (ACB, HPG, VPB) | 6.740 nến / 10 ngày giao dịch |
+| Replay phương án B, mục tiêu 100 triệu đồng | 67/67 thời điểm hợp lệ đạt mục tiêu |
+| Kiểm thử tự động, xác nhận ngày 28/11/2026 | 134 bài đạt |
+
+Đây là mốc tham chiếu đã ghi nhận, không phải số liệu cố định của ứng dụng. Replay có 53 thời điểm bị bỏ qua do thiếu snapshot đồng bộ; 100% chỉ tính trên 67 thời điểm hợp lệ của một ngày thu thập. Dữ liệu intraday OHLCV 10 ngày không tương đương sổ lệnh WebSocket 10 ngày.
+
+## 6. Cấu trúc dự án
+
+```text
+ExitPlan/
+├── src/
+│   ├── app/          # Streamlit, giao diện, biểu đồ, cache
+│   ├── ingest/       # SSI REST/WebSocket, chuẩn hóa dữ liệu
+│   ├── data/         # Schema, kho dữ liệu, lọc cổ phiếu
+│   ├── finance/      # Mô phỏng bán theo độ sâu sổ lệnh
+│   └── analytics/    # MILP, ADV20, Sigma20, kiểm chứng
+├── scripts/          # Thu thập, import, replay và demo
+├── data/             # Dữ liệu lưu cục bộ
+├── outputs/          # Bảng kết quả và kiểm tra chất lượng
+├── tests/            # Kiểm thử tự động
+├── docs/             # Hướng dẫn kỹ thuật
+├── requirements.txt
+└── README.md
+```
+
+Luồng xử lý: **SSI REST/WebSocket → kiểm tra và chuẩn hóa → Parquet → cache → mô hình tài chính/MILP → dashboard và CSV.**
+
+## 7. Giới hạn và sử dụng có trách nhiệm
+
+- Snapshot phản ánh độ sâu ba mức mua tại thời điểm quan sát; không mô hình hóa hàng đợi lệnh, tác động giá động hoặc khớp lệnh thực tế.
+- Cập nhật WebSocket theo đợt, không phải bảng giá tick-by-tick liên tục; phụ thuộc quyền SSI, kết nối và chất lượng dữ liệu.
+- Hệ số quy đổi giá/khối lượng phải được đối chiếu với nguồn SSI. Mức phí và thuế là giả định người dùng nhập.
+- Không trộn dữ liệu thật và dữ liệu giả lập. Không tự dựng sổ lệnh từ OHLCV, không tự tạo dữ liệu thiếu.
+- Không chia sẻ dữ liệu thị trường ngoài phạm vi được cấp phép; không đưa API Key, Secret hoặc token vào mã nguồn.
+
+**Công cụ phân tích học thuật, không phải khuyến nghị đầu tư.**
