@@ -65,10 +65,10 @@ def page_header(key,accent,mode='Sáng'):
     }
     icon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icons.get(key,icons['overview'])+'</svg>'
     eyebrow='<div class="ep-eyebrow">'+escape(eye)+'</div>' if eye else ''
-    if key=='overview':
-        st.markdown('<div class="ep-overview-header"><div class="ep-overview-heading"><div>'
+    if key in ('overview','compare'):
+        st.markdown('<div class="ep-overview-header'+(' ep-compare-header' if key=='compare' else '')+'"><div class="ep-overview-heading"><div>'
                     +eyebrow+'<h1>'+escape(title)+'</h1><p>'+escape(description)+'</p></div>'
-                    '<span class="ep-overview-header-icon material-symbols-rounded" aria-hidden="true">monitoring</span>'
+                    '<span class="ep-overview-header-icon material-symbols-rounded" aria-hidden="true">'+('balance' if key=='compare' else 'monitoring')+'</span>'
                     '</div></div>',unsafe_allow_html=True)
         return
     if key=='planner':icon='<span class="material-symbols-rounded" aria-hidden="true">calculate</span>'
@@ -600,12 +600,12 @@ def planner(root,data,t):
             qty_col,add_col=st.columns([1,1],vertical_alignment='bottom')
             with qty_col:
                 qty=st.number_input('Số lượng cổ phiếu sở hữu',min_value=1,value=100,step=100,
-                    format='%d',key='ep_stock_preview_qty',disabled=preview is None,
-                    help='Nhập số nguyên dương bất kỳ. Mô hình chỉ bán theo lô 100 CP.')
+                    format='%d',key='ep_stock_preview_qty',disabled=preview is None)
             with add_col:
                 st.button('Thêm vào danh mục',key='ep_add_stock',icon=':material/add:',
                     type='primary',use_container_width=True,disabled=preview is None or qty<=0,
                     on_click=_add_selected_stock,args=(tuple(names),))
+        st.caption('Nhập số nguyên dương. Mô hình chỉ bán theo lô 100 CP.')
         if preview is not None and qty<100:
             st.caption('Dưới lô 100 CP: vẫn thêm được vào danh mục, nhưng không thể bán theo mô hình.')
         if len(draft)>=12:
@@ -774,13 +774,19 @@ def planner(root,data,t):
 
 
 def compare(root,data,t):
-    if not source_labels(data):return
+    with st.container(key='ep_compare_source'):
+        if not source_labels(data):return
     plans=require_result()
+    columns=['Phương án','Tiền ròng','Chi phí TK','Chi phí bps','Chưa bao phủ','HHI sau bán','Tỷ trọng lớn nhất','Thiếu hụt','Mục tiêu']
     if not plans:
         saved=data['saved_plans']
         if saved is not None and not saved.empty:
             st.warning('BẢNG MẪU ĐÃ LƯU (không gắn với danh mục tự nhập hiện tại). Chỉ để kiểm tra giao diện.')
             st.markdown(frame_table(saved),unsafe_allow_html=True)
+        with st.container(key='ep_compare_pending'):
+            _overview_section('Bảng tổng hợp phương án','table_chart')
+            st.markdown(html_table(columns,[[k]+['–']*7+['Chưa chạy'] for k in ('A','B','C','P')],
+                numeric=set(range(1,8)),pills={8:{'Chưa chạy':'neutral'}}),unsafe_allow_html=True)
         return
     params=st.session_state['ep_params']
     if str(data['books']['ts_vn'].max())!=params['snapshot_at']:
@@ -792,15 +798,21 @@ def compare(root,data,t):
         rows.append([k+' · '+p['label'],fmt.vnd(p['net']),fmt.vnd(p['cost']),fmt.bps(p['cost_bps']),
                      fmt.shares(p['uncovered']),fmt.num(p['hhi'],4),fmt.pct(p['max_weight']),
                      fmt.vnd(p['shortfall']),'Đạt' if p['satisfied'] else 'Chưa đạt'])
-    columns=['Phương án','Tiền ròng','Chi phí TK','Chi phí bps','Chưa bao phủ','HHI sau bán','Tỷ trọng lớn nhất','Thiếu hụt','Mục tiêu']
-    st.markdown(html_table(columns,rows,numeric=set(range(1,8)),pills={8:{'Đạt':'ok','Chưa đạt':'warn'}},tooltips={'Chi phí TK':'Chênh lệch so với giá gần nhất ở lượng được bao phủ','HHI sau bán':'Tổng bình phương tỷ trọng giá trị còn lại'}),unsafe_allow_html=True)
-    sel=choose('Xem chi tiết', ['A','B','C','P'],default='B',key='ep_compare_selected')
+    selected=st.session_state.get('ep_compare_selected') or 'B'
+    with st.container(key='ep_compare_table'):
+        _overview_section('Bảng tổng hợp phương án','table_chart')
+        st.markdown(html_table(columns,rows,numeric=set(range(1,8)),pills={8:{'Đạt':'ok','Chưa đạt':'warn'}},
+            tooltips={'Chi phí TK':'Chênh lệch so với giá gần nhất ở lượng được bao phủ','HHI sau bán':'Tổng bình phương tỷ trọng giá trị còn lại'},
+            highlight_row=list(plans).index(selected) if selected in plans else None),unsafe_allow_html=True)
+    with st.container(key='ep_compare_filter'):
+        sel=choose('Xem chi tiết', ['A','B','C','P'],default='B',key='ep_compare_selected') or 'B'
     p=plans[sel]
     kpi=[{'label':'Tiền thu ròng','value':fmt.vnd_big(p['net']),'note':'Ước tính tại một thời điểm'},
          {'label':'Chi phí thanh khoản','value':fmt.vnd_big(p['cost']),'note':fmt.bps(p['cost_bps'])+' bps'},
          {'label':'HHI sau bán','value':fmt.num(p['hhi'],4),'note':'Chỉ số tập trung danh mục'},
          {'label':'Thiếu mục tiêu','value':fmt.vnd_big(p['shortfall']),'note':'0 nếu đạt mục tiêu'}]
-    st.markdown(cards_html(kpi),unsafe_allow_html=True)
+    for card,tone in zip(kpi,('blue','mint','blue','mint' if p['satisfied'] else 'amber')):card['tone']=tone
+    st.markdown('<div class="ep-compare-kpis">'+cards_html(kpi)+'</div>',unsafe_allow_html=True)
     achieved={k:p for k,p in plans.items() if p['satisfied']}
     if achieved:
         min_cost=min(p['cost'] for p in achieved.values())
@@ -817,23 +829,27 @@ def compare(root,data,t):
         best_net=max(p['net'] for p in plans.values())
         planner_notice('Không phương án nào đạt mục tiêu. Tiền ròng cao nhất: '+fmt.vnd(best_net)+'. Giảm mục tiêu hoặc thay đổi danh mục; không diễn giải chênh lệch chi phí như lợi ích của phương án đạt mục tiêu.','warning')
     st.warning('Ước tính chi phí chỉ dựa trên BA mức giá mua tại thời điểm quan sát, KHÔNG phải giá khớp thực. Phần vượt độ sâu chỉ được báo dưới dạng khoảng lạc quan – bi quan.')
-    c1,c2=st.columns(2)
-    with c1:
-        st.subheader('Đánh đổi chi phí – tập trung')
-        plot(charts.tradeoff_fig(st.session_state.get('ep_frontier'),plans,t),'EP02_tradeoff')
-        st.markdown(guide('Mỗi điểm là phương án tối ưu ở một giá trị λ; vị trí A/B/C được đánh dấu.',
-            'Đường này phản ánh kết quả theo ràng buộc và hàm mục tiêu mô phỏng, không phải lợi nhuận kỳ vọng.'),unsafe_allow_html=True)
-    with c2:
-        st.subheader('Giá trị danh mục trước/sau')
-        plot(charts.holdings_fig(p['details'],t),'EP03_holdings')
-        st.markdown(guide('Chiều cao mỗi cột là số cổ phiếu còn nắm giữ × giá gần nhất.',
-            'Bán cổ phiếu có thể làm cơ cấu danh mục thay đổi đáng kể.'),unsafe_allow_html=True)
-    st.subheader('Thác chi phí từ giá trị tham chiếu đến tiền ròng')
-    plot(charts.waterfall_fig(p,t),'EP04_cost_waterfall')
-    st.markdown(guide('Mốc đầu là giá trị lượng bán theo giá gần nhất; lần lượt trừ chi phí thanh khoản, phí và thuế giả định.',
-        'Tiền ròng chỉ áp dụng với lượng bán nằm trong ba mức mua đang quan sát.'),unsafe_allow_html=True)
+    with st.container(key='ep_compare_charts'):
+        c1,c2=st.columns(2,gap='medium')
+        with c1, st.container(key='ep_compare_tradeoff'):
+            _overview_section('Đánh đổi chi phí – tập trung','scatter_plot')
+            plot(charts.compare_style(charts.tradeoff_fig(st.session_state.get('ep_frontier'),plans,t),t),'EP02_tradeoff')
+            st.markdown(guide('Mỗi điểm là phương án tối ưu ở một giá trị λ; vị trí A/B/C được đánh dấu.',
+                'Đường này phản ánh kết quả theo ràng buộc và hàm mục tiêu mô phỏng, không phải lợi nhuận kỳ vọng.'),unsafe_allow_html=True)
+        with c2, st.container(key='ep_compare_holdings'):
+            _overview_section('Giá trị danh mục trước/sau','bar_chart')
+            plot(charts.compare_style(charts.holdings_fig(p['details'],t),t),'EP03_holdings')
+            st.markdown(guide('Chiều cao mỗi cột là số cổ phiếu còn nắm giữ × giá gần nhất.',
+                'Bán cổ phiếu có thể làm cơ cấu danh mục thay đổi đáng kể.'),unsafe_allow_html=True)
+    with st.container(key='ep_compare_waterfall'):
+        _overview_section('Thác chi phí từ giá trị tham chiếu đến tiền ròng','waterfall_chart')
+        plot(charts.compare_style(charts.waterfall_fig(p,t),t,wide=True),'EP04_cost_waterfall')
+        st.markdown(guide('Mốc đầu là giá trị lượng bán theo giá gần nhất; lần lượt trừ chi phí thanh khoản, phí và thuế giả định.',
+            'Tiền ròng chỉ áp dụng với lượng bán nằm trong ba mức mua đang quan sát.'),unsafe_allow_html=True)
     detail=pd.DataFrame(p['details']).rename(columns={'symbol':'Mã','held':'Nắm giữ','sold':'Bán','remaining':'Còn lại','net':'Tiền ròng','visible_depth':'Độ sâu ba mức','uncovered':'Chưa bao phủ'})
-    st.markdown(frame_table(detail[['Mã','Nắm giữ','Bán','Còn lại','Độ sâu ba mức','Tiền ròng']]),unsafe_allow_html=True)
+    with st.container(key='ep_compare_detail'):
+        _overview_section('Chi tiết thanh lý theo cổ phiếu','list_alt')
+        st.markdown(frame_table(detail[['Mã','Nắm giữ','Bán','Còn lại','Độ sâu ba mức','Tiền ròng']]),unsafe_allow_html=True)
     explain('Các cột phương án','**HHI** = Σ(tỷ trọng giá trị còn lại)². **Chi phí bps** = (chi phí thanh khoản/doanh số khớp mô phỏng) × 10.000. **A/B/C/P** là tối ưu hóa theo các hàm mục tiêu khác nhau; không được hiểu là khuyến nghị mua bán.')
     with st.expander('Xuất kết quả CSV',icon=':material/download:'):
         downloads(root,data,t,show_source=False,include_liquidity=False)
