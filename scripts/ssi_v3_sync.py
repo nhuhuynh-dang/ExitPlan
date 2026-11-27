@@ -151,7 +151,7 @@ def main(argv=None):
                 raise SSIResponseError("File lịch sử cũ không cùng nguồn SSI V3; không ghi đè.")
             history = pd.concat([previous, history], ignore_index=True).drop_duplicates(["symbol", "tradingDate"], keep="last").sort_values(["symbol", "tradingDate"])
         from src.analytics.ssi_history_stats import asof_history_stats
-        stats = asof_history_stats(history[history.symbol.isin(equity_symbols(pd.read_parquet(catalog_path)))])
+        stats = asof_history_stats(history[history.symbol.isin(equity_symbols(pd.read_parquet(catalog_path)))],args.to_date+timedelta(days=1),strict_calendar=True)
         stats["source"] = "ssi_fastconnect_v3"
         # Historical bars ONLY: never overwrite book_snapshots.parquet.
         _save_parquet(history, ROOT / "data/processed/ssi_history.parquet")
