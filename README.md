@@ -6,6 +6,8 @@ ExitPlan là ứng dụng hỗ trợ nhà đầu tư cá nhân xây dựng phư�
 
 Ứng dụng được phát triển bằng Python và Streamlit, sử dụng dữ liệu thị trường từ SSI FastConnect V3 và mô hình tối ưu hóa nguyên tuyến tính hỗn hợp (MILP). ExitPlan phục vụ phân tích và mô phỏng học thuật, không kết nối tài khoản giao dịch, không đặt lệnh thật và không đưa ra khuyến nghị đầu tư.
 
+**Nguyên tắc sử dụng:** Nhà đầu tư và giảng viên không cần tài khoản SSI, API Key hay Secret. Quyền truy xuất dữ liệu thị trường là trách nhiệm của bên vận hành ExitPlan.
+
 ## 1. Hướng dẫn chạy lần đầu
 
 ### Dành cho người nhận đồ án
@@ -47,7 +49,7 @@ git clone https://github.com/nhuhuynh-dang/ExitPlan.git
 cd ExitPlan
 ```
 
-GitHub không chứa đầy đủ dữ liệu SSI cục bộ. Để chạy bằng dữ liệu thực, dùng gói nghiên cứu được phép chia sẻ hoặc tự khởi tạo SSI theo mục 3. Ba tệp tối thiểu là:
+GitHub không chứa đầy đủ dữ liệu SSI cục bộ. Để chạy bằng dữ liệu thực, dùng gói nghiên cứu được phép chia sẻ do bên vận hành chuẩn bị. Người dùng không cần tự khởi tạo SSI. Ba tệp tối thiểu là:
 
 | Tệp | Vai trò |
 | --- | --- |
@@ -66,7 +68,7 @@ py -m pytest -q
 py -m streamlit run src/app/app.py
 ```
 
-Để cập nhật mã nguồn trong thư mục Git hiện có, dừng ứng dụng rồi chạy `git pull origin main`. Bật tự cập nhật bằng `py run_exitplan.py --live` sau khi cấu hình API riêng theo mục 3.
+Để cập nhật mã nguồn trong thư mục Git hiện có, dừng ứng dụng rồi chạy `git pull origin main`. Chế độ cập nhật trực tuyến chỉ dành cho bên vận hành ở mục 3.
 
 ## 2. Hướng dẫn sử dụng nhanh
 
@@ -90,13 +92,15 @@ Ví dụ dùng thử (giả định, không phải danh mục khuyến nghị):
 
 Chỉ chọn các mã có snapshot chung hợp lệ. Nếu nút tính bị khóa, kiểm tra số lượng nắm giữ, độ sâu sổ lệnh và điều kiện bán theo lô 100 CP. Nếu mục tiêu vượt khả năng thanh lý, hệ thống báo thiếu hụt thay vì giả định bán được ngoài nguồn lực hiện có.
 
-## 3. Kết nối SSI FastConnect V3 (tùy chọn)
+## 3. Hạ tầng dữ liệu SSI (chỉ dành cho bên vận hành)
 
-Không cần API Key để xem bộ dữ liệu đã lưu. Để cập nhật thị trường, cần được SSI cấp quyền **Market Data chỉ đọc**.
+Người dùng và giảng viên bỏ qua toàn bộ mục này. Bên vận hành quản lý quyền **Market Data chỉ đọc**, cấu hình khóa ở backend và cung cấp dữ liệu đã xử lý theo phạm vi được phép. Với bản ZIP, mọi phép tính chạy cục bộ trên dữ liệu đã lưu; dữ liệu không tự cập nhật nếu không có hạ tầng kết nối.
+
+Nếu triển khai dịch vụ trực tuyến, Streamlit có thể phục vụ nhiều người dùng qua một máy chủ quản lý tập trung. Máy chủ nhận dữ liệu từ SSI và người dùng chỉ truy cập giao diện qua trình duyệt, không nhập khóa riêng. Cần xác nhận quyền cung cấp dữ liệu cho người dùng, triển khai HTTPS và kiểm soát truy cập trước khi công bố. Phiên bản đồ án hiện tại chưa triển khai máy chủ công khai.
 
 ### Cấu hình bảo mật
 
-Trong cùng cửa sổ PowerShell dùng để chạy ứng dụng:
+Trên máy của bên vận hành, trong cùng cửa sổ PowerShell dùng để chạy backend:
 
 ```powershell
 $env:SSI_API_KEY = "KEY_DO_SSI_CAP"
@@ -134,7 +138,7 @@ py scripts/ssi_market_history.py --missing-book-history --strict-calendar --from
 
 ### Bật chế độ cập nhật tự động
 
-Sau khi có danh mục và snapshot SSI hợp lệ cùng hệ số quy đổi đã lưu:
+Chỉ bên vận hành thực hiện sau khi có danh mục và snapshot SSI hợp lệ cùng hệ số quy đổi đã lưu:
 
 ```powershell
 $env:EXITPLAN_SSI_AUTO = "1"
