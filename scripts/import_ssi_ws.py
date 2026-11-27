@@ -3,6 +3,7 @@ Example (ONLY after checking live units against SSI iBoard):
 py scripts/import_ssi_ws.py --symbols HPG VPB ACB --quote-price-factor 1000 --trade-price-factor 1 --volume-factor 1 --history-volume-factor 1
 """
 import argparse
+from collections import Counter
 import json
 import math
 import os
@@ -13,9 +14,28 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from src.ingest.ssi_books import build_snapshots
 
+def append_snapshots(old, new):
+    """Accumulate recorded rows only; never fill quotes across capture times."""
+    factors=("quote_price_factor","trade_price_factor","volume_factor","history_volume_factor")
+    for d in (old,new):
+        if d.empty or set(d.source)!={"ssi_fastconnect_v3_ws"} or set(d.data_kind)!={"live"}:
+            raise ValueError("Only nonempty recorded SSI snapshots may be accumulated")
+        for key in factors:
+            if key not in d or len(set(d[key]))!=1 or not d[key].map(lambda x: math.isfinite(float(x)) and float(x)>0).all():
+                raise ValueError("Invalid snapshot factor: "+key)
+    for key in factors:
+        if set(old[key])!=set(new[key]):
+            raise ValueError("Snapshot factor mismatch: "+key)
+    from src.ingest.ssi_books import timestamp
+    combined=pd.concat([old,new],ignore_index=True)
+    combined["ts_vn"]=combined.ts_vn.map(timestamp)
+    return combined.drop_duplicates(["ts_vn","symbol"],keep="last").sort_values(["ts_vn","symbol"]).reset_index(drop=True)
+
+
 def main():
     p=argparse.ArgumentParser(description="Normalize SSI captures during common continuous-session windows")
-    p.add_argument("--input", nargs="+", help="JSONL files; default: all data/raw/ssi_ws/*.jsonl")
+    p.add_argument("--input", nargs="+", help="JSONL files; market default: latest file only")
+    p.add_argument("--append",action="store_true",help="Accumulate market snapshots with existing SSI dataset; preserve older timestamps")
     scope=p.add_mutually_exclusive_group(required=True)
     scope.add_argument("--symbols",nargs="+")
     scope.add_argument("--all-market",action="store_true")
@@ -30,6 +50,7 @@ def main():
     if not math.isfinite(a.history_volume_factor) or a.history_volume_factor <= 0:
         p.error("Invalid history volume factor")
     market=bool(a.all_market or a.boards)
+    if a.append and not market:p.error("--append is supported in market/board mode only")
     from scripts.ssi_market_history import select_catalog
     if market:
         catalog=pd.read_parquet(ROOT/"data/processed/ssi_securities.parquet")
@@ -54,23 +75,31 @@ def main():
     if not paths:
         print("Chưa có file JSONL SSI. Không tạo snapshot giả.")
         return 1
-    events=[]
-    bad=0
+    stats=Counter()
+    frames=[]
     try:
-        for path in paths:
-            with path.open(encoding="utf-8") as f:
-                for line in f:
-                    if not line.strip(): continue
-                    try:
-                        r=json.loads(line)
-                        if not isinstance(r,dict): raise ValueError("invalid record")
-                        if r.get("symbol") in wanted:events.append(r)
-                    except ValueError:
-                        bad+=1
-        frame,stats=build_snapshots(events,symbols,quote_price_factor=a.quote_price_factor,
-                                    trade_price_factor=a.trade_price_factor,volume_factor=a.volume_factor,
-                                    require_all=not market,interval=interval)
-        stats["invalid_json"]=bad
+        # Market capture files are independent: no carry across recorder restarts.
+        groups=[[path] for path in paths] if market else [paths]
+        for group in groups:
+            events=[]
+            bad=0
+            for path in group:
+                with path.open(encoding="utf-8") as f:
+                    for line in f:
+                        if not line.strip(): continue
+                        try:
+                            r=json.loads(line)
+                            if not isinstance(r,dict): raise ValueError("invalid record")
+                            if r.get("symbol") in wanted:events.append(r)
+                        except ValueError:
+                            bad+=1
+            part,counts=build_snapshots(events,symbols,quote_price_factor=a.quote_price_factor,
+                                       trade_price_factor=a.trade_price_factor,volume_factor=a.volume_factor,
+                                       require_all=not market,interval=interval)
+            stats.update(counts)
+            stats["invalid_json"]+=bad
+            if not part.empty:frames.append(part)
+        frame=pd.concat(frames,ignore_index=True) if frames else pd.DataFrame()
         print(json.dumps(stats,ensure_ascii=False,indent=2))
         if frame.empty:
             print("Không có nhóm snapshot đủ điều kiện. Giữ nguyên toàn bộ dữ liệu đã lưu.")
@@ -84,7 +113,8 @@ def main():
             frame=frame[frame.board.notna()]
             if frame.empty:raise ValueError("No uniquely mapped exchange symbols")
         out=ROOT/"data/processed/ssi_book_snapshots.parquet"
-        # Archive earlier SSI snapshot file before replacing it with the new import.
+        # Archive earlier SSI snapshot file before writing new data.
+        old=None
         if out.exists():
             old=pd.read_parquet(out)
             if set(old.source)!={"ssi_fastconnect_v3_ws"} or set(old.data_kind)!={"live"}:
@@ -97,7 +127,12 @@ def main():
                     raise ValueError("Existing snapshot factor missing or differs; archive old SSI file first")
         for key,value in (("quote_price_factor",a.quote_price_factor),("trade_price_factor",a.trade_price_factor),("volume_factor",a.volume_factor)):
             frame[key]=value
-        # Output is a separate SSI dataset for this import, not merged with older samples.
+        imported_rows=len(frame)
+        imported_symbols=int(frame.symbol.nunique())
+        imported_groups=int(frame.ts_vn.nunique())
+        previous_rows=len(old) if old is not None else 0
+        if a.append:
+            frame=append_snapshots(old,frame) if old is not None else frame.drop_duplicates(["ts_vn","symbol"],keep="last").sort_values(["ts_vn","symbol"])
         if out.exists():
             import shutil
             from datetime import datetime
@@ -111,9 +146,14 @@ def main():
         report.parent.mkdir(parents=True,exist_ok=True)
         report.write_text(json.dumps(dict(stats,source="ssi_fastconnect_v3_ws",data_kind="live",
           symbols=symbols,mode="market" if market else "portfolio",interval_seconds=interval,observed_symbols=int(frame.symbol.nunique()),quote_price_factor=a.quote_price_factor,trade_price_factor=a.trade_price_factor,
+          statistics_scope="current import only; rows/observed_symbols/first/last describe stored dataset",
+          append=a.append,input_files=[str(p.name) for p in paths],previous_rows=previous_rows,
+          imported_rows=imported_rows,imported_symbols=imported_symbols,imported_snapshot_groups=imported_groups,
+          stored_snapshot_groups=int(frame.ts_vn.nunique()),stored_trading_dates=int(frame.ts_vn.dt.date.nunique()),
           volume_factor=a.volume_factor,history_volume_factor=a.history_volume_factor,rows=len(frame),first=str(frame.ts_vn.min()),
           last=str(frame.ts_vn.max())),ensure_ascii=False,indent=2),encoding="utf-8")
         print(f"Đã lưu {len(frame)} dòng SSI, {frame.ts_vn.nunique()} nhóm snapshot đồng bộ.")
+        if a.append:print(f"Tích lũy: {previous_rows} dòng trước import; {imported_rows} dòng đợt này; {len(frame)} dòng sau khử trùng.")
         print("Không ghi đè book_snapshots.parquet hoặc OHLCV.")
         return 0
     except (ValueError, OSError, KeyError, TypeError) as e:
