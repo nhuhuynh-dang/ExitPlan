@@ -18,3 +18,6 @@ outputs/tables/validation_*_ssi.csv
 outputs/tables/validation_*_ssi_summary.json
 
 data/processed/ssi_market_cache/
+
+# Local runtime lock for concurrent snapshot writes.
+data/processed/ssi_*.lock
