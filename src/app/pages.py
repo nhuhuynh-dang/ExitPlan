@@ -15,6 +15,7 @@ from src.data.stock_search import stock_catalog,search_stocks,known_nonstandard_
 from src.data.equity_universe import equity_catalog,equity_symbols
 from src.analytics.planner import calculate,summaries,frontier
 from src.analytics.feasibility import eligible_books,compatible_symbols,liquidation_capacity
+from src.ingest.ssi_dashboard_close import CLOSE_FILE, merge_daily_history
 
 NAV={
  'overview':'Tổng quan',
@@ -148,18 +149,33 @@ def _market_parquet(root,relative):
     return _cached_market_parquet(str(root),relative,_file_version(Path(root)/relative))
 
 
+@st.cache_data(show_spinner=False,max_entries=4)
+def _cached_daily_history(root,base_version,extra_version):
+    base,error=_cached_market_parquet(root,'data/processed/ssi_history.parquet',base_version)
+    extra,extra_error=_cached_market_parquet(root,CLOSE_FILE,extra_version)
+    if base is None and Path(root,'data/processed/ssi_history.parquet').exists():raise ValueError(error)
+    if extra is None and Path(root,CLOSE_FILE).exists():raise ValueError(extra_error)
+    return merge_daily_history(base,extra)
+
+
+def _daily_history(root):
+    return _cached_daily_history(str(root),_file_version(Path(root)/'data/processed/ssi_history.parquet'),
+                                 _file_version(Path(root)/CLOSE_FILE))
+
+
 @st.cache_data(show_spinner=False,max_entries=12)
-def _cached_ssi_stats(root,file_version,snapshot_date,allowed=None):
+def _cached_ssi_stats(root,base_version,extra_version,snapshot_date,allowed=None):
     from src.analytics.ssi_history_stats import asof_history_stats
-    history,error=_cached_market_parquet(root,'data/processed/ssi_history.parquet',file_version)
-    if history is None:raise ValueError(error)
+    history=_cached_daily_history(root,base_version,extra_version)
+    if history is None:raise ValueError('Chưa có OHLCV SSI')
     if allowed is not None:history=history[history.symbol.isin(allowed)]
     return asof_history_stats(history,snapshot_date,strict_calendar=True)
 
 
 def _ssi_stats(root,snapshot_date=None,allowed=None):
     return _cached_ssi_stats(str(root),_file_version(Path(root)/'data/processed/ssi_history.parquet'),
-                             snapshot_date,tuple(sorted(allowed)) if allowed is not None else None)
+                             _file_version(Path(root)/CLOSE_FILE),snapshot_date,
+                             tuple(sorted(allowed)) if allowed is not None else None)
 
 
 def _market_reference_panel(root,symbols):
@@ -212,7 +228,7 @@ def _market_reference_fragment(root,symbols):
 
 def _data_versions(root,overrides):
     paths=['data/processed/ssi_book_snapshots.parquet','data/processed/ssi_securities.parquet',
-           'data/processed/ssi_history.parquet',SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY]
+           'data/processed/ssi_history.parquet',CLOSE_FILE,SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY]
     return tuple(_file_version(resolve_path(root,path,overrides)) for path in paths)
 
 
@@ -254,8 +270,8 @@ def _load_market_files(root,overrides,file_versions):
         if books is not None and not books.empty:
             try:
                 from src.analytics.ssi_history_stats import asof_history_stats
-                history,herr=_market_parquet(root,'data/processed/ssi_history.parquet')
-                if history is None:raise ValueError(herr)
+                history=_daily_history(root)
+                if history is None:raise ValueError('Chưa có OHLCV SSI')
                 factors=books['history_volume_factor'].dropna().unique()
                 if len(factors)!=1 or not 0<float(factors[0])<float('inf'):
                     raise ValueError('Chưa xác nhận đơn vị volume lịch sử')
@@ -302,6 +318,7 @@ def load(root):
                str(books['ts_vn'].max()) if books is not None and not books.empty else '',
                tuple(sorted(books['data_kind'].unique())) if books is not None else (),
                len(books) if books is not None else 0)
+    signature=signature+(_file_version(resolve_path(root,ssi_path if use_ssi else SNAPSHOT,overrides)),)
     previous=st.session_state.get('ep_data_signature')
     if previous!=signature:
         if not _keep_recorded_plan(data,previous,signature,st.session_state):
@@ -581,7 +598,8 @@ def planner(root,data,t):
     valid_symbols=set(books.symbol) if books is not None and not books.empty else set()
     kind=str(raw_books['data_kind'].iloc[0]) if raw_books is not None and not raw_books.empty else ''
     # Real daily bars are displayed only as independent history coverage, never as depth.
-    history,_=_market_parquet(root,'data/processed/ssi_history.parquet')
+    try:history=_daily_history(root)
+    except ValueError:history=None
     history_counts={}
     if history is not None and {'symbol','tradingDate','source','data_kind'}.issubset(history.columns):
         if set(history.source)=={'ssi_fastconnect_v3'} and set(history.data_kind)=={'historical'}:
@@ -772,9 +790,7 @@ def planner(root,data,t):
                 holdings=dict(draft)
                 with st.spinner('Đang tính phương án bán…'):
                     plans=calculate(holdings,quotes,target*1e6,lamb,fee/100,tax/100)
-                    fr=frontier(holdings,quotes,target*1e6,fee/100,tax/100)
                 st.session_state['ep_plans']=plans
-                st.session_state['ep_frontier']=fr
                 st.session_state['ep_holdings']=holdings
                 st.session_state['ep_plan_quotes']=quotes
                 st.session_state['ep_params']=dict(target=target*1e6,lamb=lamb,fee=fee/100,tax=tax/100,
@@ -856,8 +872,17 @@ def compare(root,data,t):
         c1,c2=st.columns(2,gap='medium')
         with c1, st.container(key='ep_compare_tradeoff'):
             _overview_section('Đánh đổi chi phí – tập trung','scatter_plot')
+            if st.session_state.get('ep_frontier') is None:
+                if st.button('Tính đường đánh đổi λ',key='ep_compute_frontier',use_container_width=True):
+                    try:
+                        with st.spinner('Đang tính 6 mức λ…'):
+                            st.session_state['ep_frontier']=frontier(st.session_state['ep_holdings'],
+                                st.session_state['ep_plan_quotes'],params['target'],params['fee'],params['tax'])
+                    except (RuntimeError,ValueError,KeyError):
+                        st.warning('Chưa tính được đường đánh đổi. Bốn phương án vẫn được giữ nguyên.')
+                st.caption('A/B/C được hiển thị ngay. Tính đường λ khi cần phân tích chi tiết hoặc xuất CSV.')
             plot(charts.compare_style(charts.tradeoff_fig(st.session_state.get('ep_frontier'),plans,t),t),'EP02_tradeoff')
-            st.markdown(guide('Mỗi điểm là phương án tối ưu ở một giá trị λ; vị trí A/B/C được đánh dấu.',
+            st.markdown(guide('Đường λ (khi đã tính) thể hiện các nghiệm B ở từng mức ưu tiên; A/B/C là các phương án đối chiếu.',
                 'Đường này phản ánh kết quả theo ràng buộc và hàm mục tiêu mô phỏng, không phải lợi nhuận kỳ vọng.'),unsafe_allow_html=True)
         with c2, st.container(key='ep_compare_holdings'):
             _overview_section('Giá trị danh mục trước/sau','bar_chart')
@@ -867,7 +892,7 @@ def compare(root,data,t):
     with st.container(key='ep_compare_waterfall'):
         _overview_section('Thác chi phí từ giá trị tham chiếu đến tiền ròng','waterfall_chart')
         plot(charts.compare_style(charts.waterfall_fig(p,t),t,wide=True),'EP04_cost_waterfall')
-        st.markdown(guide('Mốc đầu là giá trị lượng bán theo giá gần nhất; lần lượt trừ chi phí thanh khoản, phí và thuế giả định.',
+        st.markdown(guide('Mốc đầu là giá trị lượng bán theo giá gần nhất; cộng hoặc trừ chênh lệch giá khớp mô phỏng, rồi trừ phí và thuế. Chênh lệch này có dấu, khác chi phí thanh khoản không âm trong mô hình.',
             'Tiền ròng chỉ áp dụng với lượng bán nằm trong ba mức mua đang quan sát.'),unsafe_allow_html=True)
     detail=pd.DataFrame(p['details']).rename(columns={'symbol':'Mã','held':'Nắm giữ','sold':'Bán','remaining':'Còn lại','net':'Tiền ròng','visible_depth':'Độ sâu ba mức','uncovered':'Chưa bao phủ'})
     with st.container(key='ep_compare_detail'):
@@ -970,12 +995,12 @@ def ssi_history(root,data,t):
     stats_path=Path(root)/'outputs/tables/ssi_liquidity_stats.parquet'
     # Investor-facing view: technical commands and the full security catalog
     # remain in Data & connection, not on the price history page.
-    if not path.exists():
+    if not path.exists() and not (Path(root)/CLOSE_FILE).exists():
         st.info('Chưa có lịch sử giá đã lưu.')
         return
     try:
-        h,herr=_market_parquet(root,'data/processed/ssi_history.parquet')
-        if h is None:raise ValueError(herr)
+        h=_daily_history(root)
+        if h is None:raise ValueError('Chưa có OHLCV SSI')
         required={'symbol','tradingDate','close','volume','data_kind','source'}
         if not required.issubset(h.columns):raise ValueError('Thiếu cột: '+', '.join(sorted(required-set(h.columns))))
         if h.empty:return st.warning('File lịch sử SSI trống.')
@@ -1075,7 +1100,13 @@ def data_page(root,data,t):
               {'label':'Quote lỗi','value':fmt.num(qa.get('invalid_quote',0))},
               {'label':'Trade lỗi','value':fmt.num(qa.get('invalid_trade',0))}
             ]),unsafe_allow_html=True)
-            st.caption('Thống kê thực tế của importer SSI; thiếu nhóm đồng bộ không phải lệnh không khớp.')
+            st.caption('Các thẻ trên chỉ thống kê đợt import gần nhất, không phải toàn bộ lịch sử. Thiếu nhóm đồng bộ không phải lệnh không khớp.')
+            st.markdown(cards_html([
+                {'label':'Snapshot tích lũy','value':fmt.num(len(b)) if valid else '–'},
+                {'label':'Nhóm thời điểm tích lũy','value':fmt.num(b.ts_vn.nunique()) if valid else '–'},
+                {'label':'Mã tích lũy','value':fmt.num(b.symbol.nunique()) if valid else '–'},
+                {'label':'Ngày giao dịch tích lũy','value':fmt.num(b.ts_vn.dt.date.nunique()) if valid else '–'}
+            ]),unsafe_allow_html=True)
             with st.expander('Chi tiết kiểm tra SSI'):
                 st.json(qa)
         else:st.info('Chưa có báo cáo chất lượng SSI.')
