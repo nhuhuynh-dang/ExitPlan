@@ -87,8 +87,12 @@ def compare_style(fig,t,wide=False):
     fig.update_xaxes(automargin=True,tickfont=dict(size=11))
     fig.update_yaxes(automargin=True,tickfont=dict(size=11))
     if wide:
-        # Keep the full Vietnamese category labels available on hover.
-        fig.update_xaxes(tickangle=-12)
+        # Horizontal, wrapped display labels; keep the original trace categories.
+        labels=['Giá trị tham chiếu','Chi phí thanh khoản','Phí bán','Thuế/khác','Tiền ròng']
+        display=['Giá trị<br>tham chiếu','Chi phí<br>thanh khoản','Phí bán','Thuế/khác','Tiền ròng']
+        fig.update_xaxes(tickangle=0,tickmode='array',tickvals=labels,ticktext=display,
+                         tickfont=dict(size=12,color=t['text']))
+        fig.update_layout(margin=dict(b=55))
     return fig
 
 
