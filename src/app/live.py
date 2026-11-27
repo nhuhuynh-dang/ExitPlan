@@ -73,6 +73,9 @@ def sidebar_live(root):
     st.markdown("**SSI FastConnect V3**")
     icon={"success":"🟢","warning":"🟠","neutral":"⚪"}[tone]
     st.caption(icon+" "+text)
+    if phase=="continuous" and info.get("failure_stage") and info.get("state") in ("error","retrying"):
+        stage={"auth":"Xác thực SSI","stored_data":"Dữ liệu đầu vào","websocket":"Nhận bản tin","import":"Chuẩn hóa snapshot"}.get(info["failure_stage"],"Chưa xác định")
+        st.caption("Khâu cần kiểm tra: "+stage)
     if phase=="continuous" and info.get("last_event_vn"):
         st.caption("Bản tin: "+info["last_event_vn"].replace("T"," ")[:19])
     if info.get("last_snapshot_vn"):
