@@ -79,4 +79,16 @@ def sidebar_live(root):
         st.caption("Snapshot: "+info["last_snapshot_vn"].replace("T"," ")[:19])
     if phase=="closed":
         date=completed_date()
-        if date:st.caption("Phiên tham chiếu: "+date.strftime("%d/%m/%Y"))
+        if date:
+            st.caption("Phiên tham chiếu: "+date.strftime("%d/%m/%Y"))
+            if os.getenv("EXITPLAN_SSI_AUTO","1")!="0" and not info.get("active"):
+                try:
+                    from src.app.pages import _market_parquet, _daily_history
+                    from src.ingest.ssi_dashboard_close import missing_daily_symbols
+                    books,_=_market_parquet(root,"data/processed/ssi_book_snapshots.parquet")
+                    if books is not None and not books.empty and set(books.source)=={"ssi_fastconnect_v3_ws"} and set(books.data_kind)=={"live"}:
+                        missing=missing_daily_symbols(_daily_history(root),books.symbol.unique(),date)
+                        close_controller(root).request(missing,date,bulk=True)
+                        st.caption("OHLCV phiên gần nhất: "+str(len(missing))+" mã còn thiếu")
+                except (ValueError,KeyError,TypeError,OSError):
+                    st.caption("Chưa kiểm tra được độ phủ OHLCV.")
