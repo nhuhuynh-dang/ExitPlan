@@ -1203,7 +1203,113 @@ body [data-testid="stPopoverBody"] button[kind="primary"] * {
     extra_css+=controls_css+modern_css
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
-    return css
+    return css + overview_css(mode)
+
+def overview_css(mode):
+    """Scoped Portfolio Intelligence styling; other pages keep their current theme."""
+    p=palette(mode)
+    tokens={
+        '__OV_BG__':'#0F172A' if mode=='Tối' else '#F5F7FC',
+        '__OV_SURFACE__':p['surface'],'__OV_TEXT__':p['text'],
+        '__OV_MUTED__':p['muted'],'__OV_BORDER__':p['border'],
+        '__OV_ACCENT__':p['accent'],'__OV_TINT__':mix(p['surface'],p['accent'],.08),
+        '__OV_GREEN__':'#6EE7B7' if mode=='Tối' else '#047857',
+        '__OV_GREEN_BG__':'#153B36' if mode=='Tối' else '#ECFDF5',
+        '__OV_WARN__':'#FCD34D' if mode=='Tối' else '#92400E',
+        '__OV_WARN_BG__':'#3B3120' if mode=='Tối' else '#FFFBEB',
+    }
+    style="""
+<style>
+/* Scope the flat background and footer spacing to the overview only. */
+.stApp [data-testid="stAppViewContainer"]:has(.ep-overview-header) {
+    background:__OV_BG__ !important;
+}
+.ep-overview-header {
+    padding:4px 0 12px;color:__OV_TEXT__;margin:0;
+}
+.ep-overview-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.ep-overview-heading>div {min-width:0;}
+.ep-overview-header .ep-eyebrow {margin:0 0 6px;font-size:.7rem;letter-spacing:.12em;}
+.ep-overview-header h1 {font-size:clamp(1.65rem,2.5vw,2.25rem);line-height:1.25;font-weight:800;margin:0 0 8px;padding:0;}
+.ep-overview-header p {color:__OV_MUTED__ !important;font-size:.91rem;line-height:1.6;margin:0;}
+.ep-overview-header-icon {display:grid;place-items:center;flex:0 0 48px;height:48px;border:1px solid __OV_BORDER__;border-radius:14px;color:__OV_ACCENT__;background:__OV_TINT__;font-size:27px;}
+.st-key-ep_overview_source .ep-badge {display:inline-flex;align-items:center;white-space:normal;line-height:1.45;font-size:.78rem;font-weight:600;padding:6px 10px;margin:0 6px 6px 0;border-radius:8px;}
+.st-key-ep_overview_source .ep-badge:nth-of-type(2) {color:__OV_MUTED__ !important;background:__OV_SURFACE__ !important;border-color:__OV_BORDER__ !important;}
+.st-key-ep_overview_source .ep-badge:nth-of-type(3) {color:__OV_WARN__ !important;background:__OV_WARN_BG__ !important;border-color:__OV_BORDER__ !important;}
+.st-key-ep_overview_source .ep-badge.warn {color:__OV_WARN__ !important;background:__OV_WARN_BG__ !important;}
+.ep-overview-kpis {container-type:inline-size;}
+.ep-overview-kpis .ep-kpi-grid {grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:4px 0 8px;align-items:stretch;}
+.stApp [data-testid="stMarkdownContainer"] .ep-overview-kpis .ep-kpi-grid .ep-card {
+    position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;
+    min-height:172px;padding:16px !important;border:1px solid __OV_BORDER__ !important;
+    background:__OV_SURFACE__ !important;border-radius:14px !important;
+    box-shadow:0 3px 12px rgba(15,40,75,.045) !important;transition:border-color .16s,box-shadow .16s;
+}
+.stApp [data-testid="stMarkdownContainer"] .ep-overview-kpis .ep-card:hover {border-color:__OV_ACCENT__ !important;box-shadow:0 5px 16px rgba(25,65,110,.09) !important;}
+.ep-overview-kpis .ep-card-icon {width:36px;height:36px;min-width:36px;border-radius:10px;}
+.ep-overview-kpis .ep-card-icon svg {width:21px;height:21px;}
+.ep-overview-kpis .ep-card-copy {display:flex;flex-direction:column;gap:4px;width:100%;}
+.ep-overview-kpis .ep-kpi-value {font-size:clamp(1.45rem,2vw,1.95rem);font-weight:800;line-height:1.2;letter-spacing:-.035em;}
+.ep-overview-kpis .ep-kpi-label {font-size:.83rem;font-weight:650;margin:0;line-height:1.45;}
+.ep-overview-kpis .ep-kpi-note {font-size:.74rem;line-height:1.5;margin:0;}
+.st-key-ep_overview_layout {container-type:inline-size;}
+.st-key-ep_overview_layout [data-testid="stHorizontalBlock"] {align-items:stretch;gap:16px;}
+.st-key-ep_overview_layout [data-testid="stColumn"] {min-width:0 !important;}
+.stApp :is(.st-key-ep_overview_chart,.st-key-ep_overview_status) {
+    background:__OV_SURFACE__ !important;border:1px solid __OV_BORDER__ !important;
+    border-radius:14px !important;padding:18px !important;min-width:0;
+    box-shadow:0 3px 14px rgba(15,40,75,.04);
+}
+.ep-overview-section-title {display:flex;align-items:center;gap:9px;min-height:30px;}
+.ep-overview-section-title>.material-symbols-rounded {font-size:22px;color:__OV_ACCENT__;flex-shrink:0;}
+.ep-overview-section-title h2 {font-size:1.02rem !important;font-weight:750 !important;line-height:1.4;margin:0 !important;padding:0 !important;overflow-wrap:normal;}
+.st-key-ep_overview_chart [data-testid="stPlotlyChart"] {width:100%;min-width:0;border:0 !important;box-shadow:none !important;padding:0 !important;border-radius:0 !important;overflow:visible !important;}
+.st-key-ep_overview_chart [data-testid="stMultiSelect"] {min-width:0;}
+.st-key-ep_overview_chart [data-testid="stWidgetLabel"] p {font-size:.82rem;font-weight:600;}
+.ep-overview-status-list {display:grid;gap:12px;}
+.ep-overview-status {display:flex;align-items:center;gap:12px;min-height:106px;padding:15px 13px;border:1px solid __OV_BORDER__;border-radius:12px;background:__OV_SURFACE__;}
+.ep-overview-status-icon {display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:10px;background:__OV_TINT__;color:__OV_ACCENT__;font-size:23px;}
+.ep-overview-status.is-ok .ep-overview-status-icon {color:__OV_GREEN__;background:__OV_GREEN_BG__;}
+.ep-overview-status-copy {min-width:0;}
+.ep-overview-status-label {font-size:.77rem;color:__OV_MUTED__;line-height:1.45;margin-bottom:6px;}
+.ep-overview-status-value {font-size:1.03rem;color:__OV_TEXT__;font-weight:750;line-height:1.4;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}
+.ep-overview-status.is-ok .ep-overview-status-value {color:__OV_GREEN__;}
+.ep-overview-ws-note {display:flex;gap:9px;align-items:flex-start;border-top:1px solid __OV_BORDER__;margin-top:16px;padding-top:16px;font-size:.77rem;color:__OV_MUTED__;line-height:1.6;}
+.ep-overview-ws-note .material-symbols-rounded {font-size:18px;color:__OV_ACCENT__;flex-shrink:0;}
+.ep-overview-insight {display:flex;align-items:flex-start;gap:12px;padding:16px 18px;border:1px solid __OV_BORDER__;background:__OV_SURFACE__;border-radius:14px;margin-top:4px;color:__OV_TEXT__;}
+.ep-overview-insight>.material-symbols-rounded {color:__OV_ACCENT__;font-size:23px;flex-shrink:0;}
+.ep-overview-insight-body {display:grid;grid-template-columns:1fr 1fr;gap:18px;min-width:0;width:100%;}
+.ep-overview-insight-body>div+div {border-left:1px solid __OV_BORDER__;padding-left:18px;}
+.ep-overview-insight strong {font-size:.83rem;font-weight:700;}
+.ep-overview-insight p {font-size:.8rem;line-height:1.6;color:__OV_MUTED__ !important;margin:5px 0 0 !important;}
+@container (min-width:860px) {
+    .stApp :is(.st-key-ep_overview_chart,.st-key-ep_overview_status) {min-height:610px;}
+}
+@container (max-width:859px) {
+    .ep-overview-kpis .ep-kpi-grid {grid-template-columns:repeat(2,minmax(0,1fr));}
+    .st-key-ep_overview_layout [data-testid="stHorizontalBlock"] {flex-direction:column !important;}
+    .st-key-ep_overview_layout [data-testid="stColumn"] {width:100% !important;flex:1 1 100% !important;}
+}
+@container (max-width:430px) {
+    .ep-overview-kpis .ep-kpi-grid {grid-template-columns:1fr;}
+}
+@media(max-width:640px){
+    .ep-overview-header-icon {display:none;}
+    .ep-overview-kpis .ep-kpi-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+    .stApp [data-testid="stMarkdownContainer"] .ep-overview-kpis .ep-card {padding:12px !important;min-height:150px;}
+    .ep-overview-insight-body {grid-template-columns:1fr;gap:12px;}
+    .ep-overview-insight-body>div+div {border-left:0;border-top:1px solid __OV_BORDER__;padding:12px 0 0;}
+    .stApp :is(.st-key-ep_overview_chart,.st-key-ep_overview_status) {padding:12px !important;}
+    .st-key-ep_overview_layout [data-testid="stHorizontalBlock"] {flex-direction:column !important;}
+    .st-key-ep_overview_layout [data-testid="stColumn"] {width:100% !important;flex:1 1 100% !important;}
+}
+@media(max-width:380px){.ep-overview-kpis .ep-kpi-grid{grid-template-columns:1fr;}}
+@media(prefers-reduced-motion:reduce){.ep-overview-kpis .ep-card{transition:none !important;}}
+</style>
+"""
+    for key,value in tokens.items():style=style.replace(key,value)
+    return style
+
 
 def hero_svg(accent=BLUE_ACCENT, mode='Sáng'):
     """Minh họa vector ExitPlan: màn hình danh mục, kế hoạch bán, tiền và thanh khoản."""
