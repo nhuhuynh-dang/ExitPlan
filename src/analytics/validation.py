@@ -35,7 +35,14 @@ def replay_plans(books,holdings,target,lamb=.5,fee=0.,tax=0.,min_assets=None):
 
 def replay_summary(df):
     if df.empty:return {'n':0,'status':'insufficient'}
-    return {'n':int(len(df)),'n_sessions':int(pd.to_datetime(df['snapshot_ts']).dt.date.nunique()),
+    # ISO timestamps from replay_plans may include fractional seconds or omit them.
+    # Count trading dates in Vietnam, not UTC; normalize any legacy naive times locally.
+    def local_date(value):
+        ts=pd.Timestamp(value)
+        ts=ts.tz_localize('Asia/Ho_Chi_Minh') if ts.tzinfo is None else ts.tz_convert('Asia/Ho_Chi_Minh')
+        return ts.date()
+    n_sessions=df['snapshot_ts'].map(local_date).nunique()
+    return {'n':int(len(df)),'n_sessions':int(n_sessions),
             'target_success_pct':float(df['satisfied'].mean()*100),
             'net_range_vnd':float(df['net'].max()-df['net'].min()),
             'net_cv_pct':float(df['net'].std(ddof=0)/df['net'].mean()*100) if df['net'].mean()>0 else None,
