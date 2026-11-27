@@ -188,9 +188,12 @@ def _market_reference_panel(root,symbols):
     if phase=='closed':
         target=completed_date()
         if target is None:return
-        history,_=_market_parquet(root,'data/processed/ssi_history.parquet')
-        extra,_=_market_parquet(root,CLOSE_FILE)
-        values=close_references(history,extra,symbols,target)
+        try:
+            history=_daily_history(root)
+        except ValueError:
+            st.warning('Dữ liệu OHLCV chưa hợp lệ. Không hiển thị giá đóng cửa suy đoán.')
+            return
+        values=close_references(history,None,symbols,target)
         missing=[sym for sym in symbols if not values.get(sym,{}).get('current')]
         if missing:close_controller(root).request(missing,target)
         rows=[]
@@ -269,13 +272,11 @@ def _load_market_files(root,overrides,file_versions):
         liquidity_err=None
         if books is not None and not books.empty:
             try:
-                from src.analytics.ssi_history_stats import asof_history_stats
                 history=_daily_history(root)
                 if history is None:raise ValueError('Chưa có OHLCV SSI')
                 factors=books['history_volume_factor'].dropna().unique()
                 if len(factors)!=1 or not 0<float(factors[0])<float('inf'):
                     raise ValueError('Chưa xác nhận đơn vị volume lịch sử')
-                history=history[history.symbol.isin(allowed)]
                 liquidity=_ssi_stats(root,books['ts_vn'].max().date(),allowed)
                 liquidity['adv']*=float(factors[0])
                 liquidity['volume_note']='OHLCV SSI trước ngày snapshot · CP/ngày'
@@ -318,7 +319,8 @@ def load(root):
                str(books['ts_vn'].max()) if books is not None and not books.empty else '',
                tuple(sorted(books['data_kind'].unique())) if books is not None else (),
                len(books) if books is not None else 0)
-    signature=signature+(_file_version(resolve_path(root,ssi_path if use_ssi else SNAPSHOT,overrides)),)
+    signature=signature+(_file_version(resolve_path(root,ssi_path if use_ssi else SNAPSHOT,overrides)),
+                         _file_version(Path(root)/'data/processed/ssi_securities.parquet') if use_ssi else None)
     previous=st.session_state.get('ep_data_signature')
     if previous!=signature:
         if not _keep_recorded_plan(data,previous,signature,st.session_state):
@@ -932,8 +934,6 @@ def liquidity(root,data,t):
     qstats=data['liquidity']
     if data.get('use_ssi') and st.session_state.get('ep_params'):
         try:
-            from src.analytics.ssi_history_stats import asof_history_stats
-            history,_=_market_parquet(root,'data/processed/ssi_history.parquet')
             factor=float(data['books']['history_volume_factor'].iloc[0])
             qstats=_ssi_stats(root,pd.Timestamp(st.session_state['ep_params']['snapshot_at']).date())
             qstats['adv']*=factor
@@ -943,6 +943,9 @@ def liquidity(root,data,t):
     if data.get('use_ssi'):
         st.caption('ADV20 cần đủ 20 phiên theo lịch 2026 trước snapshot; Sigma20 cần 21 giá đóng cửa liên tiếp. Không nội suy phiên thiếu.')
         if qstats is None:st.warning(data.get('liquidity_err') or 'Chưa có ADV20 hợp lệ.')
+        elif 'quality_status' in qstats:
+            qstats=qstats.copy()
+            qstats.loc[qstats.quality_status.ne('complete'),['adv','sigma']]=float('nan')
     elif qstats is not None and ('data_kind' not in qstats or set(qstats['data_kind'])!=set(data['books']['data_kind'])):
         qstats=None
         st.warning('Bỏ ADV không cùng loại dữ liệu với sổ lệnh.')
@@ -1040,7 +1043,6 @@ def ssi_history(root,data,t):
               {'label':'Số dòng OHLCV','value':fmt.num(len(view)),'note':'Theo ngày giao dịch'},
               {'label':'Ngày mới nhất','value':view['tradingDate'].max().strftime('%d/%m/%Y'),'note':'Không phải báo giá tức thời'}]),unsafe_allow_html=True)
         if not h.empty:
-            from src.analytics.ssi_history_stats import asof_history_stats
             stats=_ssi_stats(root,allowed=allowed)
             st.subheader('ADV 20 phiên và độ biến động')
             if {'symbol','adv','sigma','n_sessions','asof_date','source','data_kind'}.issubset(stats.columns) and set(stats.source)=={'ssi_fastconnect_v3'} and set(stats.data_kind)=={'historical'}:
