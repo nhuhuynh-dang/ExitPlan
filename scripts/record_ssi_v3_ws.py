@@ -67,8 +67,9 @@ def market_rows(frame, symbols):
 
 
 async def capture(token, symbols, minutes, boards=None, max_mb=512):
-    filters=[b.lower() for b in boards] if boards else symbols
-    topics = [f"{kind}.{sym}@tick" for sym in filters for kind in ("quote", "trade")]
+    filters = [b.upper() for b in boards] if boards else symbols
+    interval = "*" if boards else "tick"
+    topics = [f"{kind}.{sym}@{interval}" for sym in filters for kind in ("quote", "trade")]
     wanted=set(symbols)
     bytes_written=0
     next_status=time.monotonic()+15
