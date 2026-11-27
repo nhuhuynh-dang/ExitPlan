@@ -13,7 +13,7 @@ REQUIRED_DATA = (
     "data/processed/ssi_history.parquet",
 )
 CODE_FILES = ("README.md", "requirements.txt", "run_exitplan.py", "config.json",
-              "pytest.ini", ".streamlit/config.toml")
+              "pytest.ini", ".streamlit/config.toml", "scripts/example_capture.jsonl")
 OPTIONAL_DATA = (
     "data/processed/ssi_dashboard_closes.parquet",
     "outputs/tables/ssi_liquidity_stats.parquet",
