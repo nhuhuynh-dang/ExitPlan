@@ -130,13 +130,24 @@ def history_stats_table(stats,key,verified_volume=False):
     paged_table(view,key)
 
 
-def load(root):
-    overrides={}
-    if str(st.query_params.get('advanced',''))=='1':
-        with st.sidebar.expander('Nâng cao · đường dẫn file',expanded=False):
-            for relative in [SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY]:
-                value=st.text_input(relative,value=str(Path(root)/relative),key='path_'+relative)
-                overrides[relative]=value
+def _file_version(path):
+    """Metadata-only invalidation; missing/replaced files also change the key."""
+    try:
+        stat=path.stat()
+        return (str(path.resolve()),stat.st_mtime_ns,stat.st_ctime_ns,stat.st_size,stat.st_ino)
+    except OSError:
+        return (str(path.absolute()),None)
+
+
+def _data_versions(root,overrides):
+    paths=['data/processed/ssi_book_snapshots.parquet','data/processed/ssi_securities.parquet',
+           'data/processed/ssi_history.parquet',SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY]
+    return tuple(_file_version(resolve_path(root,path,overrides)) for path in paths)
+
+
+@st.cache_data(show_spinner=False,max_entries=4)
+def _load_market_files(root,overrides,file_versions):
+    """Cache only file-derived data, not UI or session state."""
     ssi_path='data/processed/ssi_book_snapshots.parquet'
     use_ssi=SNAPSHOT not in overrides and (Path(root)/ssi_path).is_file()
     catalog_raw,catalog_error=read_parquet(root,'data/processed/ssi_securities.parquet')
@@ -158,11 +169,12 @@ def load(root):
         except Exception as exc:
             books=None
             err=f'Dữ liệu không hợp lệ: {exc}'
-    liquidity,liquidity_err=read_parquet(root,LIQUIDITY,overrides)
-    saved_plans,_=read_parquet(root,PLANS,overrides)
-    saved_frontier,_=read_parquet(root,FRONTIER,overrides)
-    quality,_=read_csv(root,QUALITY,overrides)
-    if use_ssi:
+    if not use_ssi:
+        liquidity,liquidity_err=read_parquet(root,LIQUIDITY,overrides)
+        saved_plans,_=read_parquet(root,PLANS,overrides)
+        saved_frontier,_=read_parquet(root,FRONTIER,overrides)
+        quality,_=read_csv(root,QUALITY,overrides)
+    else:
         # Never reuse synthetic quality or liquidity with actual SSI snapshots.
         quality=None
         saved_plans=saved_frontier=None
@@ -181,6 +193,20 @@ def load(root):
                 liquidity['adv']*=float(factors[0])
                 liquidity['volume_note']='OHLCV SSI trước ngày snapshot · CP/ngày'
             except Exception as ex:liquidity_err=str(ex)
+    return dict(use_ssi=use_ssi,allowed_equities=allowed,books=books,err=err,liquidity=liquidity,liquidity_err=liquidity_err,
+                saved_plans=saved_plans,saved_frontier=saved_frontier,quality=quality,overrides=overrides)
+
+def load(root):
+    overrides={}
+    if str(st.query_params.get('advanced',''))=='1':
+        with st.sidebar.expander('Nâng cao · đường dẫn file',expanded=False):
+            for relative in [SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY]:
+                value=st.text_input(relative,value=str(Path(root)/relative),key='path_'+relative)
+                overrides[relative]=value
+    data=_load_market_files(str(root),overrides,_data_versions(root,overrides))
+    books=data['books']
+    use_ssi=data['use_ssi']
+    ssi_path='data/processed/ssi_book_snapshots.parquet'
     # Clear computed plans when the source or latest input snapshot changes.
     signature=(ssi_path if use_ssi else str(overrides.get(SNAPSHOT,SNAPSHOT)),
                str(books['ts_vn'].max()) if books is not None and not books.empty else '',
@@ -190,8 +216,8 @@ def load(root):
         for key in ('ep_plans','ep_frontier','ep_holdings','ep_plan_quotes','ep_params'):
             st.session_state.pop(key,None)
         st.session_state['ep_data_signature']=signature
-    return dict(use_ssi=use_ssi,allowed_equities=allowed,books=books,err=err,liquidity=liquidity,liquidity_err=liquidity_err,
-                saved_plans=saved_plans,saved_frontier=saved_frontier,quality=quality,overrides=overrides)
+    return data
+
 
 def planner_notice(message,kind='info'):
     """Single theme-aware message surface; no BaseWeb notification layers."""
@@ -224,8 +250,7 @@ def source_labels(data,compact=False):
     if compact:
         st.caption(label+' · '+last.strftime('%d/%m/%Y %H:%M')+' (UTC+7)')
     else:
-        st.markdown(badge('Nguồn: '+label,kind)+badge('Cập nhật: '+last.strftime('%d/%m/%Y %H:%M:%S')+' · UTC+7')+
-                    badge('File đã ghi · không kết nối API trong dashboard'),unsafe_allow_html=True)
+        st.markdown(badge('Nguồn: '+label,kind)+badge('Cập nhật: '+last.strftime('%d/%m/%Y %H:%M:%S')+' · UTC+7'),unsafe_allow_html=True)
     return True
 
 def quote_map(data):
