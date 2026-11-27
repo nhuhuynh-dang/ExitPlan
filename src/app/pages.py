@@ -712,6 +712,14 @@ def planner(root,data,t):
                     capacity=liquidation_capacity(draft,quotes,fee/100,tax/100)
                     stamp=batch['ts_vn'].max()
                     st.caption('Sổ lệnh đồng bộ: '+stamp.strftime('%d/%m/%Y %H:%M:%S')+' (UTC+7) · dữ liệu đã ghi.')
+                    if data.get('use_ssi'):
+                        from src.ingest.ssi_dashboard_close import market_phase
+                        phase=market_phase()
+                        age=(pd.Timestamp.now(tz='Asia/Ho_Chi_Minh')-stamp).total_seconds()
+                        if phase!='continuous':
+                            st.caption('Ngoài khung thu thập liên tục: phương án mô phỏng trên sổ lệnh đã ghi, không phải lệnh có thể khớp ngay.')
+                        elif not 0<=age<=120:
+                            planner_notice('Snapshot chung chưa được cập nhật trong 120 giây gần nhất. Kết quả chỉ mô phỏng trên dữ liệu đã ghi.','warning')
                 except (ValueError,RuntimeError,KeyError,TypeError) as ex:
                     batch=None
                     capacity=None
@@ -1080,6 +1088,7 @@ def data_page(root,data,t):
             paged_table(quality,'ep_quality_raw_page')
 
     st.subheader('Trạng thái kết nối dữ liệu')
+    st.caption('Tự kết nối trong khung thu thập; ngoài giờ lấy giá đóng cửa cho mã đang xem. Trạng thái trực tiếp ở thanh bên. Không chạy thêm bộ ghi terminal cùng lúc.')
     ssi_status=Path(root)/'outputs/tables/ssi_recorder_status.json'
     status_file=ssi_status if ssi_status.is_file() or data.get('use_ssi') else Path(root)/'outputs/tables/recorder_status.json'
     if status_file.exists():
