@@ -76,6 +76,22 @@ def waterfall_fig(plan,t):
     fig.update_yaxes(title='Giá trị (đồng)')
     return fig
 
+def compare_style(fig,t,wide=False):
+    """Comparison layout only: preserve all traces, values and hover templates."""
+    fig.update_layout(
+        height=380 if wide else 365,autosize=True,
+        margin=dict(l=12,r=20,t=24,b=30,autoexpand=True),
+        legend=dict(orientation='h',x=0,y=-.22,xanchor='left',yanchor='top',
+                    font=dict(size=11,color=t['text'])),
+        font=dict(size=12),hoverlabel=dict(font_size=12))
+    fig.update_xaxes(automargin=True,tickfont=dict(size=11))
+    fig.update_yaxes(automargin=True,tickfont=dict(size=11))
+    if wide:
+        # Keep the full Vietnamese category labels available on hover.
+        fig.update_xaxes(tickangle=-12)
+    return fig
+
+
 def depth_fig(quotes,t):
     fig=go.Figure()
     for i in range(3):
