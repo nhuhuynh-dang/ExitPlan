@@ -47,13 +47,13 @@ def verdict(title,body):
 def guide(read,conclusion):
     return '<div class="ep-guide"><strong>Cách đọc hình:</strong> '+e(read)+'<div style="margin-top:6px"><strong>Kết luận:</strong> '+e(conclusion)+'</div></div>'
 
-def html_table(headers,rows,numeric=(),tooltips=None,pills=None):
+def html_table(headers,rows,numeric=(),tooltips=None,pills=None,highlight_row=None):
     """headers list; rows iterable of iterables; numeric = column indices."""
     tip=tooltips or {}
     h=''.join('<th'+(' class="numeric"' if i in numeric else '')+f' title="{e(tip.get(name,""))}">{e(name)}</th>' for i,name in enumerate(headers))
     rs=[]
     pills=pills or {}
-    for row in rows:
+    for row_index,row in enumerate(rows):
         cells=[]
         for i,val in enumerate(row):
             value=e(val)
@@ -62,5 +62,6 @@ def html_table(headers,rows,numeric=(),tooltips=None,pills=None):
                 if tone not in ('ok','warn','neutral'):tone='neutral'
                 value=f'<span class="ep-pill {tone}">{value}</span>'
             cells.append('<td'+(' class="numeric"' if i in numeric else '')+'>'+value+'</td>')
-        rs.append('<tr>'+''.join(cells)+'</tr>')
+        row_class=' class="ep-table-selected"' if row_index==highlight_row else ''
+        rs.append('<tr'+row_class+'>'+''.join(cells)+'</tr>')
     return '<div class="ep-table-wrap"><table class="ep-table"><thead><tr>'+h+'</tr></thead><tbody>'+''.join(rs)+'</tbody></table></div>'
