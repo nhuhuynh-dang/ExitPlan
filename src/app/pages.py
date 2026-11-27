@@ -162,6 +162,54 @@ def _ssi_stats(root,snapshot_date=None,allowed=None):
                              snapshot_date,tuple(sorted(allowed)) if allowed is not None else None)
 
 
+def _market_reference_panel(root,symbols):
+    """Independent display-only price references; never input to the MILP."""
+    from src.ingest.ssi_dashboard_close import CLOSE_FILE, market_phase, completed_date, close_references
+    from src.app.live import close_controller
+    symbols=list(dict.fromkeys(symbols))[:12]
+    if not symbols:return
+    phase=market_phase()
+    if phase=='closed':
+        target=completed_date()
+        if target is None:return
+        history,_=_market_parquet(root,'data/processed/ssi_history.parquet')
+        extra,_=_market_parquet(root,CLOSE_FILE)
+        values=close_references(history,extra,symbols,target)
+        missing=[sym for sym in symbols if not values.get(sym,{}).get('current')]
+        if missing:close_controller(root).request(missing,target)
+        rows=[]
+        for sym in symbols:
+            v=values.get(sym)
+            rows.append([sym,fmt.num(v['close'],2) if v else '–',
+                         v['date'].strftime('%d/%m/%Y') if v else '–',
+                         'Đúng phiên' if v and v['current'] else 'Phiên cũ' if v else 'Chưa có'])
+        st.markdown('**Giá đóng cửa tham chiếu · SSI**')
+        st.caption('Phiên cần lấy: '+target.strftime('%d/%m/%Y')+' · giá theo đơn vị API. Chỉ dùng để tham chiếu; không thay sổ lệnh thanh lý.')
+        st.markdown(html_table(['Mã','Giá đóng cửa','Ngày giao dịch','Dữ liệu'],rows,numeric=(1,),
+                    pills={3:{'Đúng phiên':'ok','Phiên cũ':'warn','Chưa có':'neutral'}}),unsafe_allow_html=True)
+        if missing:st.caption('Chưa có giá đúng phiên cho '+', '.join(missing)+'. Hệ thống thử tải tự động nếu có quyền API.')
+    elif phase in ('continuous','lunch','transition'):
+        books,_=_market_parquet(root,'data/processed/ssi_book_snapshots.parquet')
+        if books is None or books.empty or not {'source','data_kind','symbol','ts_vn','closePrice'}.issubset(books.columns):
+            return
+        if set(books.source)!={'ssi_fastconnect_v3_ws'} or set(books.data_kind)!={'live'}:return
+        subset=books[books.symbol.isin(symbols)].sort_values('ts_vn').drop_duplicates('symbol',keep='last')
+        by_symbol={r.symbol:r for r in subset.itertuples()}
+        rows=[]
+        for sym in symbols:
+            r=by_symbol.get(sym)
+            rows.append([sym,fmt.vnd(r.closePrice) if r else '–',
+                         pd.Timestamp(r.ts_vn).strftime('%d/%m/%Y %H:%M:%S') if r else '–'])
+        st.markdown('**Giá khớp gần nhất · snapshot SSI**')
+        st.markdown(html_table(['Mã','Giá','Snapshot (UTC+7)'],rows,numeric=(1,)),unsafe_allow_html=True)
+        st.caption('Cập nhật theo đợt đã chuẩn hóa. Mỗi mã có thể khác thời điểm; không sử dụng bảng này làm sổ lệnh chung để tính phương án.')
+
+
+@st.fragment(run_every=15)
+def _market_reference_fragment(root,symbols):
+    _market_reference_panel(root,symbols)
+
+
 def _data_versions(root,overrides):
     paths=['data/processed/ssi_book_snapshots.parquet','data/processed/ssi_securities.parquet',
            'data/processed/ssi_history.parquet',SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY]
@@ -359,14 +407,16 @@ def overview(root,data,t):
             with st.container(key='ep_overview_chart'):
                 _overview_section('Diễn biến giá chuẩn hóa (gốc = 100)','show_chart')
                 shown=st.multiselect('Mã hiển thị',symbols,default=symbols[:5],max_selections=12,key='ep_overview_symbols')
-                if shown:plot(charts.overview_time_fig(b[b.symbol.isin(shown)],t),'EP01_price')
+                if shown:
+                    if data.get('use_ssi'):_market_reference_panel(root,shown)
+                    plot(charts.overview_time_fig(b[b.symbol.isin(shown)],t),'EP01_price')
                 else:st.info('Chọn ít nhất một mã để hiển thị biểu đồ.',icon=':material/info:')
         with c:
             with st.container(key='ep_overview_status'):
                 _overview_section('Trạng thái nguồn dữ liệu','database')
                 st.markdown(
                     '<div class="ep-overview-status-list">'
-                    +_overview_status('Trạng thái dashboard','Đã đọc file dữ liệu','check_circle',ok=True)
+                    +_overview_status('Trạng thái dashboard','Đã đọc snapshot SSI' if data.get('use_ssi') else 'Đã đọc file dữ liệu','check_circle',ok=True)
                     +_overview_status('Thời điểm mới nhất',last.strftime('%d/%m/%Y %H:%M'),'schedule')
                     +_overview_status('Số mã có thể lập phương án',fmt.num(len(symbols)),'stacked_bar_chart')
                     +'</div><div class="ep-overview-ws-note"><span class="material-symbols-rounded" aria-hidden="true">info</span>'
@@ -543,6 +593,7 @@ def planner(root,data,t):
                 info=matches.loc[matches.symbol.eq(selected)].iloc[0].to_dict()
                 preview=_stock_preview(books,draft,selected,info,history,data.get('use_ssi',False))
                 st.markdown(_stock_preview_html(preview),unsafe_allow_html=True)
+                if data.get('use_ssi'):_market_reference_fragment(root,[selected])
             except (ValueError,RuntimeError,KeyError,TypeError,IndexError,OverflowError):
                 planner_notice('Chưa đọc được snapshot hợp lệ của mã này.','warning')
         with st.container(key='ep_stock_preview_actions'):
@@ -619,6 +670,7 @@ def planner(root,data,t):
                                 for sym in draft:st.session_state.pop('ep_qty_'+sym,None)
                                 _clear_plan()
                                 st.rerun()
+    if draft and data.get('use_ssi'):_market_reference_fragment(root,list(draft))
     with st.container(border=False,key='ep_planner_step3'):
         _planner_step(3,'Mục tiêu và điều kiện thanh lý','tune')
         settings=st.session_state.setdefault('ep_draft_settings',dict(target=100.,lamb=.5,fee=0.,tax=0.))
@@ -899,6 +951,7 @@ def ssi_history(root,data,t):
         selected=st.multiselect('Tìm mã cổ phiếu',names,default=defaults,max_selections=12,
             format_func=lambda s:labels.get(s,s),placeholder='Nhập mã hoặc tên doanh nghiệp',key='ep_price_search')
         st.caption('Nguồn SSI · dữ liệu cuối ngày đã lưu')
+        if selected:_market_reference_fragment(root,selected)
         view=h[h['symbol'].isin(selected)].copy().sort_values(['symbol','tradingDate'])
         if view.empty:return st.info('Chọn ít nhất một mã để xem dữ liệu SSI.')
         from plotly import graph_objects as go
@@ -1232,9 +1285,9 @@ def render_page(page,root,cfg):
     t=charts.apply_palette(cfg['mode'],cfg['accent'])
     try:
         if page=='overview' and str(st.query_params.get('advanced',''))!='1':
-            from src.app.live import controller
-            # Only this page refreshes automatically; never rerun the planner while editing.
-            interval=15 if controller(root).snapshot()['active'] else None
+            # Refresh even when the app is opened before the session starts.
+            # The planner's editable widgets are never rerun by this timer.
+            interval=15
             @st.fragment(run_every=interval)
             def refresh_overview():
                 overview(root,load(root),t)
