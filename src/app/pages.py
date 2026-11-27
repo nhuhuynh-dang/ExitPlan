@@ -65,6 +65,12 @@ def page_header(key,accent,mode='Sáng'):
     }
     icon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icons.get(key,icons['overview'])+'</svg>'
     eyebrow='<div class="ep-eyebrow">'+escape(eye)+'</div>' if eye else ''
+    if key=='overview':
+        st.markdown('<div class="ep-overview-header"><div class="ep-overview-heading"><div>'
+                    +eyebrow+'<h1>'+escape(title)+'</h1><p>'+escape(description)+'</p></div>'
+                    '<span class="ep-overview-header-icon material-symbols-rounded" aria-hidden="true">monitoring</span>'
+                    '</div></div>',unsafe_allow_html=True)
+        return
     if key=='planner':icon='<span class="material-symbols-rounded" aria-hidden="true">calculate</span>'
     html=(
         '<div class="ep-hero'+(' ep-hero-planner' if key=='planner' else '')+'"><div class="ep-hero-heading"><span class="ep-hero-icon">'+icon+'</span>'
@@ -237,10 +243,28 @@ def require_result():
         return None
     return p
 
+def _overview_kpis(cards):
+    return '<div class="ep-overview-kpis">'+cards_html(cards)+'</div>'
+
+
+def _overview_status(label,value,icon,ok=False):
+    return ('<div class="ep-overview-status'+(' is-ok' if ok else '')+'">'
+            '<span class="ep-overview-status-icon material-symbols-rounded" aria-hidden="true">'+escape(icon)+'</span>'
+            '<div class="ep-overview-status-copy"><div class="ep-overview-status-label">'+escape(label)+'</div>'
+            '<div class="ep-overview-status-value">'+escape(value)+'</div></div></div>')
+
+
+def _overview_section(title,icon):
+    st.markdown('<div class="ep-overview-section-title"><span class="material-symbols-rounded" aria-hidden="true">'
+                +escape(icon)+'</span><h2>'+escape(title)+'</h2></div>',unsafe_allow_html=True)
+
+
 def overview(root,data,t):
-    if not source_labels(data):
+    with st.container(key='ep_overview_source'):
+        valid=source_labels(data)
+    if not valid:
         # Khi dữ liệu thiếu, hiện trạng thái thật thay vì vẽ số liệu/bảng giả.
-        st.markdown(cards_html([
+        st.markdown(_overview_kpis([
             {'label':'Nguồn đang thử nghiệm','value':'SSI','note':'Chưa xác nhận kết nối API thật','tone':'blue'},
             {'label':'Sổ lệnh cổ phiếu','value':'Chưa có','note':'Cần snapshot giá và khối lượng mua','tone':'mint'},
             {'label':'Mô hình A/B/C/P','value':'Chưa tính','note':'Cần dữ liệu sổ lệnh hợp lệ','tone':'violet'},
@@ -251,29 +275,40 @@ def overview(root,data,t):
             'Thu thập dữ liệu có quyền truy cập phù hợp hoặc sử dụng dữ liệu giả lập được gắn nhãn để thử mô hình.'
         ),unsafe_allow_html=True)
         return
-    b=data['books']; latest=latest_books(b); symbols=available_symbols(b)
+    b=data['books']; symbols=available_symbols(b)
     plans=st.session_state.get('ep_plans')
     last=b['ts_vn'].max(); sessions=int(b['ts_vn'].dt.date.nunique())
-    cards=[{'label':'Mã có sổ lệnh hợp lệ','value':fmt.num(len(symbols)),'note':'Chỉ đếm mã có ít nhất một bid số hợp lệ'},
-           {'label':'Phiên dữ liệu đã lưu','value':fmt.num(sessions),'note':'Phiên tính từ ts_vn'},
-           {'label':'Bản ghi snapshot','value':fmt.num(len(b)),'note':'Không tự thay dữ liệu trống'},
+    cards=[{'label':'Mã có sổ lệnh hợp lệ','value':fmt.num(len(symbols)),'note':'Chỉ đếm mã có ít nhất một bid số hợp lệ','tone':'blue'},
+           {'label':'Phiên dữ liệu đã lưu','value':fmt.num(sessions),'note':'Phiên tính từ ts_vn','tone':'mint'},
+           {'label':'Bản ghi snapshot','value':fmt.num(len(b)),'note':'Không tự thay dữ liệu trống','tone':'violet'},
            {'label':'Tiền ròng phương án B','value':fmt.vnd_big(plans['B']['net']) if plans else 'Chờ',
-            'note':'Bấm “Tính phương án” để có kết quả' if not plans else 'Dựa trên dữ liệu và danh mục khi tính'}]
-    st.markdown(cards_html(cards),unsafe_allow_html=True)
-    a,c=st.columns([1.65,1])
-    with a:
-        st.subheader('Diễn biến giá chuẩn hóa (gốc = 100)')
-        shown=st.multiselect('Mã hiển thị',symbols,default=symbols[:5],max_selections=12,key='ep_overview_symbols')
-        if shown:plot(charts.time_fig(b[b.symbol.isin(shown)],t,normalize=True),'EP01_price')
-        st.markdown(guide('Mỗi mã được quy về 100 ở quan sát đầu tiên để dễ so sánh biến động tương đối.',
-            'Dữ liệu chỉ phản ánh các bản ghi đã lưu, không phải lịch sử giá được API cấp tự động.'),unsafe_allow_html=True)
-    with c:
-        st.subheader('Trạng thái nguồn dữ liệu')
-        status='Đã đọc file dữ liệu'
-        st.metric('Trạng thái dashboard',status)
-        st.metric('Thời điểm mới nhất',last.strftime('%d/%m/%Y %H:%M'))
-        st.metric('Số mã có thể lập phương án',fmt.num(len(symbols)))
-        st.caption('File đã lưu không xác nhận WebSocket đang kết nối. Xem trạng thái bộ ghi tại trang Dữ liệu & kết nối.')
+            'note':'Bấm “Tính phương án” để có kết quả' if not plans else 'Dựa trên dữ liệu và danh mục khi tính','tone':'amber' if not plans else 'mint'}]
+    st.markdown(_overview_kpis(cards),unsafe_allow_html=True)
+    with st.container(key='ep_overview_layout'):
+        a,c=st.columns([2,1],gap='medium')
+        with a:
+            with st.container(key='ep_overview_chart'):
+                _overview_section('Diễn biến giá chuẩn hóa (gốc = 100)','show_chart')
+                shown=st.multiselect('Mã hiển thị',symbols,default=symbols[:5],max_selections=12,key='ep_overview_symbols')
+                if shown:plot(charts.overview_time_fig(b[b.symbol.isin(shown)],t),'EP01_price')
+                else:st.info('Chọn ít nhất một mã để hiển thị biểu đồ.',icon=':material/info:')
+        with c:
+            with st.container(key='ep_overview_status'):
+                _overview_section('Trạng thái nguồn dữ liệu','database')
+                st.markdown(
+                    '<div class="ep-overview-status-list">'
+                    +_overview_status('Trạng thái dashboard','Đã đọc file dữ liệu','check_circle',ok=True)
+                    +_overview_status('Thời điểm mới nhất',last.strftime('%d/%m/%Y %H:%M'),'schedule')
+                    +_overview_status('Số mã có thể lập phương án',fmt.num(len(symbols)),'stacked_bar_chart')
+                    +'</div><div class="ep-overview-ws-note"><span class="material-symbols-rounded" aria-hidden="true">info</span>'
+                    '<span>File đã lưu không xác nhận WebSocket đang kết nối. Xem trạng thái bộ ghi tại trang Dữ liệu &amp; kết nối.</span></div>',
+                    unsafe_allow_html=True)
+    st.markdown(
+        '<div class="ep-overview-insight"><span class="material-symbols-rounded" aria-hidden="true">lightbulb</span>'
+        '<div class="ep-overview-insight-body"><div><strong>Cách đọc hình</strong><p>'
+        'Mỗi mã được quy về 100 ở quan sát đầu tiên để dễ so sánh biến động tương đối.</p></div>'
+        '<div><strong>Kết luận</strong><p>Dữ liệu chỉ phản ánh các bản ghi đã lưu, không phải lịch sử giá được API cấp tự động.</p></div>'
+        '</div></div>',unsafe_allow_html=True)
 
 
 def _clear_plan():
