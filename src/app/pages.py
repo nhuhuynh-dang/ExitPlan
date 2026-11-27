@@ -376,6 +376,29 @@ def _overview_section(title,icon):
                 +escape(icon)+'</span><h2>'+escape(title)+'</h2></div>',unsafe_allow_html=True)
 
 
+def _overview_history_kpi(data,symbols):
+    """Count eligible book symbols with complete, finite point-in-time SSI metrics."""
+    card={'label':'Mã đủ ADV20 & Sigma20','value':'–',
+          'note':'Chưa có thống kê lịch sử hợp lệ','tone':'mint'}
+    if not data.get('use_ssi') or data.get('liquidity_err'):
+        return card
+    stats=data.get('liquidity')
+    required={'symbol','adv','sigma','quality_status','source','data_kind'}
+    if stats is None or not required.issubset(stats.columns):
+        return card
+    adv=pd.to_numeric(stats['adv'],errors='coerce')
+    sigma=pd.to_numeric(stats['sigma'],errors='coerce')
+    ready=stats[
+        stats.symbol.isin(symbols) & stats.quality_status.eq('complete')
+        & stats.source.eq('ssi_fastconnect_v3') & stats.data_kind.eq('historical')
+        & adv.ge(0) & adv.lt(float('inf')) & sigma.ge(0) & sigma.lt(float('inf'))
+    ].symbol.nunique()
+    total=len(set(symbols))
+    card['value']=fmt.num(ready)
+    card['note']=f'{fmt.num(ready)}/{fmt.num(total)} mã · Đủ lịch sử giao dịch'
+    return card
+
+
 def overview(root,data,t):
     with st.container(key='ep_overview_source'):
         valid=source_labels(data)
@@ -394,9 +417,9 @@ def overview(root,data,t):
         return
     b=data['books']; symbols=available_symbols(b)
     plans=st.session_state.get('ep_plans')
-    last=b['ts_vn'].max(); sessions=int(b['ts_vn'].dt.date.nunique())
+    last=b['ts_vn'].max()
     cards=[{'label':'Mã có sổ lệnh hợp lệ','value':fmt.num(len(symbols)),'note':'Chỉ đếm mã có ít nhất một bid số hợp lệ','tone':'blue'},
-           {'label':'Phiên dữ liệu đã lưu','value':fmt.num(sessions),'note':'Phiên tính từ ts_vn','tone':'mint'},
+           _overview_history_kpi(data,symbols),
            {'label':'Bản ghi snapshot','value':fmt.num(len(b)),'note':'Không tự thay dữ liệu trống','tone':'violet'},
            {'label':'Tiền ròng phương án B','value':fmt.vnd_big(plans['B']['net']) if plans else 'Chờ',
             'note':'Bấm “Tính phương án” để có kết quả' if not plans else 'Dựa trên dữ liệu và danh mục khi tính','tone':'amber' if not plans else 'mint'}]
@@ -1018,7 +1041,7 @@ def data_page(root,data,t):
     if valid:
         duration=b['ts_vn'].max()-b['ts_vn'].min()
         st.markdown(cards_html([
-            {'label':'Số phiên','value':fmt.num(b['ts_vn'].dt.date.nunique()),'note':'Theo ngày giờ Việt Nam'},
+            {'label':'Số ngày giao dịch đã lưu','value':fmt.num(b['ts_vn'].dt.date.nunique()),'note':'Theo ngày của snapshot (UTC+7)'},
             {'label':'Tổng bản ghi','value':fmt.num(len(b)),'note':'Trong file snapshot'},
             {'label':'Số mã','value':fmt.num(b['symbol'].nunique()),'note':'Được theo dõi'},
             {'label':'Khoảng thời gian','value':fmt.num(duration.total_seconds()/3600,1)+' giờ','note':'Dữ liệu đã ghi'}
