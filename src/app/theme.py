@@ -1203,7 +1203,37 @@ body [data-testid="stPopoverBody"] button[kind="primary"] * {
     extra_css+=controls_css+modern_css
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
-    return css + overview_css(mode)
+    return css + overview_css(mode) + stock_preview_css(mode)
+
+def stock_preview_css(mode):
+    p=palette(mode)
+    style="""
+<style>
+.st-key-ep_planner_step1 .ep-stock-preview{background:__PREVIEW__;border:1px solid __BORDER__;border-radius:14px;padding:16px 18px;color:__TEXT__;margin:2px 0;}
+.ep-stock-preview-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:14px;}
+.ep-stock-preview-symbol{display:grid;place-items:center;min-width:52px;min-height:46px;padding:6px;border-radius:12px;background:__ICON_BG__;color:__ACCENT__;font-weight:800;font-size:1rem;}
+.ep-stock-preview-company{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;}
+.ep-stock-preview-company strong{font-size:.97rem;line-height:1.45;overflow-wrap:anywhere;}
+.ep-stock-preview-company>span{font-size:.77rem;color:__MUTED__;line-height:1.45;}
+.ep-stock-preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr));gap:10px;padding:14px 0;border-top:1px solid __BORDER__;border-bottom:1px solid __BORDER__;}
+.ep-stock-preview-metric{background:__SURFACE__;border:1px solid __BORDER__;border-radius:10px;padding:11px 12px;min-width:0;display:flex;flex-direction:column;gap:6px;}
+.ep-stock-preview-metric>span{color:__MUTED__;font-size:.76rem;line-height:1.4;}
+.ep-stock-preview-metric>strong{color:__TEXT__;font-size:.99rem;font-weight:700;line-height:1.4;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}
+.ep-stock-preview-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:7px 16px;margin-top:12px;color:__MUTED__;font-size:.77rem;line-height:1.55;}
+.ep-stock-preview-foot strong{color:__TEXT__;}
+.st-key-ep_stock_preview_actions [data-testid="stButton"] button{min-height:44px;width:100%;border-radius:10px;}
+.st-key-ep_stock_preview_actions [data-testid="stButton"] button[kind="primary"]:not(:disabled){background:__ACCENT__ !important;color:__BUTTON_TEXT__ !important;border:1px solid __ACCENT__ !important;}
+.st-key-ep_stock_preview_actions [data-testid="stButton"] button[kind="primary"]:not(:disabled) *{color:inherit !important;}
+@media(max-width:640px){.st-key-ep_planner_step1 .ep-stock-preview{padding:12px;}.ep-stock-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.ep-stock-preview-head{gap:9px;}.ep-stock-preview-foot{flex-direction:column;}}
+@media(max-width:380px){.ep-stock-preview-grid{grid-template-columns:1fr;}}
+</style>
+"""
+    tokens={'__PREVIEW__':mix(p['surface'],p['accent'],.045),'__ICON_BG__':mix(p['surface'],p['accent'],.13),
+            '__BUTTON_TEXT__':'#0F172A' if mode=='Tối' else '#FFFFFF'}
+    tokens.update({'__'+k.upper()+'__':p[k] for k in ('border','text','muted','surface','accent')})
+    for key,val in tokens.items():style=style.replace(key,val)
+    return style
+
 
 def overview_css(mode):
     """Scoped Portfolio Intelligence styling; other pages keep their current theme."""
