@@ -61,14 +61,13 @@ def holdings_fig(details,t):
     return fig
 
 def waterfall_fig(plan,t):
-    """Waterfall: last price reference gross, execution discount, fees, taxes, net.
-    Reference = gross + observed liquidity_cost. Totals reconcile to net.
-    """
-    ref=plan['gross']+plan['cost']
+    """Reconcile actual sold shares at last price to executed gross and net."""
+    ref=sum(d['sold']*d['last'] for d in plan['details'])
+    execution_delta=plan['gross']-ref
     fig=go.Figure(go.Waterfall(orientation='v',measure=['absolute','relative','relative','relative','total'],
-        x=['Giá trị tham chiếu','Chi phí thanh khoản','Phí bán','Thuế/khác','Tiền ròng'],
-        y=[ref,-plan['cost'],-plan['fee'],-plan['tax'],0],
-        text=[signed(ref,0,' ₫'),signed(-plan['cost'],0,' ₫'),signed(-plan['fee'],0,' ₫'),
+        x=['Giá trị tham chiếu','Chênh lệch giá khớp','Phí bán','Thuế/khác','Tiền ròng'],
+        y=[ref,execution_delta,-plan['fee'],-plan['tax'],0],
+        text=[signed(ref,0,' ₫'),signed(execution_delta,0,' ₫'),signed(-plan['fee'],0,' ₫'),
               signed(-plan['tax'],0,' ₫'),signed(plan['net'],0,' ₫')],textposition='outside',
         increasing=dict(marker_color=t['positive']),decreasing=dict(marker_color=t['negative']),
         totals=dict(marker_color=t['accent']),connector=dict(line_color=t['border'])))
@@ -88,8 +87,8 @@ def compare_style(fig,t,wide=False):
     fig.update_yaxes(automargin=True,tickfont=dict(size=11))
     if wide:
         # Horizontal, wrapped display labels; keep the original trace categories.
-        labels=['Giá trị tham chiếu','Chi phí thanh khoản','Phí bán','Thuế/khác','Tiền ròng']
-        display=['Giá trị<br>tham chiếu','Chi phí<br>thanh khoản','Phí bán','Thuế/khác','Tiền ròng']
+        labels=['Giá trị tham chiếu','Chênh lệch giá khớp','Phí bán','Thuế/khác','Tiền ròng']
+        display=['Giá trị<br>tham chiếu','Chênh lệch<br>giá khớp','Phí bán','Thuế/khác','Tiền ròng']
         fig.update_xaxes(tickangle=0,tickmode='array',tickvals=labels,ticktext=display,
                          tickfont=dict(size=12,color=t['text']))
         fig.update_layout(margin=dict(b=55))
