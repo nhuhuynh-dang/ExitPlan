@@ -289,9 +289,16 @@ def _add_selected_stock(allowed):
 
 def _change_quantity(symbol):
     draft=dict(st.session_state.get('ep_draft_holdings',{}))
-    draft[symbol]=int(st.session_state['ep_qty_'+symbol])
-    st.session_state['ep_draft_holdings']=draft
-    _clear_plan()
+    key='ep_qty_'+symbol
+    # A pending widget event can arrive after removal or widget cleanup.
+    # Never recreate a removed holding or overwrite its saved quantity.
+    if symbol not in draft or key not in st.session_state:
+        return
+    qty=int(st.session_state[key])
+    if draft[symbol]!=qty:
+        draft[symbol]=qty
+        st.session_state['ep_draft_holdings']=draft
+        _clear_plan()
 
 
 def _change_setting(name):
@@ -368,7 +375,9 @@ def planner(root,data,t):
                             st.markdown('<span class="ep-board-label">'+escape(info.get('board') or 'Chưa rõ')+'</span>',unsafe_allow_html=True)
                         with n:
                             st.markdown('<span class="ep-mobile-qty">Nắm giữ (CP)</span>',unsafe_allow_html=True)
-                            st.number_input('Số lượng '+sym,min_value=0,value=int(qty),step=1,format='%d',
+                            if 'ep_qty_'+sym not in st.session_state:
+                                st.session_state['ep_qty_'+sym]=int(qty)
+                            st.number_input('Số lượng '+sym,min_value=0,step=1,format='%d',
                                 key='ep_qty_'+sym,label_visibility='collapsed',on_change=_change_quantity,args=(sym,),
                                 help='Nhập số nguyên bất kỳ. Lượng bán theo lô 100.')
                         with d:
