@@ -109,6 +109,30 @@ def time_fig(df,t,normalize=False):
     if normalize:fig.add_hline(y=100,line=dict(color=t['muted'],dash='dot',width=1))
     return fig
 
+def overview_time_fig(df,t):
+    """Presentation-only variant of the existing normalized price chart."""
+    fig=time_fig(df,t,normalize=True)
+    dark=t['bg']=='#0F172A'
+    colors=(['#60A5FA','#2DD4BF','#FBBF24','#C4B5FD','#FB7185','#38BDF8',
+             '#A3E635','#F9A8D4','#FDBA74','#A5B4FC','#67E8F9','#E2E8F0'] if dark else
+            ['#2563EB','#087F75','#B45309','#7C3AED','#BE185D','#0369A1',
+             '#4D7C0F','#C2410C','#4338CA','#0E7490','#9F1239','#475569'])
+    for i,trace in enumerate(fig.data):
+        trace.update(line=dict(color=colors[i%len(colors)],width=2.6,
+                               dash='solid' if i<6 else 'dash'),
+                     name=str(trace.name).replace(' (gốc 100)',''))
+    fig.update_layout(height=490,autosize=True,
+                      margin=dict(l=12,r=14,t=20,b=28,autoexpand=True),
+                      legend=dict(orientation='h',x=0,y=-.22,xanchor='left',
+                                  yanchor='top',font=dict(size=12,color=t['text'])),
+                      hovermode='x unified',hoverlabel=dict(font_size=12),
+                      font=dict(size=13))
+    fig.update_xaxes(tickfont=dict(size=12),nticks=6,automargin=True)
+    fig.update_yaxes(tickfont=dict(size=12),automargin=True,
+                     title=dict(text='Chỉ số giá (gốc = 100)',font=dict(size=12)))
+    fig.update_shapes(line=dict(color=t['muted'],dash='dash',width=1.3))
+    return fig
+
 def sensitivity_fig(df,t):
     fig=go.Figure()
     for label,g in df.groupby('variable'):
