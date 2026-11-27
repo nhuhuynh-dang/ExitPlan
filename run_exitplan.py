@@ -50,8 +50,8 @@ def main(argv=None):
     if sys.version_info < (3, 10):
         parser.error("Python 3.10+ is required; Python 3.11 or 3.12 is recommended.")
     missing = missing_ssi(ROOT)
-    if args.demo and len(missing) != len(SSI_FILES):
-        parser.error("SSI files exist. Use a separate clean project copy for synthetic demo.")
+    if args.demo and any((ROOT / name).exists() for name in SSI_FILES[:2]):
+        parser.error("SSI order book or catalog exists. Use a separate clean project copy for synthetic demo.")
     if not args.demo and missing:
         parser.error("Missing SSI files:\n  " + "\n  ".join(missing) +
                      "\nUse the authorized research bundle, or explicitly run --demo in a clean copy.")
