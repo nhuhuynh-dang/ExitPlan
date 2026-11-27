@@ -33,6 +33,8 @@ def test_close_refs_keep_dates_and_reject_future_and_wrong_source():
 
 def test_auto_tick_starts_only_during_window(tmp_path,monkeypatch):
     monkeypatch.setenv("EXITPLAN_SSI_AUTO","1")
+    monkeypatch.setenv("SSI_API_KEY","test")
+    monkeypatch.setenv("SSI_API_SECRET","test")
     worker=live.DashboardLive(tmp_path)
     calls=[]
     monkeypatch.setattr(worker,"start",lambda **kwargs:calls.append(kwargs) or True)
@@ -61,3 +63,16 @@ def test_close_cache_does_not_modify_book_or_history(tmp_path):
     saved=pd.read_parquet(tmp_path/close.CLOSE_FILE)
     assert len(saved)==1 and saved.close.iloc[0]==19900.
     assert book.read_bytes()==b"book" and history.read_bytes()==b"history"
+
+
+def test_no_personal_api_uses_saved_data_without_starting_worker(tmp_path,monkeypatch):
+    monkeypatch.setenv("EXITPLAN_SSI_AUTO","1")
+    monkeypatch.delenv("SSI_API_KEY",raising=False)
+    monkeypatch.delenv("SSI_API_SECRET",raising=False)
+    worker=live.DashboardLive(tmp_path)
+    def unexpected_start(**kwargs):
+        raise AssertionError("Offline user must not start SSI worker")
+    monkeypatch.setattr(worker,"start",unexpected_start)
+    assert not live.operator_live_enabled()
+    assert not worker.auto_tick("2026-11-30 10:00")
+    assert worker.snapshot()["state"]=="idle"
