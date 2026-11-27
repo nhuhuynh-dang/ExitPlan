@@ -59,6 +59,9 @@ class DashboardLive:
         self._lock=threading.Lock()
         self._stop=threading.Event()
         self._thread=None
+        self._auto_retry_at=0.
+        self._last_view=time.monotonic()
+        self._automatic=False
         self._status={"state":"idle","last_event_vn":None,"last_snapshot_vn":None,
                       "published_batches":0,"batch_records":0,"rest_verified":False}
 
@@ -71,10 +74,22 @@ class DashboardLive:
             info["active"]=self._thread is not None and self._thread.is_alive()
         return info
 
-    def start(self):
+    def auto_tick(self,now=None):
+        """Called by the visible UI fragment; do not start a second worker."""
+        self._last_view=time.monotonic()
+        if os.getenv("EXITPLAN_SSI_AUTO","1")=="0":
+            if self.snapshot()["active"]:self.stop()
+            return False
+        if market_window_seconds(now or datetime.now(VN))<2:return False
+        if self.snapshot()["active"] or time.monotonic()<self._auto_retry_at:return False
+        return self.start(automatic=True)
+
+    def start(self,*,automatic=False):
         with self._lock:
             if self._thread is not None and self._thread.is_alive():return False
             self._stop=threading.Event()
+            self._automatic=automatic
+            self._auto_retry_at=time.monotonic()+120
             self._status=dict(state="authenticating",last_event_vn=None,last_snapshot_vn=None,
                               published_batches=0,batch_records=0,rest_verified=False)
             self._thread=threading.Thread(target=self._run,daemon=True,name="exitplan-ssi-live")
@@ -117,6 +132,7 @@ class DashboardLive:
             failures=0
             published=0
             while not self._stop.is_set():
+                if self._automatic and time.monotonic()-self._last_view>90:break
                 seconds=min(60.,deadline-time.monotonic(),market_window_seconds(datetime.now(VN)))
                 if seconds<2:break
                 raw=self.root/"data/raw/ssi_ws"/(datetime.now(VN).strftime("%Y%m%d_%H%M%S_%f")+"_dashboard.jsonl")
@@ -161,4 +177,5 @@ class DashboardLive:
         except Exception:
             self._update(state="stopped" if self._stop.is_set() else "error")
         finally:
+            self._auto_retry_at=time.monotonic()+120 if self._status.get("state") in ("error","missing_credentials") else 0.
             if client is not None:client.session.close()
