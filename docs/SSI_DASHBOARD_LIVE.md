@@ -1,13 +1,14 @@
-# SSI trực tuyến trong ExitPlan
+# SSI tự động trong ExitPlan
 
-Khởi chạy từ thư mục dự án bằng `py -m streamlit run src/app/app.py` trong cùng môi trường PowerShell đã cấu hình SSI_API_KEY và SSI_API_SECRET. Không nhập khóa vào UI, không commit khóa.
+Khởi chạy bằng `py -m streamlit run src/app/app.py` trong cùng môi trường PowerShell đã cấu hình SSI_API_KEY và SSI_API_SECRET. Không nhập khóa vào UI, không commit khóa.
 
-- Thanh bên: **Kết nối SSI**, **Ngắt kết nối SSI**, **Làm mới dữ liệu**.
-- Ngoài khung thu thập (09:15–11:30, 13:00–14:30, lịch 2026): nút Kết nối kiểm tra xác thực token, không mở WebSocket và không tạo dữ liệu giả. Bấm kết nối lại trong phiên.
-- Trong khung thu thập: mỗi đợt tối đa khoảng 60 giây / 50 MiB, WebSocket đăng ký quote/trade trên ba sàn. Bộ ghi mở lại kết nối giữa các đợt, sử dụng token hiện có; xác thực lại khi đợt kết nối lỗi. Không gọi API theo từng lần thao tác.
-- Chỉ báo nhận bản tin cần có sự kiện gần nhất trong 20 giây và worker còn hoạt động. Trạng thái socket mở/chờ dữ liệu khác với đã nhận bản tin. Dữ liệu hiển thị là snapshot đã qua kiểm tra, không phải tick-by-tick; độ trễ gồm thời gian thu thập, chuẩn hóa và làm mới.
-- Import sử dụng hệ số đang lưu trong bộ snapshot SSI hiện có, chế độ append, ghi file nguyên tử, khóa ghi giữa các importer. Các hệ số vẫn cần đối chiếu nguồn như trước. File gốc từng đợt nằm trong data/raw/ssi_ws; không ghi đè OHLCV hay kết quả thực nghiệm.
-- Tổng quan cập nhật riêng mỗi 15 giây trong lúc worker hoạt động. Các trang khác cập nhật khi thao tác hoặc bấm Làm mới dữ liệu. Phương án cũ giữ timestamp và quote đã tính nếu snapshot đó không đổi; bấm Tính phương án để dùng dữ liệu mới.
-- Dừng tại cuối khung thu thập, tối đa 90 phút mỗi lần chạy, hoặc sau 3 đợt thất bại liên tiếp. Không để bộ ghi dòng lệnh và worker dashboard cùng đăng ký thị trường; chỉ dùng một instance dashboard trên máy cá nhân. Worker dùng chung giữa các phiên trình duyệt của cùng server.
-- Ngắt kết nối trước khi tắt Streamlit; đợi bộ ghi lưu xong. Nếu dừng tiến trình đột ngột, file raw đã ghi vẫn có thể được import thủ công bằng --input và --append.
-- Không đặt lệnh thật. Kiểm thử offline không xác nhận quyền API, latency hoặc khả năng nhận sự kiện trong phiên thật.
+- Không cần bấm kết nối, ngắt kết nối hoặc làm mới. Thanh bên kiểm tra trạng thái mỗi 5 giây và tự khởi động bộ ghi trong khung thu thập liên tục 09:15–11:30, 13:00–14:30 (UTC+7, lịch 2026).
+- Mỗi đợt ghi tối đa khoảng 60 giây / 50 MiB, mở lại WebSocket giữa các đợt, dùng token hiện tại và xác thực lại khi gặp lỗi kết nối. Sau lỗi cuối cùng, tự thử lại với khoảng nghỉ 120 giây nếu vẫn trong phiên và có dashboard đang mở. Bộ ghi dừng ở cuối khung, sau tối đa 90 phút mỗi lượt hoặc khi không còn UI polling (kiểm tra lease ở ranh giới đợt). Không gọi API theo từng thao tác.
+- Chỉ báo nhận bản tin cần có sự kiện mới trong 20 giây và worker đang hoạt động. Dữ liệu giá hiển thị là snapshot đã qua kiểm tra, không phải tick-by-tick. Nếu snapshot chung quá 120 giây trong phiên, hiển thị cảnh báo; ngoài giờ chỉ mô phỏng trên sổ lệnh đã ghi.
+- Nghỉ trưa và giai đoạn đầu/cuối phiên: sử dụng snapshot gần nhất. Sau 15:15 UTC+7, trước giờ mở cửa, ngày nghỉ: lấy OHLCV ngày của phiên đã hoàn thành gần nhất cho các mã đang xem hoặc nắm giữ. 15:15 là buffer vận hành, không phải tuyên bố SSI luôn hoàn tất dữ liệu đúng giờ đó. REST chưa trả giá đúng phiên thì hiển thị giá ngày cũ có ghi ngày hoặc thiếu dữ liệu; thử lại sau 5 phút, không tự tạo giá.
+- Giá đóng cửa lưu riêng tại data/processed/ssi_dashboard_closes.parquet, giữ nguyên đơn vị API. Không đưa giá đóng cửa vào sổ lệnh, không thay giá tham chiếu dùng trong MILP hay thay file OHLCV phục vụ ADV20/Sigma20.
+- Tổng quan và bảng giá tham chiếu cập nhật riêng mỗi 15 giây. Trang lập phương án đọc snapshot mới khi thao tác; các phương án đã tính giữ timestamp và quote gốc nếu không thay đổi. Tính lại để dùng snapshot chung mới.
+- Import dùng hệ số hiện có và chế độ append, ghi file nguyên tử, khóa ghi giữa các importer. File raw được lưu riêng. Không ghi đè OHLCV hoặc kết quả thực nghiệm.
+- Chỉ dùng một instance dashboard trên máy cá nhân. Nếu muốn thu thập bằng terminal, tắt dashboard hoặc đặt `$env:EXITPLAN_SSI_AUTO="0"` trước khi khởi chạy Streamlit. Đặt lại `$env:EXITPLAN_SSI_AUTO="1"` để bật tự động. Không chạy đồng thời bộ ghi thủ công với worker tự động.
+- Khi đóng dashboard, nếu tiến trình bị dừng đột ngột, file raw có thể import thủ công bằng --input và --append. Không đặt lệnh thật.
+- Lịch tự động hiện chỉ hỗ trợ 2026; cần cập nhật lịch khi sang năm. Kiểm thử offline không xác nhận quyền API, độ trễ hoặc nhận sự kiện thực tế.
