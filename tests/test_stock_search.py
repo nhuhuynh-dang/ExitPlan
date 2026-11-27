@@ -83,14 +83,14 @@ def test_equity_type_evidence_is_labelled(catalog):
     assert d.loc["FPT","equity_class"]=="stock_candidate"
 
 
-def test_autocomplete_adds_selected_ticker_and_resets(monkeypatch):
+def test_explicit_add_selected_ticker_and_resets(monkeypatch):
     from types import SimpleNamespace
     from src.app import pages
     state={"ep_stock_autocomplete":"ACB","ep_draft_holdings":{"HPG":135},
-           "ep_plans":{"old":True}}
+           "ep_plans":{"old":True},"ep_stock_preview_qty":1257}
     monkeypatch.setattr(pages,"st",SimpleNamespace(session_state=state))
     pages._add_selected_stock(("ACB","FPT"))
-    assert state["ep_draft_holdings"]=={"HPG":135,"ACB":100}
+    assert state["ep_draft_holdings"]=={"HPG":135,"ACB":1257}
     assert state["ep_stock_autocomplete"] is None
     assert "ep_plans" not in state
     state["ep_stock_autocomplete"]="ACB"
@@ -106,3 +106,48 @@ def test_quantity_callback_accepts_non_round_lot(monkeypatch):
     pages._change_quantity("ACB")
     assert state["ep_draft_holdings"]["ACB"]==1257
     assert "ep_plans" not in state
+
+
+def test_stock_preview_selection_does_not_add_or_clear_plans(monkeypatch):
+    from types import SimpleNamespace
+    from src.app import pages
+    state={"ep_stock_autocomplete":"ACB","ep_stock_preview_qty":500,
+           "ep_draft_holdings":{"HPG":100},"ep_plans":{"old":True}}
+    monkeypatch.setattr(pages,"st",SimpleNamespace(session_state=state))
+    pages._reset_stock_preview_qty()
+    assert state["ep_stock_preview_qty"]==100
+    assert state["ep_draft_holdings"]=={"HPG":100}
+    assert state["ep_plans"]=={"old":True}
+    state["ep_stock_preview_qty"]=0
+    pages._add_selected_stock(("ACB",))
+    assert state["ep_draft_holdings"]=={"HPG":100}
+    assert state["ep_plans"]=={"old":True}
+
+
+def test_stock_preview_uses_common_snapshot_and_prior_ssi_history():
+    from src.app.pages import _stock_preview, _stock_preview_html
+    from src.analytics.ssi_history_stats import expected_sessions
+    def row(sym,ts,price):
+        return dict(symbol=sym,ts_vn=pd.Timestamp(ts,tz="Asia/Ho_Chi_Minh"),
+                    closePrice=price,bidPrice1=price-50,bidVol1=3000,
+                    bidPrice2=price-100,bidVol2=4000,
+                    bidPrice3=price-150,bidVol3=5000,
+                    source="ssi_fastconnect_v3_ws",data_kind="live",history_volume_factor=1)
+    books=pd.DataFrame([row("HPG","2026-11-27 10:00",20000),
+                        row("ACB","2026-11-27 10:00",19000),
+                        row("ACB","2026-11-27 10:01",21000)])
+    days=expected_sessions("2026-11-27")
+    history=pd.DataFrame([dict(symbol="ACB",tradingDate=d,close=19000+i*50,volume=1000,
+                              source="ssi_fastconnect_v3",data_kind="historical")
+                          for i,d in enumerate(days)])
+    info={"name":"<ACB>","board":"HOSE","lotSize":100}
+    p=_stock_preview(books,{"HPG":100},"ACB",info,history,True)
+    assert p["last"]==19000 and p["bid"]==18950 and p["depth"]==12000
+    assert p["stamp"].minute==0 and p["adv"]==1000 and p["quality"]=="Đủ phiên"
+    assert pd.notna(p["sigma"])
+    assert "&lt;ACB&gt;" in _stock_preview_html(p)
+    stale=_stock_preview(books,{"HPG":100},"ACB",info,history.iloc[:-1],True)
+    assert pd.isna(stale["adv"]) and pd.isna(stale["sigma"])
+    assert stale["quality"]=="Dữ liệu cũ"
+    demo=_stock_preview(books.assign(data_kind="synthetic"),{},"ACB",info,history,True)
+    assert demo["adv"] is None and demo["sigma"] is None
