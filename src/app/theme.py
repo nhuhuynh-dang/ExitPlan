@@ -1231,11 +1231,11 @@ def compare_css(mode):
 .stApp :is(.st-key-ep_compare_table,.st-key-ep_compare_pending,.st-key-ep_compare_detail) .ep-table td.numeric{white-space:nowrap;}
 .stApp .st-key-ep_compare_table .ep-table tbody tr.ep-table-selected td{background:__C_SELECTED__ !important;}
 .stApp .st-key-ep_compare_table .ep-table tbody tr.ep-table-selected td:first-child{box-shadow:inset 3px 0 __C_ACCENT__;color:__C_ACCENT__ !important;}
-.st-key-ep_compare_filter [data-testid="stSegmentedControl"]{border-radius:10px;}
-.st-key-ep_compare_filter [data-testid="stSegmentedControl"] [role="group"]{flex-wrap:wrap;gap:6px;}
-.stApp .st-key-ep_compare_filter [data-testid="stSegmentedControl"] button{border:1px solid __C_BORDER__ !important;background:__C_SURFACE__ !important;color:__C_TEXT__ !important;min-width:64px;min-height:38px;border-radius:9px !important;}
-.stApp .st-key-ep_compare_filter [data-testid="stSegmentedControl"] button[aria-pressed="true"]{background:__C_ACCENT__ !important;color:__C_BUTTON_TEXT__ !important;border-color:__C_ACCENT__ !important;}
-.stApp .st-key-ep_compare_filter [data-testid="stSegmentedControl"] button[aria-pressed="true"] *{color:inherit !important;}
+.st-key-ep_compare_filter :is([data-testid="stSegmentedControl"],[data-testid="stButtonGroup"]){border-radius:10px;}
+.st-key-ep_compare_filter :is([data-testid="stSegmentedControl"],[data-testid="stButtonGroup"]) [role="group"]{flex-wrap:wrap;gap:6px;}
+.stApp .st-key-ep_compare_filter :is([data-testid="stSegmentedControl"],[data-testid="stButtonGroup"]) button{border:1px solid __C_BORDER__ !important;background:__C_SURFACE__ !important;color:__C_TEXT__ !important;min-width:64px;min-height:38px;border-radius:9px !important;}
+.stApp .st-key-ep_compare_filter :is([data-testid="stSegmentedControl"],[data-testid="stButtonGroup"]) button:is([aria-pressed="true"],[aria-selected="true"],[data-testid="stBaseButton-segmented_controlActive"]){background:__C_ACCENT__ !important;color:__C_BUTTON_TEXT__ !important;border-color:__C_ACCENT__ !important;}
+.stApp .st-key-ep_compare_filter :is([data-testid="stSegmentedControl"],[data-testid="stButtonGroup"]) button:is([aria-pressed="true"],[aria-selected="true"],[data-testid="stBaseButton-segmented_controlActive"]) *{color:inherit !important;}
 .ep-compare-kpis{container-type:inline-size;}
 .ep-compare-kpis .ep-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:12px;margin:0 0 4px;}
 .stApp [data-testid="stMarkdownContainer"] .ep-compare-kpis .ep-kpi-grid .ep-card{
