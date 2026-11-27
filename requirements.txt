@@ -9,3 +9,6 @@ pytest>=8,<10
 websockets>=15,<17
 
 requests>=2.31,<3
+
+# IANA time zones on Windows as well as Unix.
+tzdata>=2024.1
