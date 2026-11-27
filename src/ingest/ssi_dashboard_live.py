@@ -26,6 +26,13 @@ BOARDS=["HOSE","HNX","UPCOM"]
 FACTORS=("quote_price_factor","trade_price_factor","volume_factor","history_volume_factor")
 
 
+def operator_live_enabled():
+    """Only the operator's backend environment can enable live data."""
+    return (os.getenv("EXITPLAN_SSI_AUTO","1")!="0"
+            and bool(os.getenv("SSI_API_KEY"))
+            and bool(os.getenv("SSI_API_SECRET")))
+
+
 def market_window_seconds(now):
     """Only the project's verified 2026 continuous-session windows."""
     now=pd.Timestamp(now)
@@ -77,7 +84,7 @@ class DashboardLive:
     def auto_tick(self,now=None):
         """Called by the visible UI fragment; do not start a second worker."""
         self._last_view=time.monotonic()
-        if os.getenv("EXITPLAN_SSI_AUTO","1")=="0":
+        if not operator_live_enabled():
             if self.snapshot()["active"]:self.stop()
             return False
         if market_window_seconds(now or datetime.now(VN))<2:return False
