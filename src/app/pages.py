@@ -182,31 +182,38 @@ def _market_reference_panel(root,symbols):
     """Independent display-only price references; never input to the MILP."""
     from src.ingest.ssi_dashboard_close import CLOSE_FILE, market_phase, completed_date, close_references
     from src.app.live import close_controller
+    from src.ingest.ssi_dashboard_live import operator_live_enabled
     symbols=list(dict.fromkeys(symbols))[:12]
     if not symbols:return
+    live_enabled=operator_live_enabled()
     phase=market_phase()
-    if phase=='closed':
-        target=completed_date()
-        if target is None:return
+    if phase=='closed' or not live_enabled:
         try:
             history=_daily_history(root)
         except ValueError:
             st.warning('Dữ liệu OHLCV chưa hợp lệ. Không hiển thị giá đóng cửa suy đoán.')
             return
+        if live_enabled:
+            target=completed_date()
+        else:
+            # Offline mode must not promise today's close or trigger REST requests.
+            target=pd.to_datetime(history.tradingDate,errors='coerce').max() if history is not None and not history.empty else None
+            target=target.date() if target is not None and pd.notna(target) else None
+        if target is None:return
         values=close_references(history,None,symbols,target)
         missing=[sym for sym in symbols if not values.get(sym,{}).get('current')]
-        if missing:close_controller(root).request(missing,target)
+        if missing and live_enabled:close_controller(root).request(missing,target)
         rows=[]
         for sym in symbols:
             v=values.get(sym)
             rows.append([sym,fmt.num(v['close'],2) if v else '–',
                          v['date'].strftime('%d/%m/%Y') if v else '–',
-                         'Đúng phiên' if v and v['current'] else 'Phiên cũ' if v else 'Chưa có'])
+                         ('Đúng phiên' if v['current'] else 'Phiên cũ') if v and live_enabled else 'Đã lưu' if v else 'Chưa có'])
         st.markdown('**Giá đóng cửa tham chiếu · SSI**')
-        st.caption('Phiên cần lấy: '+target.strftime('%d/%m/%Y')+' · giá theo đơn vị API. Chỉ dùng để tham chiếu; không thay sổ lệnh thanh lý.')
+        st.caption(('Phiên cần lấy: ' if live_enabled else 'Ngày OHLCV mới nhất trong bộ dữ liệu: ')+target.strftime('%d/%m/%Y')+' · giá theo đơn vị API. Chỉ dùng để tham chiếu; không thay sổ lệnh thanh lý.')
         st.markdown(html_table(['Mã','Giá đóng cửa','Ngày giao dịch','Dữ liệu'],rows,numeric=(1,),
-                    pills={3:{'Đúng phiên':'ok','Phiên cũ':'warn','Chưa có':'neutral'}}),unsafe_allow_html=True)
-        if missing:st.caption('Chưa có giá đúng phiên cho '+', '.join(missing)+'. Hệ thống thử tải tự động nếu có quyền API.')
+                    pills={3:{'Đúng phiên':'ok','Phiên cũ':'warn','Đã lưu':'neutral','Chưa có':'neutral'}}),unsafe_allow_html=True)
+        if missing and live_enabled:st.caption('Chưa có giá đúng phiên cho '+', '.join(missing)+'. Hệ thống sẽ thử cập nhật.')
     elif phase in ('continuous','lunch','transition'):
         books,_=_market_parquet(root,'data/processed/ssi_book_snapshots.parquet')
         if books is None or books.empty or not {'source','data_kind','symbol','ts_vn','closePrice'}.issubset(books.columns):
@@ -1088,9 +1095,9 @@ def data_page(root,data,t):
             cols={'symbol':'Mã','board':'Sàn','name':'Tên doanh nghiệp','icbName':'Ngành','lotSize':'Lô giao dịch'}
             paged_table(shown[[k for k in cols if k in shown]].rename(columns=cols),'ep_catalog_page')
             st.download_button('Tải danh mục CSV',fmt.csv_bom(shown),'ExitPlan_catalog.csv','text/csv')
-    with st.expander('Hướng dẫn kỹ thuật',expanded=False):
+    with st.expander('Hướng dẫn kỹ thuật dành cho bên vận hành',expanded=False):
         st.code('py scripts/ssi_v3_sync.py --check\\npy scripts/ssi_v3_sync.py --catalog',language='powershell')
-        st.caption('Xem README và docs/SSI_FASTCONNECT_SETUP.md. Không nhập khóa API vào dashboard.')
+        st.caption('Người dùng không cần API cá nhân. Chỉ bên vận hành cấu hình SSI ở backend; xem tài liệu kỹ thuật trong thư mục docs.')
     st.subheader('Chất lượng dữ liệu')
     if data.get('use_ssi'):
         report=Path(root)/'outputs/tables/ssi_ws_quality.json'
@@ -1160,7 +1167,11 @@ def data_page(root,data,t):
             paged_table(quality,'ep_quality_raw_page')
 
     st.subheader('Trạng thái kết nối dữ liệu')
-    st.caption('Tự kết nối trong khung thu thập; ngoài giờ lấy giá đóng cửa cho mã đang xem. Trạng thái trực tiếp ở thanh bên. Không chạy thêm bộ ghi terminal cùng lúc.')
+    from src.ingest.ssi_dashboard_live import operator_live_enabled
+    if operator_live_enabled():
+        st.caption('Bên vận hành tự cập nhật dữ liệu SSI theo phiên; người dùng không cần API riêng. Trạng thái tại thanh bên.')
+    else:
+        st.caption('Đang sử dụng dữ liệu đã lưu để phân tích. Không cần tài khoản hoặc API SSI cá nhân.')
     ssi_status=Path(root)/'outputs/tables/ssi_recorder_status.json'
     status_file=ssi_status if ssi_status.is_file() or data.get('use_ssi') else Path(root)/'outputs/tables/recorder_status.json'
     if status_file.exists():
@@ -1199,7 +1210,7 @@ def data_page(root,data,t):
         except (OSError,ValueError) as ex:
             st.error(f'Tệp trạng thái không hợp lệ: {ex}')
     else:
-        st.info('Chưa có file trạng thái bộ ghi dòng lệnh. Có thể kết nối SSI tại thanh bên.')
+        st.info('Chưa có nhật ký bộ ghi kèm theo bộ dữ liệu. Trạng thái cập nhật do bên vận hành quản lý.')
     st.caption('Múi giờ Asia/Ho_Chi_Minh (UTC+7); dashboard hỗ trợ bộ thu thập SSI độc lập, hoặc đọc dữ liệu đã lưu.')
 
 
