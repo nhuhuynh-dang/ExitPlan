@@ -139,6 +139,29 @@ def _file_version(path):
         return (str(path.absolute()),None)
 
 
+@st.cache_data(show_spinner=False,max_entries=8)
+def _cached_market_parquet(root,relative,file_version):
+    return read_parquet(root,relative)
+
+
+def _market_parquet(root,relative):
+    return _cached_market_parquet(str(root),relative,_file_version(Path(root)/relative))
+
+
+@st.cache_data(show_spinner=False,max_entries=12)
+def _cached_ssi_stats(root,file_version,snapshot_date,allowed=None):
+    from src.analytics.ssi_history_stats import asof_history_stats
+    history,error=_cached_market_parquet(root,'data/processed/ssi_history.parquet',file_version)
+    if history is None:raise ValueError(error)
+    if allowed is not None:history=history[history.symbol.isin(allowed)]
+    return asof_history_stats(history,snapshot_date,strict_calendar=True)
+
+
+def _ssi_stats(root,snapshot_date=None,allowed=None):
+    return _cached_ssi_stats(str(root),_file_version(Path(root)/'data/processed/ssi_history.parquet'),
+                             snapshot_date,tuple(sorted(allowed)) if allowed is not None else None)
+
+
 def _data_versions(root,overrides):
     paths=['data/processed/ssi_book_snapshots.parquet','data/processed/ssi_securities.parquet',
            'data/processed/ssi_history.parquet',SNAPSHOT,LIQUIDITY,PLANS,FRONTIER,QUALITY]
@@ -150,7 +173,7 @@ def _load_market_files(root,overrides,file_versions):
     """Cache only file-derived data, not UI or session state."""
     ssi_path='data/processed/ssi_book_snapshots.parquet'
     use_ssi=SNAPSHOT not in overrides and (Path(root)/ssi_path).is_file()
-    catalog_raw,catalog_error=read_parquet(root,'data/processed/ssi_securities.parquet')
+    catalog_raw,catalog_error=_market_parquet(root,'data/processed/ssi_securities.parquet')
     allowed=None
     if catalog_raw is not None:
         try:allowed=set(equity_symbols(catalog_raw))
@@ -183,13 +206,13 @@ def _load_market_files(root,overrides,file_versions):
         if books is not None and not books.empty:
             try:
                 from src.analytics.ssi_history_stats import asof_history_stats
-                history,herr=read_parquet(root,'data/processed/ssi_history.parquet')
+                history,herr=_market_parquet(root,'data/processed/ssi_history.parquet')
                 if history is None:raise ValueError(herr)
                 factors=books['history_volume_factor'].dropna().unique()
                 if len(factors)!=1 or not 0<float(factors[0])<float('inf'):
                     raise ValueError('Chưa xác nhận đơn vị volume lịch sử')
                 history=history[history.symbol.isin(allowed)]
-                liquidity=asof_history_stats(history,books['ts_vn'].max().date(),strict_calendar=True)
+                liquidity=_ssi_stats(root,books['ts_vn'].max().date(),allowed)
                 liquidity['adv']*=float(factors[0])
                 liquidity['volume_note']='OHLCV SSI trước ngày snapshot · CP/ngày'
             except Exception as ex:liquidity_err=str(ex)
@@ -453,7 +476,7 @@ def planner(root,data,t):
     valid_source=source_labels(data,compact=True)
     raw_books=data['books'] if valid_source else None
     books=_planner_eligible_books(raw_books)
-    raw,catalog_err=read_parquet(root,'data/processed/ssi_securities.parquet')
+    raw,catalog_err=_market_parquet(root,'data/processed/ssi_securities.parquet')
     try:
         catalog=stock_catalog(raw,books,equity_only=raw is not None or data.get('use_ssi',False))
     except ValueError as ex:
@@ -464,7 +487,7 @@ def planner(root,data,t):
     valid_symbols=set(books.symbol) if books is not None and not books.empty else set()
     kind=str(raw_books['data_kind'].iloc[0]) if raw_books is not None and not raw_books.empty else ''
     # Real daily bars are displayed only as independent history coverage, never as depth.
-    history,_=read_parquet(root,'data/processed/ssi_history.parquet')
+    history,_=_market_parquet(root,'data/processed/ssi_history.parquet')
     history_counts={}
     if history is not None and {'symbol','tradingDate','source','data_kind'}.issubset(history.columns):
         if set(history.source)=={'ssi_fastconnect_v3'} and set(history.data_kind)=={'historical'}:
@@ -738,14 +761,14 @@ def compare(root,data,t):
 def liquidity(root,data,t):
     if data['books'] is None or data['books'].empty:
         st.info('Chưa có sổ lệnh. Có thể xem thanh khoản lịch sử bên dưới.')
-        history,_=read_parquet(root,'data/processed/ssi_history.parquet')
+        history,_=_market_parquet(root,'data/processed/ssi_history.parquet')
         if history is not None:
             from src.analytics.ssi_history_stats import asof_history_stats
             allowed=data.get('allowed_equities')
             if allowed is None:return st.info('Cần danh mục SSI hợp lệ để lọc cổ phiếu.')
             history=history[history.symbol.isin(allowed)]
             if history.empty:return st.info('Chưa có lịch sử cổ phiếu hợp lệ.')
-            stats=asof_history_stats(history,strict_calendar=True)
+            stats=_ssi_stats(root,allowed=allowed)
             st.subheader('Thanh khoản lịch sử')
             names=sorted(stats.symbol.unique())
             draft=st.session_state.get('ep_draft_holdings',{})
@@ -765,9 +788,9 @@ def liquidity(root,data,t):
     if data.get('use_ssi') and st.session_state.get('ep_params'):
         try:
             from src.analytics.ssi_history_stats import asof_history_stats
-            history,_=read_parquet(root,'data/processed/ssi_history.parquet')
+            history,_=_market_parquet(root,'data/processed/ssi_history.parquet')
             factor=float(data['books']['history_volume_factor'].iloc[0])
-            qstats=asof_history_stats(history,pd.Timestamp(st.session_state['ep_params']['snapshot_at']).date(),strict_calendar=True)
+            qstats=_ssi_stats(root,pd.Timestamp(st.session_state['ep_params']['snapshot_at']).date())
             qstats['adv']*=factor
         except Exception as ex:
             qstats=None
@@ -831,7 +854,8 @@ def ssi_history(root,data,t):
         st.info('Chưa có lịch sử giá đã lưu.')
         return
     try:
-        h=pd.read_parquet(path)
+        h,herr=_market_parquet(root,'data/processed/ssi_history.parquet')
+        if h is None:raise ValueError(herr)
         required={'symbol','tradingDate','close','volume','data_kind','source'}
         if not required.issubset(h.columns):raise ValueError('Thiếu cột: '+', '.join(sorted(required-set(h.columns))))
         if h.empty:return st.warning('File lịch sử SSI trống.')
@@ -846,7 +870,7 @@ def ssi_history(root,data,t):
         h=h[h.symbol.isin(allowed)]
         if h.empty:return st.info('Chưa có lịch sử cho mã cổ phiếu trong phạm vi đã lọc.')
         names=sorted(h['symbol'].dropna().unique().tolist())
-        raw,_=read_parquet(root,'data/processed/ssi_securities.parquet')
+        raw,_=_market_parquet(root,'data/processed/ssi_securities.parquet')
         catalog=stock_catalog(raw,equity_only=True)
         labels={r.symbol:f'{r.symbol} · {r.name}' for r in catalog.itertuples()}
         draft=st.session_state.get('ep_draft_holdings',{})
@@ -871,7 +895,7 @@ def ssi_history(root,data,t):
               {'label':'Ngày mới nhất','value':view['tradingDate'].max().strftime('%d/%m/%Y'),'note':'Không phải báo giá tức thời'}]),unsafe_allow_html=True)
         if not h.empty:
             from src.analytics.ssi_history_stats import asof_history_stats
-            stats=asof_history_stats(h,strict_calendar=True)
+            stats=_ssi_stats(root,allowed=allowed)
             st.subheader('ADV 20 phiên và độ biến động')
             if {'symbol','adv','sigma','n_sessions','asof_date','source','data_kind'}.issubset(stats.columns) and set(stats.source)=={'ssi_fastconnect_v3'} and set(stats.data_kind)=={'historical'}:
                 history_stats_table(stats[stats.symbol.isin(selected)],'ep_price_stats_page')
@@ -903,7 +927,7 @@ def data_page(root,data,t):
         ]),unsafe_allow_html=True)
 
     with st.expander('Danh mục cổ phiếu',expanded=False):
-        catalog_raw,_=read_parquet(root,'data/processed/ssi_securities.parquet')
+        catalog_raw,_=_market_parquet(root,'data/processed/ssi_securities.parquet')
         if catalog_raw is None:st.info('Chưa có danh mục SSI.')
         else:
             catalog=equity_catalog(catalog_raw)
