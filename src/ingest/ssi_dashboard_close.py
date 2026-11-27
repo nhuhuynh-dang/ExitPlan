@@ -56,6 +56,35 @@ def close_references(history,extra,symbols,target):
             for r in d.itertuples()}
 
 
+def merge_daily_history(base,extra):
+    """Supplement missing daily bars without rewriting or superseding research data."""
+    required={'symbol','tradingDate','close','volume','source','data_kind'}
+    frames=[]
+    for frame in (base,extra):
+        if frame is None or frame.empty:continue
+        if not required.issubset(frame.columns) or set(frame.source)!={'ssi_fastconnect_v3'} or set(frame.data_kind)!={'historical'}:
+            raise ValueError('Nguồn OHLCV SSI không hợp lệ')
+        d=frame.copy()
+        d['tradingDate']=pd.to_datetime(d.tradingDate,errors='raise').dt.normalize()
+        if d.duplicated(['symbol','tradingDate']).any():raise ValueError('OHLCV trùng phiên')
+        if 'price_unit' in d and set(d.price_unit.dropna())-{'as_returned_by_ssi_api'}:
+            raise ValueError('Đơn vị OHLCV không tương thích')
+        frames.append(d)
+    if not frames:return None
+    # Base is authoritative if an independently retrieved daily bar overlaps.
+    return pd.concat(frames,ignore_index=True).drop_duplicates(['symbol','tradingDate'],keep='first').sort_values(['symbol','tradingDate']).reset_index(drop=True)
+
+
+def missing_daily_symbols(history,symbols,target):
+    """Only request symbols without a valid bar for the most recent completed day."""
+    if history is None or history.empty:return sorted(set(symbols))
+    dates=pd.to_datetime(history.tradingDate,errors='coerce').dt.normalize()
+    close=pd.to_numeric(history.close,errors='coerce')
+    vol=pd.to_numeric(history.volume,errors='coerce')
+    good=history[dates.eq(pd.Timestamp(target)) & close.gt(0)&close.lt(float('inf'))&vol.ge(0)&vol.lt(float('inf'))]
+    return sorted(set(symbols)-set(good.symbol))
+
+
 class CloseWorker:
     """Bounded per-symbol requests, deduplicated across UI reruns."""
     def __init__(self,root):
@@ -65,16 +94,21 @@ class CloseWorker:
         self._attempt={}
         self._thread=None
 
-    def request(self,symbols,target):
+    def request(self,symbols,target,*,bulk=False):
         if target is None or market_phase()!="closed" or os.getenv("EXITPLAN_SSI_AUTO","1")=="0":return
         if not os.getenv("SSI_API_KEY") or not os.getenv("SSI_API_SECRET"):return
         with self._lock:
             now=time.monotonic()
             self._attempt={k:v for k,v in self._attempt.items() if k[1]==target}
-            for sym in list(dict.fromkeys(symbols))[:24]:
+            for sym in list(dict.fromkeys(symbols)):
+                if not bulk and len(self._pending)>=48:break
                 key=(sym,target)
                 if key not in self._attempt or now-self._attempt[key]>=300:
-                    if len(self._pending)<48:self._pending[key]=None
+                    if len(self._pending)<48:
+                        self._pending[key]=None
+                        if not bulk:
+                            # Selected symbols should be processed ahead of background coverage.
+                            self._pending[key]=self._pending.pop(key)
             if self._pending and (self._thread is None or not self._thread.is_alive()):
                 self._thread=threading.Thread(target=self._run,daemon=True,name="exitplan-ssi-close")
                 self._thread.start()
@@ -92,11 +126,19 @@ class CloseWorker:
                     self._attempt[(sym,target)]=time.monotonic()
                 if completed_date()!=target:continue
                 try:
-                    records=client.ohlc_daily(sym,target,target,wait=.5)
+                    from src.ingest.ssi_fastconnect_v3 import SSIAuthError, SSIBadRequest, SSISymbolNotFound
+                    try:
+                        records=client.ohlc_daily(sym,target,target,wait=.5)
+                    except SSIAuthError:
+                        client.authenticate()
+                        records=client.ohlc_daily(sym,target,target,wait=.5)
                     if records:
                         frame=normalize_ohlc(records)
                         frame=frame[frame.symbol.eq(sym)&frame.tradingDate.eq(pd.Timestamp(target))]
                         if not frame.empty:self._save(frame)
+                except (SSIBadRequest,SSISymbolNotFound):
+                    # A missing/unsupported ticker must not block all other symbols.
+                    pass
                 except Exception:
                     # No secret/payload logging; a later UI poll can retry.
                     with self._lock:
