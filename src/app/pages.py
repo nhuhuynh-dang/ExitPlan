@@ -108,6 +108,9 @@ def paged_table(frame,key,page_size=20):
     st.markdown(html,unsafe_allow_html=True)
 
 
+HISTORY_STATUS={'complete':'Đủ phiên','stale':'Dữ liệu cũ','missing_sessions':'Thiếu phiên','invalid_values':'Giá/khối lượng lỗi','calendar_unavailable':'Chưa có lịch','observations_only':'Chưa đối chiếu lịch'}
+
+
 def history_stats_table(stats,key,verified_volume=False):
     view=pd.DataFrame({
         'Mã':stats['symbol'],
@@ -116,6 +119,8 @@ def history_stats_table(stats,key,verified_volume=False):
         'Số phiên':stats['n_sessions'].map(fmt.num),
         'Ngày dữ liệu':pd.to_datetime(stats['asof_date'],errors='coerce').dt.strftime('%d/%m/%Y').fillna('–')
     })
+    if 'quality_status' in stats:
+        view['Chất lượng']=stats['quality_status'].map(HISTORY_STATUS).fillna(stats['quality_status'])
     paged_table(view,key)
 
 
@@ -166,7 +171,7 @@ def load(root):
                 if len(factors)!=1 or not 0<float(factors[0])<float('inf'):
                     raise ValueError('Chưa xác nhận đơn vị volume lịch sử')
                 history=history[history.symbol.isin(allowed)]
-                liquidity=asof_history_stats(history,books['ts_vn'].max().date())
+                liquidity=asof_history_stats(history,books['ts_vn'].max().date(),strict_calendar=True)
                 liquidity['adv']*=float(factors[0])
                 liquidity['volume_note']='OHLCV SSI trước ngày snapshot · CP/ngày'
             except Exception as ex:liquidity_err=str(ex)
@@ -592,7 +597,7 @@ def liquidity(root,data,t):
             if allowed is None:return st.info('Cần danh mục SSI hợp lệ để lọc cổ phiếu.')
             history=history[history.symbol.isin(allowed)]
             if history.empty:return st.info('Chưa có lịch sử cổ phiếu hợp lệ.')
-            stats=asof_history_stats(history)
+            stats=asof_history_stats(history,strict_calendar=True)
             st.subheader('Thanh khoản lịch sử')
             names=sorted(stats.symbol.unique())
             draft=st.session_state.get('ep_draft_holdings',{})
@@ -614,13 +619,13 @@ def liquidity(root,data,t):
             from src.analytics.ssi_history_stats import asof_history_stats
             history,_=read_parquet(root,'data/processed/ssi_history.parquet')
             factor=float(data['books']['history_volume_factor'].iloc[0])
-            qstats=asof_history_stats(history,pd.Timestamp(st.session_state['ep_params']['snapshot_at']).date())
+            qstats=asof_history_stats(history,pd.Timestamp(st.session_state['ep_params']['snapshot_at']).date(),strict_calendar=True)
             qstats['adv']*=factor
         except Exception as ex:
             qstats=None
             st.warning('Không tính được ADV theo thời điểm danh mục: '+str(ex))
     if data.get('use_ssi'):
-        st.caption('ADV20 lấy từ 20 phiên SSI trước ngày snapshot; không dùng volume trong phiên hiện tại.')
+        st.caption('ADV20 cần đủ 20 phiên theo lịch 2026 trước snapshot; Sigma20 cần 21 giá đóng cửa liên tiếp. Không nội suy phiên thiếu.')
         if qstats is None:st.warning(data.get('liquidity_err') or 'Chưa có ADV20 hợp lệ.')
     elif qstats is not None and ('data_kind' not in qstats or set(qstats['data_kind'])!=set(data['books']['data_kind'])):
         qstats=None
@@ -633,6 +638,7 @@ def liquidity(root,data,t):
     if qstats is not None and {'symbol','adv'}.issubset(qstats.columns):
         adv=dict(zip(qstats['symbol'],qstats['adv']))
     rows=[]; alerts=[]
+    quality_map=dict(zip(qstats['symbol'],qstats['quality_status'])) if qstats is not None and 'quality_status' in qstats else {}
     for s,q in quotes.items():
         depth=sum(v for _,v in q.bids)
         qty=sold_map.get(s,0)
@@ -641,6 +647,8 @@ def liquidity(root,data,t):
         spread=((q.ask1-q.bids[0][0])/((q.ask1+q.bids[0][0])/2)*10000
                 if q.ask1 is not None and q.bids and q.ask1>0 else None)
         rows.append([s,fmt.shares(a),fmt.pct(participation),fmt.shares(depth),fmt.bps(spread),fmt.shares(qty)])
+        if data.get('use_ssi') and (a is None or pd.isna(a) or a<=0):
+            alerts.append(f"{s}: chưa tính được tỷ lệ tham gia ADV — "+HISTORY_STATUS.get(quality_map.get(s),'thiếu lịch sử hợp lệ'))
         if qty>depth:alerts.append(f'{s}: khối lượng bán vượt độ sâu quan sát')
         if participation is not None and participation*100>part_threshold:
             alerts.append(f'{s}: tỷ lệ tham gia {fmt.pct(participation)} vượt ngưỡng {part_threshold}%')
@@ -713,12 +721,13 @@ def ssi_history(root,data,t):
         st.markdown(cards_html([{'label':'Mã có dữ liệu','value':str(view['symbol'].nunique()),'note':'Từ file đã lưu'},
               {'label':'Số dòng OHLCV','value':fmt.num(len(view)),'note':'Theo ngày giao dịch'},
               {'label':'Ngày mới nhất','value':view['tradingDate'].max().strftime('%d/%m/%Y'),'note':'Không phải báo giá tức thời'}]),unsafe_allow_html=True)
-        if stats_path.exists():
-            stats=pd.read_parquet(stats_path)
+        if not h.empty:
+            from src.analytics.ssi_history_stats import asof_history_stats
+            stats=asof_history_stats(h,strict_calendar=True)
             st.subheader('ADV 20 phiên và độ biến động')
             if {'symbol','adv','sigma','n_sessions','asof_date','source','data_kind'}.issubset(stats.columns) and set(stats.source)=={'ssi_fastconnect_v3'} and set(stats.data_kind)=={'historical'}:
                 history_stats_table(stats[stats.symbol.isin(selected)],'ep_price_stats_page')
-                st.caption('ADV20 theo đơn vị API chưa xác minh. Biến động ngày cần 20 lợi suất.')
+                st.caption('ADV20 theo đơn vị API. Chỉ tính trên các phiên theo lịch 2026, không nội suy dữ liệu thiếu.')
         st.subheader('Lịch sử giao dịch')
         columns={'symbol':'Mã','tradingDate':'Ngày','open':'Mở cửa','high':'Cao nhất','low':'Thấp nhất','close':'Đóng cửa','volume':'Khối lượng'}
         shown=view.sort_values(['tradingDate','symbol'],ascending=[False,True])[[k for k in columns if k in view]].copy()
