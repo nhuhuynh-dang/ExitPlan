@@ -91,7 +91,7 @@ class DashboardLive:
             self._automatic=automatic
             self._auto_retry_at=time.monotonic()+120
             self._status=dict(state="authenticating",last_event_vn=None,last_snapshot_vn=None,
-                              published_batches=0,batch_records=0,rest_verified=False)
+                              published_batches=0,batch_records=0,rest_verified=False,failure_stage=None)
             self._thread=threading.Thread(target=self._run,daemon=True,name="exitplan-ssi-live")
             self._thread.start()
             return True
@@ -110,6 +110,7 @@ class DashboardLive:
 
     def _run(self):
         client=None
+        stage="auth"
         try:
             if not os.getenv("SSI_API_KEY") or not os.getenv("SSI_API_SECRET"):
                 self._update(state="missing_credentials")
@@ -123,6 +124,7 @@ class DashboardLive:
             if market_window_seconds(datetime.now(VN))<=0:
                 self._update(state="outside_hours")
                 return
+            stage="stored_data"
             path=self.root/"data/processed/ssi_book_snapshots.parquet"
             factors=stored_factors(path)
             catalog=pd.read_parquet(self.root/"data/processed/ssi_securities.parquet")
@@ -138,6 +140,7 @@ class DashboardLive:
                 raw=self.root/"data/raw/ssi_ws"/(datetime.now(VN).strftime("%Y%m%d_%H%M%S_%f")+"_dashboard.jsonl")
                 self._update(state="connecting",batch_records=0,last_event_vn=None)
                 code=1
+                stage="websocket"
                 try:
                     code=asyncio.run(capture(client._token,symbols,seconds/60,BOARDS,50,
                         output_path=raw,status_file=self.root/"outputs/tables/ssi_dashboard_recorder_status.json",
@@ -147,6 +150,7 @@ class DashboardLive:
                     code=1
                 imported=False
                 if raw.is_file() and raw.stat().st_size:
+                    stage="import"
                     self._update(state="importing")
                     args=["--all-market","--append","--input",str(raw)]
                     for key,value in factors.items():
@@ -158,24 +162,25 @@ class DashboardLive:
                     if imported:
                         published+=1
                         dates=pd.read_parquet(path,columns=["ts_vn"])
-                        self._update(published_batches=published,last_snapshot_vn=str(dates.ts_vn.max()))
+                        self._update(published_batches=published,last_snapshot_vn=str(dates.ts_vn.max()),failure_stage=None)
                 if self._stop.is_set():break
                 if code==0 and imported:
                     failures=0
                     continue
                 failures+=1
-                self._update(state="retrying",last_event_vn=None)
+                self._update(state="retrying",last_event_vn=None,failure_stage="websocket" if code!=0 else "import")
                 if failures>=3:
                     self._update(state="error")
                     return
                 if self._stop.wait(5*failures):break
                 if market_window_seconds(datetime.now(VN))<=0:break
                 if code!=0:
+                    stage="auth"
                     client.authenticate()
                     self._update(rest_verified=True)
             self._update(state="stopped" if self._stop.is_set() or market_window_seconds(datetime.now(VN))>0 else "outside_hours")
         except Exception:
-            self._update(state="stopped" if self._stop.is_set() else "error")
+            self._update(state="stopped" if self._stop.is_set() else "error",failure_stage=stage)
         finally:
             self._auto_retry_at=time.monotonic()+120 if self._status.get("state") in ("error","missing_credentials") else 0.
             if client is not None:client.session.close()
