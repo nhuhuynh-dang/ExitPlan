@@ -322,3 +322,21 @@ def test_destructive_popover_and_warning_use_readable_theme_colors():
         assert '.st-key-ep_clear_draft button[kind="primary"]' in block
         assert '.ep-planner-notice.warning {background:'+warning_bg+' !important' in css
         assert '__DELETE_' not in css
+
+
+def test_quantity_callback_ignores_stale_events(monkeypatch):
+    from types import SimpleNamespace
+    from src.app import pages
+    state={'ep_draft_holdings':{'HPG':5000},'ep_plans':{'old':True}}
+    monkeypatch.setattr(pages,'st',SimpleNamespace(session_state=state))
+    pages._change_quantity('ICG')
+    pages._change_quantity('HPG')
+    assert state['ep_draft_holdings']=={'HPG':5000}
+    assert 'ep_plans' in state
+    state['ep_qty_ICG']=100
+    pages._change_quantity('ICG')
+    assert state['ep_draft_holdings']=={'HPG':5000}
+    state['ep_qty_HPG']=5100
+    pages._change_quantity('HPG')
+    assert state['ep_draft_holdings']=={'HPG':5100}
+    assert 'ep_plans' not in state
