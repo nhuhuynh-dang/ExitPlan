@@ -1203,7 +1203,86 @@ body [data-testid="stPopoverBody"] button[kind="primary"] * {
     extra_css+=controls_css+modern_css
     css=css.replace('</style>', extra_css+'\n'.join(nav_icons)+'</style>')
     for a,b in rep.items():css=css.replace(a,b)
-    return css + overview_css(mode) + stock_preview_css(mode) + rerun_visual_css()
+    return css + overview_css(mode) + stock_preview_css(mode) + rerun_visual_css() + compare_css(mode)
+
+def compare_css(mode):
+    """Scoped results page styling plus the explicit add button's states."""
+    p=palette(mode)
+    tokens={'__C_BG__':'#0F172A' if mode=='Tối' else '#F5F7FC',
+            '__C_SURFACE__':p['surface'],'__C_TEXT__':p['text'],'__C_MUTED__':p['muted'],
+            '__C_BORDER__':p['border'],'__C_ACCENT__':p['accent'],
+            '__C_TINT__':mix(p['surface'],p['accent'],.09),
+            '__C_SELECTED__':mix(p['surface'],p['accent'],.13),
+            '__C_HEAD__':mix(p['surface'],p['text'],.06),
+            '__C_DISABLED__':mix(p['surface'],p['muted'],.14),
+            '__C_BUTTON_TEXT__':'#0F172A' if mode=='Tối' else '#FFFFFF'}
+    style="""
+<style>
+.stApp [data-testid="stAppViewContainer"]:has(.ep-compare-header){background:__C_BG__ !important;}
+.st-key-ep_compare_source .ep-badge{display:inline-flex;align-items:center;padding:6px 10px;font-size:.78rem;line-height:1.45;border-radius:8px;margin:0 6px 5px 0;white-space:normal;}
+.stApp :is(.st-key-ep_compare_table,.st-key-ep_compare_pending,.st-key-ep_compare_filter,.st-key-ep_compare_tradeoff,.st-key-ep_compare_holdings,.st-key-ep_compare_waterfall,.st-key-ep_compare_detail){
+    background:__C_SURFACE__ !important;border:1px solid __C_BORDER__ !important;border-radius:13px !important;
+    padding:16px !important;min-width:0;box-shadow:0 3px 14px rgba(15,40,75,.045);
+}
+.stApp :is(.st-key-ep_compare_table,.st-key-ep_compare_pending,.st-key-ep_compare_detail) .ep-table-wrap{border-radius:9px !important;margin:0 !important;overflow-x:auto !important;box-shadow:none !important;}
+.stApp :is(.st-key-ep_compare_table,.st-key-ep_compare_pending,.st-key-ep_compare_detail) .ep-table{min-width:760px;font-size:.82rem;}
+.stApp :is(.st-key-ep_compare_table,.st-key-ep_compare_pending,.st-key-ep_compare_detail) .ep-table th{background:__C_HEAD__ !important;font-size:.78rem;white-space:nowrap;}
+.stApp :is(.st-key-ep_compare_table,.st-key-ep_compare_pending,.st-key-ep_compare_detail) .ep-table :is(td,th){padding:12px 10px;line-height:1.45;}
+.stApp :is(.st-key-ep_compare_table,.st-key-ep_compare_pending,.st-key-ep_compare_detail) .ep-table td.numeric{white-space:nowrap;}
+.stApp .st-key-ep_compare_table .ep-table tbody tr.ep-table-selected td{background:__C_SELECTED__ !important;}
+.stApp .st-key-ep_compare_table .ep-table tbody tr.ep-table-selected td:first-child{box-shadow:inset 3px 0 __C_ACCENT__;color:__C_ACCENT__ !important;}
+.st-key-ep_compare_filter [data-testid="stSegmentedControl"]{border-radius:10px;}
+.st-key-ep_compare_filter [data-testid="stSegmentedControl"] [role="group"]{flex-wrap:wrap;gap:6px;}
+.stApp .st-key-ep_compare_filter [data-testid="stSegmentedControl"] button{border:1px solid __C_BORDER__ !important;background:__C_SURFACE__ !important;color:__C_TEXT__ !important;min-width:64px;min-height:38px;border-radius:9px !important;}
+.stApp .st-key-ep_compare_filter [data-testid="stSegmentedControl"] button[aria-pressed="true"]{background:__C_ACCENT__ !important;color:__C_BUTTON_TEXT__ !important;border-color:__C_ACCENT__ !important;}
+.stApp .st-key-ep_compare_filter [data-testid="stSegmentedControl"] button[aria-pressed="true"] *{color:inherit !important;}
+.ep-compare-kpis{container-type:inline-size;}
+.ep-compare-kpis .ep-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:12px;margin:0 0 4px;}
+.stApp [data-testid="stMarkdownContainer"] .ep-compare-kpis .ep-kpi-grid .ep-card{
+    background:__C_SURFACE__ !important;border:1px solid __C_BORDER__ !important;border-radius:13px !important;
+    padding:15px !important;display:flex;align-items:flex-start;flex-direction:column;gap:10px;min-height:150px;
+    box-shadow:0 3px 12px rgba(15,40,75,.045) !important;
+}
+.stApp [data-testid="stMarkdownContainer"] .ep-compare-kpis .ep-card:hover{border-color:__C_ACCENT__ !important;}
+.ep-compare-kpis .ep-card-icon{width:34px;height:34px;min-width:34px;border-radius:9px;}
+.ep-compare-kpis .ep-card-icon svg{width:20px;height:20px;}
+.ep-compare-kpis .ep-kpi-value{font-size:clamp(1.2rem,1.65vw,1.65rem);line-height:1.25;}
+.ep-compare-kpis .ep-kpi-label{font-size:.82rem;}
+.ep-compare-kpis .ep-kpi-note{font-size:.75rem;}
+.st-key-ep_compare_charts{container-type:inline-size;}
+.st-key-ep_compare_charts [data-testid="stHorizontalBlock"]{align-items:stretch;}
+.st-key-ep_compare_charts [data-testid="stColumn"]{min-width:0 !important;}
+.stApp :is(.st-key-ep_compare_tradeoff,.st-key-ep_compare_holdings,.st-key-ep_compare_waterfall) [data-testid="stPlotlyChart"]{width:100%;min-width:0;padding:0 !important;box-shadow:none !important;border:0 !important;border-radius:0 !important;overflow:visible !important;}
+.stApp [data-testid="stAppViewContainer"]:has(.ep-compare-header) .ep-verdict,
+.stApp :is(.st-key-ep_compare_tradeoff,.st-key-ep_compare_holdings,.st-key-ep_compare_waterfall) .ep-guide{
+    background:__C_TINT__ !important;border:1px solid __C_BORDER__ !important;border-radius:10px !important;
+    padding:12px 14px;margin:0;color:__C_MUTED__ !important;font-size:.8rem;line-height:1.6;
+}
+.stApp [data-testid="stAppViewContainer"]:has(.ep-compare-header) .ep-verdict strong,
+.stApp :is(.st-key-ep_compare_tradeoff,.st-key-ep_compare_holdings,.st-key-ep_compare_waterfall) .ep-guide strong{color:__C_TEXT__ !important;}
+/* Explicit add: ensure disabled state is visually distinct and button stays legible. */
+.stApp .st-key-ep_stock_preview_actions [data-testid="stButton"] button:disabled{
+    background:__C_DISABLED__ !important;color:__C_MUTED__ !important;border:1px solid __C_BORDER__ !important;opacity:1 !important;cursor:not-allowed;
+}
+.stApp .st-key-ep_stock_preview_actions [data-testid="stButton"] button:disabled *{color:inherit !important;}
+.stApp .st-key-ep_stock_preview_actions [data-testid="stButton"] button:not(:disabled){min-height:40px !important;height:40px !important;}
+@container(max-width:850px){
+    .ep-compare-kpis .ep-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .st-key-ep_compare_charts [data-testid="stHorizontalBlock"]{flex-direction:column !important;}
+    .st-key-ep_compare_charts [data-testid="stColumn"]{width:100% !important;flex:1 1 100% !important;}
+}
+@container(max-width:480px){.ep-compare-kpis .ep-kpi-grid{grid-template-columns:1fr;}}
+@media(max-width:640px){
+    .ep-compare-kpis .ep-kpi-grid{grid-template-columns:1fr;}
+    .st-key-ep_compare_charts [data-testid="stHorizontalBlock"]{flex-direction:column !important;}
+    .st-key-ep_compare_charts [data-testid="stColumn"]{width:100% !important;flex:1 1 100% !important;}
+    .stApp :is(.st-key-ep_compare_table,.st-key-ep_compare_pending,.st-key-ep_compare_filter,.st-key-ep_compare_tradeoff,.st-key-ep_compare_holdings,.st-key-ep_compare_waterfall,.st-key-ep_compare_detail){padding:12px !important;}
+}
+</style>
+"""
+    for key,value in tokens.items():style=style.replace(key,value)
+    return style
+
 
 def rerun_visual_css():
     """Suppress Streamlit's stale-element fade without altering execution or input locks."""
