@@ -2,9 +2,8 @@
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 import streamlit as st
-from src.ingest.ssi_dashboard_live import DashboardLive
+from src.ingest.ssi_dashboard_live import DashboardLive, operator_live_enabled
 from src.ingest.ssi_dashboard_close import CloseWorker, market_phase, completed_date
-import os
 
 VN=timezone(timedelta(hours=7))
 
@@ -56,11 +55,20 @@ def sidebar_live(root):
     worker=controller(root)
     worker.auto_tick()
     info=worker.snapshot()
+    if not operator_live_enabled():
+        st.markdown("**Dữ liệu thị trường**")
+        st.caption("Dữ liệu đã lưu · Không cần API cá nhân")
+        try:
+            from src.app.pages import _market_parquet
+            books,_=_market_parquet(root,"data/processed/ssi_book_snapshots.parquet")
+            if books is not None and not books.empty and set(books.source)=={"ssi_fastconnect_v3_ws"} and set(books.data_kind)=={"live"}:
+                st.caption("Snapshot SSI: "+str(books.ts_vn.max())[:19]+" (UTC+7)")
+        except (ValueError,KeyError,TypeError,OSError):
+            pass
+        return
     phase=market_phase()
     text,tone=status_label(info)
-    if os.getenv("EXITPLAN_SSI_AUTO","1")=="0":
-        text,tone="Tự cập nhật đã tạm tắt","neutral"
-    elif phase=="closed":
+    if phase=="closed":
         text,tone="Ngoài giờ giao dịch · giá đóng cửa","neutral"
     elif phase=="lunch":
         text,tone="Nghỉ trưa · snapshot gần nhất","neutral"
@@ -84,7 +92,7 @@ def sidebar_live(root):
         date=completed_date()
         if date:
             st.caption("Phiên tham chiếu: "+date.strftime("%d/%m/%Y"))
-            if os.getenv("EXITPLAN_SSI_AUTO","1")!="0" and not info.get("active"):
+            if not info.get("active"):
                 try:
                     from src.app.pages import _market_parquet, _daily_history
                     from src.ingest.ssi_dashboard_close import missing_daily_symbols
