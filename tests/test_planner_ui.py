@@ -47,6 +47,7 @@ def test_planner_native_controls_without_market_data(test_catalog,mode):
     assert not at.exception
     assert at.selectbox(key="ep_stock_autocomplete").disabled
     assert not at.selectbox(key="ep_stock_autocomplete").options
+    assert at.button(key="ep_add_stock").disabled
     # An existing holding may remain when the saved data becomes unavailable.
     at.session_state["ep_draft_holdings"]={"ACB":100}
     at.run()
@@ -80,8 +81,15 @@ def test_planner_native_controls_with_compatible_books(test_catalog,mode):
     assert not at.selectbox(key="ep_stock_autocomplete").disabled
     at.selectbox(key="ep_stock_autocomplete").select("ACB").run()
     assert not at.exception
-    assert dict(at.session_state["ep_draft_holdings"])=={"ACB":100}
-    assert at.number_input(key="ep_qty_ACB").value==100
+    assert dict(at.session_state["ep_draft_holdings"])=={}
+    assert any("ep-stock-preview" in w.value and "Ngân hàng Á Châu" in w.value and "19.950" in w.value for w in at.markdown)
+    assert not at.button(key="ep_add_stock").disabled
+    at.number_input(key="ep_stock_preview_qty").set_value(250).run()
+    assert dict(at.session_state["ep_draft_holdings"])=={}
+    at.button(key="ep_add_stock").click().run()
+    assert not at.exception
+    assert dict(at.session_state["ep_draft_holdings"])=={"ACB":250}
+    assert at.number_input(key="ep_qty_ACB").value==250
     assert len(at.selectbox(key="ep_stock_autocomplete").options)==1
     assert at.selectbox(key="ep_stock_autocomplete").options[0].startswith("HPG")
     assert not at.button(key="ep_calculate_plan").disabled
@@ -94,6 +102,10 @@ def test_planner_native_controls_with_compatible_books(test_catalog,mode):
     assert at.session_state["ep_draft_holdings"]["ACB"]==1257
     assert not at.button(key="ep_calculate_plan").disabled
     at.selectbox(key="ep_stock_autocomplete").select("HPG").run()
+    assert not at.exception
+    assert dict(at.session_state["ep_draft_holdings"])=={"ACB":1257}
+    assert at.number_input(key="ep_stock_preview_qty").value==100
+    at.button(key="ep_add_stock").click().run()
     assert not at.exception
     assert dict(at.session_state["ep_draft_holdings"])=={"ACB":1257,"HPG":100}
     assert at.selectbox(key="ep_stock_autocomplete").disabled
