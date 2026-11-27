@@ -211,7 +211,13 @@ def test_native_search_surface_and_text_contrast():
         assert 'caret-color:'+p['text']+' !important' in css
         assert '-webkit-text-fill-color:'+p['text']+' !important' in css
         assert 'input::placeholder' in css
-        assert '.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] div' in css
+        # The shared input shell targets the BaseWeb select surface in both modes.
+        # The broad descendant selector is intentionally a dark-only override.
+        shell=css.split("/* ExitPlan shared input shell:",1)[1]
+        bg='#1E293B' if mode=='Tối' else '#EAF3FC'
+        selector='.stApp [data-testid="stSelectbox"][data-testid="stSelectbox"] [data-baseweb="select"] div {'
+        assert selector in shell
+        assert 'background-color:'+bg+' !important' in shell.split(selector,1)[1].split('}',1)[0]
         assert '.ep-table-wrap.ep-paged .ep-table th' in css
     assert 'background-color:#1E293B !important;color:#F1F5F9 !important' in theme_css("Tối")
 
