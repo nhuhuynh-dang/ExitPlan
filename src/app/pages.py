@@ -219,6 +219,25 @@ def _load_market_files(root,overrides,file_versions):
     return dict(use_ssi=use_ssi,allowed_equities=allowed,books=books,err=err,liquidity=liquidity,liquidity_err=liquidity_err,
                 saved_plans=saved_plans,saved_frontier=saved_frontier,quality=quality,overrides=overrides)
 
+def _keep_recorded_plan(data,previous,signature,state):
+    """Appending newer quotes must not rewrite an already computed evaluation.
+    Clear it if the original SSI snapshot disappears or any selected quote changes.
+    """
+    if not data.get('use_ssi') or not previous or previous[0]!=signature[0]:
+        return False
+    params=state.get('ep_params') or {}
+    quotes=state.get('ep_plan_quotes') or {}
+    if params.get('data_kind')!='live' or not quotes or data['books'] is None:return False
+    try:
+        books=data['books']
+        stamp=pd.Timestamp(params['snapshot_at'])
+        batch=books[books.ts_vn.eq(stamp)&books.symbol.isin(quotes)].drop_duplicates('symbol',keep='last')
+        if set(batch.symbol)!=set(quotes):return False
+        return all(quote_from_row(row)==quotes[row['symbol']] for _,row in batch.iterrows())
+    except (KeyError,TypeError,ValueError,OverflowError):
+        return False
+
+
 def load(root):
     overrides={}
     if str(st.query_params.get('advanced',''))=='1':
@@ -235,9 +254,11 @@ def load(root):
                str(books['ts_vn'].max()) if books is not None and not books.empty else '',
                tuple(sorted(books['data_kind'].unique())) if books is not None else (),
                len(books) if books is not None else 0)
-    if st.session_state.get('ep_data_signature')!=signature:
-        for key in ('ep_plans','ep_frontier','ep_holdings','ep_plan_quotes','ep_params'):
-            st.session_state.pop(key,None)
+    previous=st.session_state.get('ep_data_signature')
+    if previous!=signature:
+        if not _keep_recorded_plan(data,previous,signature,st.session_state):
+            for key in ('ep_plans','ep_frontier','ep_holdings','ep_plan_quotes','ep_params'):
+                st.session_state.pop(key,None)
         st.session_state['ep_data_signature']=signature
     return data
 
@@ -349,7 +370,7 @@ def overview(root,data,t):
                     +_overview_status('Thời điểm mới nhất',last.strftime('%d/%m/%Y %H:%M'),'schedule')
                     +_overview_status('Số mã có thể lập phương án',fmt.num(len(symbols)),'stacked_bar_chart')
                     +'</div><div class="ep-overview-ws-note"><span class="material-symbols-rounded" aria-hidden="true">info</span>'
-                    '<span>File đã lưu không xác nhận WebSocket đang kết nối. Xem trạng thái bộ ghi tại trang Dữ liệu &amp; kết nối.</span></div>',
+                    '<span>Snapshot đã lưu không tự xác nhận WebSocket đang kết nối. Xem trạng thái SSI tại thanh bên.</span></div>',
                     unsafe_allow_html=True)
     st.markdown(
         '<div class="ep-overview-insight"><span class="material-symbols-rounded" aria-hidden="true">lightbulb</span>'
@@ -703,7 +724,7 @@ def compare(root,data,t):
         return
     params=st.session_state['ep_params']
     if str(data['books']['ts_vn'].max())!=params['snapshot_at']:
-        st.caption('Đang dùng ảnh chụp chung gần nhất của danh mục, có thể sớm hơn bản ghi mới nhất toàn thị trường.')
+        st.caption('Đang xem phương án đã cố định tại snapshot khi tính; có thể sớm hơn dữ liệu mới nhất. Tính lại để dùng snapshot chung mới.')
     st.caption('Nguồn kết quả: '+KIND_LABELS.get(params['data_kind'],params['data_kind'])+
                ' · snapshot '+params['snapshot_at']+' · phương án từ bộ tối ưu bên ngoài giao diện.')
     rows=[]
@@ -1034,7 +1055,7 @@ def data_page(root,data,t):
                 '<div class="ep-panel"><div class="ep-panel-title">Bộ thu thập dữ liệu thị trường'
                 ' <span class="ep-pill '+('warn' if kind=='synthetic' else 'ok' if state in ('connected','recording') else 'neutral')+'">'
                 +escape(status_label)+'</span></div>'
-                '<div class="ep-panel-desc">Tình trạng từ file đã ghi; dashboard không tự kết nối API.</div>'
+                '<div class="ep-panel-desc">Nhật ký bộ ghi dòng lệnh; kết nối từ dashboard có trạng thái riêng tại thanh bên.</div>'
                 +info_html+'</div>',
                 unsafe_allow_html=True,
             )
@@ -1044,8 +1065,8 @@ def data_page(root,data,t):
         except (OSError,ValueError) as ex:
             st.error(f'Tệp trạng thái không hợp lệ: {ex}')
     else:
-        st.info('Chưa có file trạng thái bộ ghi. Dashboard không tự mở WebSocket.')
-    st.caption('Múi giờ Asia/Ho_Chi_Minh (UTC+7); dữ liệu được thu thập ngoài dashboard.')
+        st.info('Chưa có file trạng thái bộ ghi dòng lệnh. Có thể kết nối SSI tại thanh bên.')
+    st.caption('Múi giờ Asia/Ho_Chi_Minh (UTC+7); dashboard hỗ trợ bộ thu thập SSI độc lập, hoặc đọc dữ liệu đã lưu.')
 
 
 def validation(root,data,t):
@@ -1208,10 +1229,18 @@ FUNCTIONS={'overview':overview,'planner':planner,'compare':compare,'liquidity':l
 
 def render_page(page,root,cfg):
     page_header(page,cfg['accent'],cfg['mode'])
-    data=load(root)
     t=charts.apply_palette(cfg['mode'],cfg['accent'])
     try:
-        FUNCTIONS[page](root,data,t)
+        if page=='overview' and str(st.query_params.get('advanced',''))!='1':
+            from src.app.live import controller
+            # Only this page refreshes automatically; never rerun the planner while editing.
+            interval=15 if controller(root).snapshot()['active'] else None
+            @st.fragment(run_every=interval)
+            def refresh_overview():
+                overview(root,load(root),t)
+            refresh_overview()
+        else:
+            FUNCTIONS[page](root,load(root),t)
     except Exception as ex:
         if page=='planner':
             import logging
