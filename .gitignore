@@ -21,3 +21,6 @@ data/processed/ssi_market_cache/
 
 # Local runtime lock for concurrent snapshot writes.
 data/processed/ssi_*.lock
+
+# Local submission bundles (may contain licensed market data).
+dist/
