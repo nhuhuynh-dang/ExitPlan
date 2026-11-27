@@ -6,72 +6,67 @@ ExitPlan là ứng dụng hỗ trợ nhà đầu tư cá nhân xây dựng phư�
 
 Ứng dụng được phát triển bằng Python và Streamlit, sử dụng dữ liệu thị trường từ SSI FastConnect V3 và mô hình tối ưu hóa nguyên tuyến tính hỗn hợp (MILP). ExitPlan phục vụ phân tích và mô phỏng học thuật, không kết nối tài khoản giao dịch, không đặt lệnh thật và không đưa ra khuyến nghị đầu tư.
 
-## 1. Hướng dẫn cài đặt và chạy lần đầu
+## 1. Hướng dẫn chạy lần đầu
 
-### Bước 1 — Chuẩn bị mã nguồn
+### Dành cho người nhận đồ án
 
-Yêu cầu: Python 3.11 hoặc 3.12 (khuyến nghị), Git nếu tải mã nguồn bằng GitHub, và Windows PowerShell hoặc Terminal trong VS Code.
+1. Cài Python 3.11 hoặc 3.12 từ [python.org](https://www.python.org/downloads/). Trên Windows, chọn cài Python Launcher hoặc thêm Python vào PATH.
+2. Giải nén `ExitPlan_Submission.zip` và mở terminal tại thư mục `ExitPlan` chứa `run_exitplan.py`.
+3. Chạy một lệnh:
 
-Nếu chưa có thư mục dự án:
+**Windows (PowerShell):**
+
+```powershell
+py run_exitplan.py
+```
+
+**macOS / Linux:**
+
+```bash
+python3 run_exitplan.py
+```
+
+Launcher tự tạo môi trường `.venv` và cài các thư viện từ `requirements.txt` ở lần đầu (cần Internet để tải thư viện), sau đó mở Streamlit tại **http://localhost:8501**. Các lần sau tái sử dụng môi trường riêng. Không cần API Key SSI để xem dữ liệu thực đã lưu. Mặc định launcher tắt kết nối API để tái lập kết quả offline; dữ liệu được đọc theo đường dẫn tương đối trong thư mục dự án, không phụ thuộc máy người thực hiện đồ án. Nhấn Ctrl+C để dừng.
+
+Nếu Linux chưa có mô-đun venv, cài gói Python venv phù hợp với bản phân phối. Nếu cần cài lại thư viện, thêm `--reinstall` vào lệnh launcher.
+
+### Dành cho người chuẩn bị bài nộp
+
+Trên máy đã có dữ liệu SSI của đồ án, dừng dashboard và chỉ đóng gói khi được phép chia sẻ dữ liệu với người nhận:
+
+```powershell
+py scripts/package_exitplan.py --include-ssi-data
+```
+
+File kết quả: `dist/ExitPlan_Submission.zip`. Gói chứa mã nguồn, tài liệu, ba tệp SSI bắt buộc (snapshot, danh mục, OHLCV), các kết quả SSI có sẵn được chọn lọc và manifest SHA-256. Không chứa API Key, Secret, token, .env, thư mục .git, .venv hoặc raw logs. Không tự tải lên GitHub. Giải nén ZIP sang một thư mục khác và thử launcher trước khi gửi.
+
+### Nếu chỉ tải mã nguồn từ GitHub
 
 ```powershell
 git clone https://github.com/nhuhuynh-dang/ExitPlan.git
 cd ExitPlan
 ```
 
-Nếu đã nhận thư mục đồ án, giải nén và mở PowerShell tại thư mục chứa `requirements.txt`, `src/` và `scripts/`. Không cần clone lại.
-
-### Bước 2 — Cài đặt thư viện
-
-```powershell
-py -m pip install -r requirements.txt
-```
-
-### Bước 3 — Chuẩn bị dữ liệu
-
-**Trường hợp A — Có bộ dữ liệu SSI của đồ án (khuyến nghị khi chấm bài).**
-
-Đặt các tệp dữ liệu được cung cấp hợp lệ vào đúng thư mục:
+GitHub không chứa đầy đủ dữ liệu SSI cục bộ. Để chạy bằng dữ liệu thực, dùng gói nghiên cứu được phép chia sẻ hoặc tự khởi tạo SSI theo mục 3. Ba tệp tối thiểu là:
 
 | Tệp | Vai trò |
 | --- | --- |
-| `data/processed/ssi_book_snapshots.parquet` | Sổ lệnh SSI đã chuẩn hóa, đầu vào chính của mô hình |
-| `data/processed/ssi_securities.parquet` | Danh mục mã, tên doanh nghiệp, sàn và thông tin lô giao dịch |
-| `data/processed/ssi_history.parquet` | OHLCV ngày, phục vụ ADV20 và Sigma20 |
-| `outputs/tables/validation_replay_ssi.csv` | Kết quả phát lại đã tính (nếu được cung cấp) |
-| `outputs/tables/validation_replay_ssi_summary.json` | Thống kê phát lại (nếu được cung cấp) |
+| `data/processed/ssi_book_snapshots.parquet` | Sổ lệnh SSI đã chuẩn hóa |
+| `data/processed/ssi_securities.parquet` | Danh mục chứng khoán |
+| `data/processed/ssi_history.parquet` | OHLCV ngày |
 
-Các tệp SSI và bản ghi thô được lưu cục bộ, không mặc định có đầy đủ khi clone GitHub. Giữ nguyên cấu trúc thư mục của bộ dữ liệu. Không chạy script tạo dữ liệu giả lập trên bộ dữ liệu nghiên cứu.
+Chỉ để thử chức năng nếu không có quyền hoặc dữ liệu SSI, có thể chạy `py run_exitplan.py --demo` (macOS/Linux: `python3 run_exitplan.py --demo`) trong bản sao riêng không có sổ lệnh và danh mục SSI. Demo được gắn nhãn synthetic và không đại diện cho dữ liệu thị trường thật. Launcher không tự chuyển sang dữ liệu giả khi thiếu hoặc lỗi dữ liệu SSI.
 
-Để xem lại dữ liệu đã lưu mà không gọi API:
+**Chạy thủ công (nếu cần):**
 
 ```powershell
+py -m pip install -r requirements.txt
 $env:EXITPLAN_SSI_AUTO = "0"
-```
-
-**Trường hợp B — Chỉ có mã nguồn, chưa có dữ liệu SSI.**
-
-Có thể thử giao diện và thuật toán bằng dữ liệu giả lập trong một bản sao riêng của dự án:
-
-```powershell
-$env:EXITPLAN_SSI_AUTO = "0"
-py scripts/generate_synthetic.py
-```
-
-Dữ liệu này được gắn nhãn `synthetic`. Khi lập phương án, bật ô cho phép tính thử bằng dữ liệu giả lập. Không sử dụng kết quả demo để chứng minh kết nối SSI hoặc hiệu quả thanh lý trên thị trường thực. Script có thể ghi đè các tệp demo và bảng kết quả chung.
-
-Nếu đã có quyền SSI nhưng chưa có snapshot, thực hiện quy trình khởi tạo tại mục 3 trước khi bật tự động cập nhật.
-
-### Bước 4 — Kiểm thử và khởi chạy
-
-```powershell
 py -m pytest -q
 py -m streamlit run src/app/app.py
 ```
 
-Trình duyệt sẽ mở ứng dụng. Nếu không, truy cập **http://localhost:8501**.
-
-Để dừng ứng dụng, nhấn `Ctrl+C` tại PowerShell. Để cập nhật mã nguồn trong thư mục Git hiện có, dừng ứng dụng rồi chạy `git pull origin main`.
+Để cập nhật mã nguồn trong thư mục Git hiện có, dừng ứng dụng rồi chạy `git pull origin main`. Bật tự cập nhật bằng `py run_exitplan.py --live` sau khi cấu hình API riêng theo mục 3.
 
 ## 2. Hướng dẫn sử dụng nhanh
 
