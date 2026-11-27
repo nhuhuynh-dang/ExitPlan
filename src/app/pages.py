@@ -14,6 +14,7 @@ from src.finance.engine import quote_from_row,sell_preview,hhi
 from src.data.stock_search import stock_catalog,search_stocks,known_nonstandard_lots
 from src.data.equity_universe import equity_catalog,equity_symbols
 from src.analytics.planner import calculate,summaries,frontier
+from src.analytics.feasibility import eligible_books,compatible_symbols,liquidation_capacity
 
 NAV={
  'overview':'Tổng quan',
@@ -279,7 +280,7 @@ def _add_selected_stock(allowed):
     symbol=st.session_state.get('ep_stock_autocomplete')
     draft=dict(st.session_state.get('ep_draft_holdings',{}))
     if symbol in allowed and symbol not in draft and len(draft)<12:
-        draft[symbol]=0
+        draft[symbol]=100
         st.session_state['ep_draft_holdings']=draft
         st.session_state.pop('ep_qty_'+symbol,None)
         _clear_plan()
@@ -303,7 +304,9 @@ def _change_quantity(symbol):
 
 def _change_setting(name):
     settings=dict(st.session_state.get('ep_draft_settings',{}))
-    settings[name]=st.session_state['ep_setting_'+name]
+    key='ep_setting_'+name
+    if key not in st.session_state:return
+    settings[name]=st.session_state[key]
     st.session_state['ep_draft_settings']=settings
     _clear_plan()
 
@@ -313,9 +316,15 @@ def _planner_step(number,title,icon,count=''):
     st.markdown('<div class="ep-step-heading"><span class="ep-step-icon material-symbols-rounded" aria-hidden="true">'+escape(icon)+'</span><div><span class="ep-step-number">Bước '+str(number)+'</span><h2>'+escape(title)+'</h2></div>'+counter+'</div>',unsafe_allow_html=True)
 
 
+@st.cache_data(show_spinner=False,max_entries=3)
+def _planner_eligible_books(books):
+    return eligible_books(books)
+
+
 def planner(root,data,t):
     valid_source=source_labels(data,compact=True)
-    books=data['books'] if valid_source else None
+    raw_books=data['books'] if valid_source else None
+    books=_planner_eligible_books(raw_books)
     raw,catalog_err=read_parquet(root,'data/processed/ssi_securities.parquet')
     try:
         catalog=stock_catalog(raw,books,equity_only=raw is not None or data.get('use_ssi',False))
@@ -324,8 +333,8 @@ def planner(root,data,t):
         catalog=stock_catalog(None,books,equity_only=True)
     if raw is None:
         planner_notice('Danh mục cổ phiếu SSI chưa sẵn sàng.','info')
-    valid_symbols=set(available_symbols(books)) if books is not None else set()
-    kind=str(books['data_kind'].iloc[0]) if books is not None else ''
+    valid_symbols=set(books.symbol) if books is not None and not books.empty else set()
+    kind=str(raw_books['data_kind'].iloc[0]) if raw_books is not None and not raw_books.empty else ''
     # Real daily bars are displayed only as independent history coverage, never as depth.
     history,_=read_parquet(root,'data/processed/ssi_history.parquet')
     history_counts={}
@@ -335,22 +344,26 @@ def planner(root,data,t):
     if 'ep_draft_holdings' not in st.session_state:
         st.session_state['ep_draft_holdings']={}
     draft=st.session_state['ep_draft_holdings']
+    supported=set(catalog.symbol)-set(known_nonstandard_lots(catalog,catalog.symbol))
+    compatible=compatible_symbols(books,draft) & supported
     with st.container(border=False,key='ep_planner_step1'):
         _planner_step(1,'Tìm kiếm cổ phiếu','search')
         search_col,board_col=st.columns([3,1],gap='medium')
         with board_col:
             board=st.selectbox('Sàn giao dịch',['Tất cả']+sorted(catalog.board.unique()),key='ep_stock_board')
-        matches=search_stocks(catalog,board=board,exclude=draft,limit=len(catalog))
+        matches=search_stocks(catalog[catalog.symbol.isin(compatible)],board=board,exclude=draft,limit=len(catalog))
         names={r.symbol:f"{r.symbol} · {r.name or 'Chưa có tên'} · {r.board}" for r in matches.itertuples()}
         with search_col:
             st.selectbox('Mã hoặc tên doanh nghiệp',list(names),index=None,
                 format_func=names.get,placeholder='Nhập mã hoặc tên doanh nghiệp',
                 key='ep_stock_autocomplete',on_change=_add_selected_stock,
                 args=(tuple(names),),disabled=not names or len(draft)>=12)
+        st.caption(f'{len(names)} mã có thể thêm trên sàn đã chọn · '+
+                   ('có ít nhất một snapshot chung với toàn bộ danh mục.' if draft else 'có sổ lệnh hợp lệ đã ghi.'))
         if len(draft)>=12:
             planner_notice('Đã đủ 12 mã. Xóa một mã để thêm mã khác.','info')
         elif not names:
-            planner_notice('Không còn mã phù hợp.','info')
+            planner_notice('Không có mã phù hợp với bộ lọc/snapshot chung. Thử đổi sàn, bỏ mã đang chọn hoặc thu thêm dữ liệu.','info')
     meta=catalog.set_index('symbol').to_dict('index')
     nonstandard=known_nonstandard_lots(catalog,draft)
     unknown=set(draft)-set(meta)
@@ -377,7 +390,7 @@ def planner(root,data,t):
                             st.markdown('<span class="ep-mobile-qty">Nắm giữ (CP)</span>',unsafe_allow_html=True)
                             if 'ep_qty_'+sym not in st.session_state:
                                 st.session_state['ep_qty_'+sym]=int(qty)
-                            st.number_input('Số lượng '+sym,min_value=0,step=1,format='%d',
+                            st.number_input('Số lượng '+sym,min_value=0,step=100,format='%d',
                                 key='ep_qty_'+sym,label_visibility='collapsed',on_change=_change_quantity,args=(sym,),
                                 help='Nhập số nguyên bất kỳ. Lượng bán theo lô 100.')
                         with d:
@@ -430,10 +443,14 @@ def planner(root,data,t):
         missing=sorted(set(draft)-valid_symbols)
         zeros=sorted(s for s,v in draft.items() if v<=0)
         batch=None
+        capacity=None
+        quotes={}
         if not draft:st.caption('Thêm cổ phiếu để bắt đầu.')
         if draft:
             if missing:planner_notice('Thiếu sổ lệnh: '+', '.join(missing)+'.','warning')
             if zeros:planner_notice('Nhập số lượng cho: '+', '.join(zeros),'info')
+            odd=sorted(s for s,v in draft.items() if 0<v<100)
+            if odd:planner_notice('Dưới lô 100 CP, không thể bán theo mô hình: '+', '.join(odd)+'. Phần lẻ vẫn được giữ lại.','warning')
             if nonstandard:planner_notice('Không hỗ trợ lô giao dịch khác 100: '+', '.join(nonstandard),'warning')
             if unknown:planner_notice('Mã không còn trong danh sách tra cứu: '+', '.join(sorted(unknown)),'warning')
             if not missing and not nonstandard and not unknown:
@@ -442,23 +459,37 @@ def planner(root,data,t):
                     if 'lotSize' in batch and (pd.to_numeric(batch['lotSize'],errors='coerce').dropna()!=100).any():
                         raise ValueError('Danh mục chứa mã có lô giao dịch khác 100')
                     # Validate quote structure before enabling calculation.
-                    for _,row in batch.iterrows():quote_from_row(row)
+                    quotes={r['symbol']:quote_from_row(r) for _,r in batch.iterrows()}
+                    capacity=liquidation_capacity(draft,quotes,fee/100,tax/100)
                     stamp=batch['ts_vn'].max()
                     st.caption('Sổ lệnh đồng bộ: '+stamp.strftime('%d/%m/%Y %H:%M:%S')+' (UTC+7) · dữ liệu đã ghi.')
                 except (ValueError,RuntimeError,KeyError,TypeError) as ex:
                     batch=None
-                    planner_notice('Chưa có sổ lệnh đồng bộ, hợp lệ cho danh mục.','warning')
+                    capacity=None
+                    planner_notice('Chưa có sổ lệnh đồng bộ, hợp lệ cho danh mục. Bỏ bớt mã hoặc thu thêm dữ liệu.','warning')
+        if capacity is not None:
+            st.markdown('<div class="ep-form-heading">Đánh giá khả năng thanh lý</div>',unsafe_allow_html=True)
+            st.markdown(cards_html([
+                {'label':'Giá trị danh mục','value':fmt.vnd_big(capacity['value']),'note':'Theo giá khớp gần nhất'},
+                {'label':'Tiền ròng tối đa','value':fmt.vnd_big(capacity['max_net']),'note':'Ba mức mua · sau phí và thuế'},
+                {'label':'Số lượng có thể bán','value':fmt.shares(capacity['sellable_shares']),'note':'Lô 100 · trong độ sâu quan sát'},
+                {'label':'Mã đồng bộ','value':f'{len(quotes)}/{len(draft)}','note':'Cùng một snapshot đã ghi'}]),unsafe_allow_html=True)
+            if capacity['sellable_shares']==0:
+                planner_notice('Không có lô 100 CP nào có thể bán. Tăng lượng nắm giữ hoặc thu thêm sổ lệnh.','warning')
+            elif capacity['max_net']<target*1e6-.01:
+                planner_notice('Mục tiêu vượt khả năng thanh lý ước tính, thiếu ít nhất '+fmt.vnd(target*1e6-capacity['max_net'])+'. Vẫn có thể tính phương án thu tối đa.','warning')
+            else:
+                planner_notice('Mục tiêu nằm trong giới hạn tiền ròng tối đa ước tính; kết quả còn phụ thuộc ràng buộc mô hình.','success')
         demo_ok=True
         if kind=='synthetic':
             demo_ok=st.checkbox('Cho phép tính thử bằng dữ liệu GIẢ LẬP',key='ep_demo_opt_in',on_change=_clear_plan)
-        ready=bool(draft) and batch is not None and not zeros and demo_ok
+        ready=bool(draft) and batch is not None and not zeros and demo_ok and capacity is not None and capacity['sellable_shares']>0
         run=st.button('Tính phương án',icon=':material/calculate:',type='primary',
                       use_container_width=True,disabled=not ready,key='ep_calculate_plan')
         if run and ready:
             _clear_plan()
             try:
                 holdings=dict(draft)
-                quotes={r['symbol']:quote_from_row(r) for _,r in batch.iterrows()}
                 with st.spinner('Đang tính phương án bán…'):
                     plans=calculate(holdings,quotes,target*1e6,lamb,fee/100,tax/100)
                     fr=frontier(holdings,quotes,target*1e6,fee/100,tax/100)
@@ -502,9 +533,10 @@ def compare(root,data,t):
     rows=[]
     for k,p in plans.items():
         rows.append([k+' · '+p['label'],fmt.vnd(p['net']),fmt.vnd(p['cost']),fmt.bps(p['cost_bps']),
-                     fmt.shares(p['uncovered']),fmt.num(p['hhi'],4),fmt.pct(p['max_weight'])])
-    columns=['Phương án','Tiền ròng','Chi phí TK','Chi phí bps','Chưa bao phủ','HHI sau bán','Tỷ trọng lớn nhất']
-    st.markdown(html_table(columns,rows,numeric=set(range(1,7)),tooltips={'Chi phí TK':'Chênh lệch so với giá gần nhất ở lượng được bao phủ','HHI sau bán':'Tổng bình phương tỷ trọng giá trị còn lại'}),unsafe_allow_html=True)
+                     fmt.shares(p['uncovered']),fmt.num(p['hhi'],4),fmt.pct(p['max_weight']),
+                     fmt.vnd(p['shortfall']),'Đạt' if p['satisfied'] else 'Chưa đạt'])
+    columns=['Phương án','Tiền ròng','Chi phí TK','Chi phí bps','Chưa bao phủ','HHI sau bán','Tỷ trọng lớn nhất','Thiếu hụt','Mục tiêu']
+    st.markdown(html_table(columns,rows,numeric=set(range(1,8)),pills={8:{'Đạt':'ok','Chưa đạt':'warn'}},tooltips={'Chi phí TK':'Chênh lệch so với giá gần nhất ở lượng được bao phủ','HHI sau bán':'Tổng bình phương tỷ trọng giá trị còn lại'}),unsafe_allow_html=True)
     sel=choose('Xem chi tiết', ['A','B','C','P'],default='B',key='ep_compare_selected')
     p=plans[sel]
     kpi=[{'label':'Tiền thu ròng','value':fmt.vnd_big(p['net']),'note':'Ước tính tại một thời điểm'},
@@ -512,11 +544,21 @@ def compare(root,data,t):
          {'label':'HHI sau bán','value':fmt.num(p['hhi'],4),'note':'Chỉ số tập trung danh mục'},
          {'label':'Thiếu mục tiêu','value':fmt.vnd_big(p['shortfall']),'note':'0 nếu đạt mục tiêu'}]
     st.markdown(cards_html(kpi),unsafe_allow_html=True)
-    baseline=plans['P']; saving=baseline['cost']-plans['B']['cost']
-    st.markdown(verdict('Đối chiếu phương án cân bằng B và mốc tỷ trọng',
-        ('B tiết kiệm '+fmt.vnd(saving)+' chi phí thanh khoản so với mốc bán tỷ trọng.' if saving>=0 else
-         'B tốn thêm '+fmt.vnd(-saving)+' chi phí thanh khoản so với mốc bán tỷ trọng.')+
-        ' Khác biệt này phụ thuộc mô hình, ảnh chụp sổ lệnh và λ đã chọn.'),unsafe_allow_html=True)
+    achieved={k:p for k,p in plans.items() if p['satisfied']}
+    if achieved:
+        min_cost=min(p['cost'] for p in achieved.values())
+        min_hhi=min(p['hhi'] for p in achieved.values())
+        best_cost=', '.join(k for k,p in achieved.items() if abs(p['cost']-min_cost)<.01)
+        best_hhi=', '.join(k for k,p in achieved.items() if abs(p['hhi']-min_hhi)<1e-9)
+        st.markdown(verdict('So sánh các phương án đạt mục tiêu',
+            'Chi phí thanh khoản thấp nhất: '+best_cost+' ('+fmt.vnd(min_cost)+'). HHI thấp nhất: '+best_hhi+' ('+fmt.num(min_hhi,4)+'). So sánh theo tiền ròng, chi phí và cơ cấu danh mục còn lại.'),unsafe_allow_html=True)
+        if 'B' in achieved and 'P' in achieved:
+            saving=plans['P']['cost']-plans['B']['cost']
+            text=('B tiết kiệm '+fmt.vnd(saving) if saving>0 else 'B tốn thêm '+fmt.vnd(-saving) if saving<0 else 'B có cùng chi phí thanh khoản')
+            st.markdown(verdict('Đối chiếu B với mốc tỷ trọng P',text+' so với P. Hai phương án có thể thu tiền ròng khác nhau.'),unsafe_allow_html=True)
+    else:
+        best_net=max(p['net'] for p in plans.values())
+        planner_notice('Không phương án nào đạt mục tiêu. Tiền ròng cao nhất: '+fmt.vnd(best_net)+'. Giảm mục tiêu hoặc thay đổi danh mục; không diễn giải chênh lệch chi phí như lợi ích của phương án đạt mục tiêu.','warning')
     st.warning('Ước tính chi phí chỉ dựa trên BA mức giá mua tại thời điểm quan sát, KHÔNG phải giá khớp thực. Phần vượt độ sâu chỉ được báo dưới dạng khoảng lạc quan – bi quan.')
     c1,c2=st.columns(2)
     with c1:
