@@ -26,11 +26,11 @@ def select_catalog(catalog,boards,stock_types=None):
         d=d[d.stockType.astype(str).isin(stock_types)]
     return sorted(set(s for s in d.symbol.astype(str) if re.fullmatch(r"[A-Z0-9]{1,12}",s)))
 
-def ready_history_symbols(history, asof):
+def ready_history_symbols(history, asof, strict_calendar=False):
     """Require both point-in-time metrics; missing history never becomes zero."""
     if history is None or history.empty:
         return set()
-    stats=asof_history_stats(history,asof)
+    stats=asof_history_stats(history,asof,strict_calendar=strict_calendar)
     return set(stats.loc[stats.adv.notna() & stats.sigma.notna(),"symbol"])
 
 
@@ -41,12 +41,14 @@ def main():
     p.add_argument("--from-date",type=parse_date,required=True)
     p.add_argument("--to-date",type=parse_date,required=True)
     p.add_argument("--missing-book-history",action="store_true",help="Only recorded SSI snapshot symbols missing ADV20 or Sigma20")
+    p.add_argument("--strict-calendar",action="store_true",help="Require consecutive scheduled 2026 sessions; use with --missing-book-history")
     p.add_argument("--dry-run",action="store_true",help="Report target symbols without API calls")
     p.add_argument("--limit",type=int,default=None,help="Max new requests by symbol this run")
     p.add_argument("--delay",type=float,default=1.0)
     p.add_argument("--retry-failed",action="store_true",help="Retry previously skipped no-data/HTTP400 symbols")
     a=p.parse_args()
     if a.from_date>a.to_date or not .5<=a.delay<=60 or (a.limit is not None and a.limit<1):p.error("Invalid range/limit/delay")
+    if a.strict_calendar and not a.missing_book_history:p.error("--strict-calendar requires --missing-book-history")
     catalog=pd.read_parquet(ROOT/"data/processed/ssi_securities.parquet")
     symbols=select_catalog(catalog,a.boards,a.stock_types)
     if not symbols:p.error("No matching securities")
@@ -66,15 +68,24 @@ def main():
         asof=max(books.ts_vn.map(timestamp)).date()
         if a.to_date>=asof:p.error("For point-in-time history, --to-date must precede latest snapshot date")
         universe &= set(books.symbol)
-        ready=ready_history_symbols(prior,asof) & universe
+        if a.strict_calendar:
+            from src.analytics.ssi_history_stats import expected_sessions
+            expected=expected_sessions(asof)
+            if expected is None:p.error("Trading calendar unavailable for this snapshot date")
+            if a.to_date<expected[-1].date():p.error("--to-date must include latest scheduled session")
+        ready=ready_history_symbols(prior,asof,a.strict_calendar) & universe
         symbols=sorted(universe-ready)
+        if a.strict_calendar and prior is not None:
+            quality=asof_history_stats(prior,asof,strict_calendar=True)
+            quality=quality[quality.symbol.isin(universe)]
+            print("Calendar quality:",quality.quality_status.value_counts().to_dict(),"; no history:",len(universe-set(quality.symbol)))
         print(f"Book symbols: {len(universe)}; ready ADV20+Sigma20: {len(ready)}; missing: {len(symbols)}; asof: {asof}",flush=True)
     if a.dry_run or not symbols:
         print("Targets:", " ".join(symbols) or "none")
         return 0
     print(f"Stock candidates: {len(symbols)}; common-stock scope, not a verified active trading list.",flush=True)
     cache=ROOT/"data/processed/ssi_market_cache"/f"{a.from_date}_{a.to_date}"
-    if a.missing_book_history:cache=cache/"missing_book_history"
+    if a.missing_book_history:cache=cache/("strict_calendar" if a.strict_calendar else "missing_book_history")
     cache.mkdir(parents=True,exist_ok=True)
     fail_path=cache/"skipped.json"
     skipped=json.loads(fail_path.read_text(encoding="utf-8")) if fail_path.exists() else {}
@@ -139,14 +150,14 @@ def main():
             from src.data.equity_universe import equity_symbols
             equity_history=combined[combined.symbol.isin(equity_symbols(catalog))]
             if not equity_history.empty:
-                _save_parquet(asof_history_stats(equity_history),ROOT/"outputs/tables/ssi_liquidity_stats.parquet")
+                _save_parquet(asof_history_stats(equity_history,asof,strict_calendar=True),ROOT/"outputs/tables/ssi_liquidity_stats.parquet")
             _save_csv(combined,ROOT/"data/raw/ssi_fastconnect_v3_ohlcv.csv")
         report={"requested":len(symbols),"completed":completed,"attempted_this_run":attempted,"failures_this_run":failed,"remaining":len(symbols)-completed,"skipped_without_success":sum(s in skipped and not (cache/f"{s}.parquet").is_file() for s in symbols),"stopped":stopped,"stop_reason":stop_reason}
         if a.missing_book_history:
-            ready_after=ready_history_symbols(combined,asof) & universe
+            ready_after=ready_history_symbols(combined,asof,a.strict_calendar) & universe
             report.update(book_symbols=len(universe),ready_history=len(ready_after),
                 missing_history=len(universe-ready_after),asof_date=str(asof),
-                remaining_symbols=sorted(universe-ready_after))
+                remaining_symbols=sorted(universe-ready_after),strict_calendar=a.strict_calendar)
         (cache/"progress.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
         print(json.dumps({k:v for k,v in report.items() if k not in ("failures_this_run","remaining_symbols")},ensure_ascii=False))
     return 0 if (report["missing_history"]==0 if a.missing_book_history else completed==len(symbols)) else 1
